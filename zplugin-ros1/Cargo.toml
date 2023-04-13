@@ -1,0 +1,82 @@
+#
+# Copyright (c) 2022 ZettaScale Technology
+#
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+# which is available at https://www.apache.org/licenses/LICENSE-2.0.
+#
+# SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+#
+# Contributors:
+#   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
+#
+[package]
+name = "zplugin-ros1"
+version = "0.0.1"
+authors = [
+	"Dmitrii Bannov <dmitrii.bannov@zettascale.tech>",
+]
+edition = "2021"
+repository = "https://github.com/ZettaScaleLabs/zenoh-plugin-ros1"
+homepage = "http://zenoh.io"
+license = " EPL-2.0 OR Apache-2.0"
+categories = ["network-programming"]
+description = "Zenoh plugin for ROS1"
+
+[lib]
+name = "zplugin_ros1"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+no_mangle = ["zenoh-plugin-trait/no_mangle"]
+default = ["no_mangle"]
+
+[dependencies]
+cyclors = "0.1.5"
+derivative = "2.2.0"
+env_logger = "0.9.1"
+flume = "0.10.14"
+futures = "0.3.24"
+git-version = "0.3.5"
+hex = "0.4.3"
+lazy_static = "1.4.0"
+log = "0.4.17"
+regex = "1.6.0"
+serde = "1.0.147"
+serde_json = "1.0.85"
+async-global-executor = "2.3.1"
+rand = "0.8.5"
+
+# zenoh = { version = "0.6.0-beta.1", features = ["unstable"] }
+# zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
+zenoh = { path = "../../../zenoh/zenoh", features = ["unstable"] }
+
+# zenoh-ext = { version = "0.6.0-beta.1", features = ["unstable"] }
+# zenoh-ext = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
+zenoh-ext = { path = "../../../zenoh/zenoh-ext", features = ["unstable"] }
+
+# zenoh-core = { version = "0.6.0-beta.1" }
+# zenoh-core = { git = "https://github.com/eclipse-zenoh/zenoh.git" }
+zenoh-core = { path = "../../../zenoh/commons/zenoh-core" }
+
+# zenoh-plugin-trait = { version = "0.6.0-beta.1", default-features = false }
+# zenoh-plugin-trait = { git = "https://github.com/eclipse-zenoh/zenoh.git", default-features = false }
+zenoh-plugin-trait = { path = "../../../zenoh/plugins/zenoh-plugin-trait", default-features = false }
+
+# rosrust = "0.9"
+# rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "feature/fix_bugs" }
+rosrust = { path = "../../rosrust/rosrust/rosrust" }
+
+[dev-dependencies]
+strum = "0.24"
+strum_macros = "0.24"
+serial_test = "0.10.0"
+multiset = "0.0.5"
+
+[dependencies.async-std]
+version = "=1.12.0"
+features = ["unstable", "attributes"]
+
+[build-dependencies]
+rustc_version = "0.4"
