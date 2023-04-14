@@ -24,7 +24,7 @@ async fn main() {
 
     // create bridge with ROS1 master
     // You need to have ros1 installed within your system and have "rosmaster" command available, otherwise this code will fail.
-    // In this example the bridge will start ROS1 master by itself. 
+    // In this example the bridge will start ROS1 master by itself.
     print!("Starting Bridge...");
     #[allow(unused_variables)]
     let bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default())
@@ -39,7 +39,13 @@ async fn main() {
     print!("Creating ROS1 Service...");
     #[allow(unused_variables)]
     let ros1_service = ros1_node
-        .service::<rosrust::RawMessage, _>("/some/ros/topic/", |query| -> rosrust::ServiceResult<rosrust::RawMessage> {println!("ROS Service: got query, sending reply..."); Ok(query) })
+        .service::<rosrust::RawMessage, _>(
+            "/some/ros/topic/",
+            |query| -> rosrust::ServiceResult<rosrust::RawMessage> {
+                println!("ROS Service: got query, sending reply...");
+                Ok(query)
+            },
+        )
         .unwrap();
     println!(" OK!");
 
@@ -58,13 +64,18 @@ async fn main() {
     // run test loop querying Zenoh...
     let data: Vec<u8> = (0..10).collect();
     loop {
-        println!("Zenoh: sending query..."); 
-        let reply = zenoh_session.get("some/ros/topic").with_value(data.clone()).res_async().await.unwrap();
+        println!("Zenoh: sending query...");
+        let reply = zenoh_session
+            .get("some/ros/topic")
+            .with_value(data.clone())
+            .res_async()
+            .await
+            .unwrap();
         let result = reply.recv_async().await;
         match result {
             Ok(val) => {
                 println!("Zenoh: got reply!");
-                assert!(data == val.sample.unwrap().value.payload.contiguous().to_vec() );
+                assert!(data == val.sample.unwrap().value.payload.contiguous().to_vec());
             }
             Err(_) => {}
         }

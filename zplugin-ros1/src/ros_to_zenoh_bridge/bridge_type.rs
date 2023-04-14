@@ -17,5 +17,5 @@ pub enum BridgeType {
     Publisher,
     Subscriber,
     Service,
-    Client
+    Client,
 }

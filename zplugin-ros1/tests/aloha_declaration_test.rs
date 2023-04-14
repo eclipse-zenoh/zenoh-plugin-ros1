@@ -12,11 +12,16 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::{sync::{Arc, Mutex, atomic::AtomicUsize}, time::Duration, collections::HashSet, str::FromStr};
+use std::{
+    collections::HashSet,
+    str::FromStr,
+    sync::{atomic::AtomicUsize, Arc, Mutex},
+    time::Duration,
+};
 
 use async_std::prelude::FutureExt;
 use serial_test::serial;
-use zenoh::{Session, OpenBuilder, plugins::ZResult};
+use zenoh::{plugins::ZResult, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zplugin_ros1::ros_to_zenoh_bridge::{aloha_declaration, aloha_subscription};
 
@@ -26,28 +31,39 @@ fn session_builder() -> OpenBuilder<zenoh::config::Config> {
     return zenoh::open(zenoh::config::peer());
 }
 
-fn declaration_builder<'a>(session: Arc<Session>, beacon_period: Duration) -> aloha_declaration::AlohaDeclaration {
+fn declaration_builder<'a>(
+    session: Arc<Session>,
+    beacon_period: Duration,
+) -> aloha_declaration::AlohaDeclaration {
     return aloha_declaration::AlohaDeclaration::new(
         session,
         zenoh::key_expr::OwnedKeyExpr::from_str("key").unwrap(),
-        beacon_period);
+        beacon_period,
+    );
 }
 
-fn subscription_builder(session: Arc<Session>, beacon_period: Duration) -> aloha_subscription::AlohaSubscriptionBuilder {
+fn subscription_builder(
+    session: Arc<Session>,
+    beacon_period: Duration,
+) -> aloha_subscription::AlohaSubscriptionBuilder {
     return aloha_subscription::AlohaSubscriptionBuilder::new(
         session,
         zenoh::key_expr::OwnedKeyExpr::from_str("key").unwrap(),
-        beacon_period);
+        beacon_period,
+    );
 }
 
 fn make_session() -> Arc<Session> {
     return session_builder().res_sync().unwrap().into_arc();
 }
 
-fn make_subscription(session: Arc<Session>, beacon_period: Duration) -> aloha_subscription::AlohaSubscription {
-    return async_std::task::block_on(subscription_builder(session, beacon_period).build()).unwrap();
+fn make_subscription(
+    session: Arc<Session>,
+    beacon_period: Duration,
+) -> aloha_subscription::AlohaSubscription {
+    return async_std::task::block_on(subscription_builder(session, beacon_period).build())
+        .unwrap();
 }
-
 
 #[test]
 #[serial(ROS1)]
@@ -74,32 +90,32 @@ fn discovery_instantination_many_instances() {
     }
 }
 
-
-
-
-
-
-
-
 pub struct PPCMeasurement<'a> {
     _subscriber: zenoh::subscriber::Subscriber<'a, ()>,
     ppc: Arc<AtomicUsize>,
-    measurement_period: Duration
+    measurement_period: Duration,
 }
 impl<'a> PPCMeasurement<'a> {
-    pub async fn new(session: &'a Session,
-                     key: String,
-                     measurement_period: Duration) -> ZResult<PPCMeasurement<'a>>
-    {        
+    pub async fn new(
+        session: &'a Session,
+        key: String,
+        measurement_period: Duration,
+    ) -> ZResult<PPCMeasurement<'a>> {
         let ppc = Arc::new(AtomicUsize::new(0));
         let p = ppc.clone();
-        let subscriber = session.declare_subscriber(key)
-                                                .callback(move |_val| {
-                                                    p.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                                                })
-                                                .res_async().await?;
-        
-        return Ok(Self{_subscriber: subscriber, ppc, measurement_period});
+        let subscriber = session
+            .declare_subscriber(key)
+            .callback(move |_val| {
+                p.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            })
+            .res_async()
+            .await?;
+
+        return Ok(Self {
+            _subscriber: subscriber,
+            ppc,
+            measurement_period,
+        });
     }
 
     pub async fn measure_ppc(&self) -> usize {
@@ -109,97 +125,93 @@ impl<'a> PPCMeasurement<'a> {
     }
 }
 
-
-
-
-
-
-
-
-
 struct DeclarationCollector {
     resources: Arc<Mutex<HashSet<zenoh::key_expr::KeyExpr<'static>>>>,
 
     to_be_declared: Arc<Mutex<HashSet<zenoh::key_expr::KeyExpr<'static>>>>,
-    to_be_undeclared: Arc<Mutex<HashSet<zenoh::key_expr::KeyExpr<'static>>>>
+    to_be_undeclared: Arc<Mutex<HashSet<zenoh::key_expr::KeyExpr<'static>>>>,
 }
 impl DeclarationCollector {
-    fn new() -> Self { 
+    fn new() -> Self {
         return Self {
             resources: Arc::new(Mutex::new(HashSet::new())),
             to_be_declared: Arc::new(Mutex::new(HashSet::new())),
-            to_be_undeclared: Arc::new(Mutex::new(HashSet::new()))
+            to_be_undeclared: Arc::new(Mutex::new(HashSet::new())),
         };
     }
 
-    pub fn use_builder<'b>(&self, mut builder: aloha_subscription::AlohaSubscriptionBuilder) -> aloha_subscription::AlohaSubscriptionBuilder {
-
+    pub fn use_builder<'b>(
+        &self,
+        mut builder: aloha_subscription::AlohaSubscriptionBuilder,
+    ) -> aloha_subscription::AlohaSubscriptionBuilder {
         let r = self.resources.clone();
         let r2 = r.clone();
 
         let declared = self.to_be_declared.clone();
         let undeclared = self.to_be_undeclared.clone();
-        
+
         builder = builder
-        .on_resource_declared(move |k| { 
-            assert!(declared.lock().unwrap().remove(&k.clone().into_owned()));
-            assert!(r.lock().unwrap().insert(k.into_owned()));    
-            Box::new(Box::pin(async {}))
-        })
-        .on_resource_undeclared(move |k| {
-            assert!(undeclared.lock().unwrap().remove(&k.clone().into_owned()));
-            assert!(r2.lock().unwrap().remove(&k.into_owned()));
-            Box::new(Box::pin(async move {}))
-        });
+            .on_resource_declared(move |k| {
+                assert!(declared.lock().unwrap().remove(&k.clone().into_owned()));
+                assert!(r.lock().unwrap().insert(k.into_owned()));
+                Box::new(Box::pin(async {}))
+            })
+            .on_resource_undeclared(move |k| {
+                assert!(undeclared.lock().unwrap().remove(&k.clone().into_owned()));
+                assert!(r2.lock().unwrap().remove(&k.into_owned()));
+                Box::new(Box::pin(async move {}))
+            });
 
         return builder;
     }
 
-    pub fn arm(&mut self,
-               declared: HashSet<zenoh::key_expr::KeyExpr<'static>>,
-               undeclared: HashSet<zenoh::key_expr::KeyExpr<'static>>) {
+    pub fn arm(
+        &mut self,
+        declared: HashSet<zenoh::key_expr::KeyExpr<'static>>,
+        undeclared: HashSet<zenoh::key_expr::KeyExpr<'static>>,
+    ) {
         *self.to_be_declared.lock().unwrap() = declared;
         *self.to_be_undeclared.lock().unwrap() = undeclared;
     }
 
     pub async fn wait(&self, expected: HashSet<zenoh::key_expr::KeyExpr<'static>>) {
-        while !self.to_be_declared.lock().unwrap().is_empty() ||
-              !self.to_be_undeclared.lock().unwrap().is_empty() ||
-              expected != *self.resources.lock().unwrap()
+        while !self.to_be_declared.lock().unwrap().is_empty()
+            || !self.to_be_undeclared.lock().unwrap().is_empty()
+            || expected != *self.resources.lock().unwrap()
         {
             async_std::task::sleep(core::time::Duration::from_millis(1)).await;
         }
     }
 }
 
-
-
-
 #[derive(Default)]
 struct State {
-    pub declarators_count: usize
+    pub declarators_count: usize,
 }
 impl State {
-    pub fn declarators(mut self, declarators_count: usize) -> Self { 
+    pub fn declarators(mut self, declarators_count: usize) -> Self {
         self.declarators_count = declarators_count;
-        self 
+        self
     }
 }
 
-async fn test_state_transition<'a>(beacon_period: Duration,
-                                   declaring_sessions: &mut Vec<Arc<Session>>,
-                                   declarations: &mut Vec<aloha_declaration::AlohaDeclaration>,
-                                   collector: &mut DeclarationCollector,
-                                   ppc_measurer: &'a PPCMeasurement<'a>,
-                                   state: &State) {
-
-    let ke =zenoh::key_expr::KeyExpr::from_str("key").unwrap().into_owned();
+async fn test_state_transition<'a>(
+    beacon_period: Duration,
+    declaring_sessions: &mut Vec<Arc<Session>>,
+    declarations: &mut Vec<aloha_declaration::AlohaDeclaration>,
+    collector: &mut DeclarationCollector,
+    ppc_measurer: &'a PPCMeasurement<'a>,
+    state: &State,
+) {
+    let ke = zenoh::key_expr::KeyExpr::from_str("key")
+        .unwrap()
+        .into_owned();
     let mut result: HashSet<zenoh::key_expr::KeyExpr> = HashSet::new();
     let mut undeclared: HashSet<zenoh::key_expr::KeyExpr> = HashSet::new();
     let mut declared: HashSet<zenoh::key_expr::KeyExpr> = HashSet::new();
-    
+
     match (declarations.len(), state.declarators_count) {
-        (0,0) => {}
+        (0, 0) => {}
         (0, _) => {
             result.insert(ke.clone());
             declared.insert(ke.clone());
@@ -211,7 +223,7 @@ async fn test_state_transition<'a>(beacon_period: Duration,
             result.insert(ke.clone());
         }
     }
-    
+
     collector.arm(declared, undeclared);
 
     while declarations.len() > state.declarators_count {
@@ -222,12 +234,21 @@ async fn test_state_transition<'a>(beacon_period: Duration,
         if declaring_sessions.len() <= declarations.len() {
             declaring_sessions.push(session_builder().res_async().await.unwrap().into_arc());
         }
-        declarations.push(declaration_builder(declaring_sessions[declarations.len()].clone(), beacon_period));
+        declarations.push(declaration_builder(
+            declaring_sessions[declarations.len()].clone(),
+            beacon_period,
+        ));
     }
 
     collector.wait(result).await;
     async_std::task::sleep(beacon_period).await;
-    while ppc_measurer.measure_ppc().await != { let mut res = 1; if state.declarators_count == 0 { res=0; } res} {}
+    while ppc_measurer.measure_ppc().await != {
+        let mut res = 1;
+        if state.declarators_count == 0 {
+            res = 0;
+        }
+        res
+    } {}
 }
 
 async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
@@ -236,82 +257,105 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
 
     let mut collector = DeclarationCollector::new();
     let subscription_session = session_builder().res_async().await.unwrap().into_arc();
-    let _subscriber = collector.use_builder(subscription_builder(subscription_session.clone(), beacon_period)).build().await.unwrap();
-    let ppc_measurer = PPCMeasurement::new(&subscription_session,
-                                                            "key".to_string(),
-                                                            Duration::from_millis(100)).await.unwrap();
+    let _subscriber = collector
+        .use_builder(subscription_builder(
+            subscription_session.clone(),
+            beacon_period,
+        ))
+        .build()
+        .await
+        .unwrap();
+    let ppc_measurer = PPCMeasurement::new(
+        &subscription_session,
+        "key".to_string(),
+        Duration::from_millis(100),
+    )
+    .await
+    .unwrap();
     for scene in scenario {
         println!("Transiting State: {}", scene.declarators_count);
-        test_state_transition(beacon_period,
-                              &mut declaring_sessions,
-                              &mut declarations,
-                              &mut collector, 
-                              &ppc_measurer,
-                              &scene).timeout(TIMEOUT).await.expect("Timeout waiting state transition!");
+        test_state_transition(
+            beacon_period,
+            &mut declaring_sessions,
+            &mut declarations,
+            &mut collector,
+            &ppc_measurer,
+            &scene,
+        )
+        .timeout(TIMEOUT)
+        .await
+        .expect("Timeout waiting state transition!");
     }
 }
-
 
 #[test]
 #[serial(Aloha)]
 fn aloha_declare_one() {
-    async_std::task::block_on(run_aloha( Duration::from_millis(100),
-        [
-            State::default().declarators(1)
-        ].into_iter().collect()
+    async_std::task::block_on(run_aloha(
+        Duration::from_millis(100),
+        [State::default().declarators(1)].into_iter().collect(),
     ));
 }
 
 #[test]
 #[serial(Aloha)]
 fn aloha_declare_many() {
-    async_std::task::block_on(run_aloha( Duration::from_millis(100),
-        [
-            State::default().declarators(10)
-        ].into_iter().collect()
+    async_std::task::block_on(run_aloha(
+        Duration::from_millis(100),
+        [State::default().declarators(10)].into_iter().collect(),
     ));
 }
 
 #[test]
 #[serial(Aloha)]
 fn aloha_declare_many_one_many() {
-    async_std::task::block_on(run_aloha( Duration::from_millis(100),
+    async_std::task::block_on(run_aloha(
+        Duration::from_millis(100),
         [
             State::default().declarators(10),
             State::default().declarators(1),
-            State::default().declarators(10)
-        ].into_iter().collect()
+            State::default().declarators(10),
+        ]
+        .into_iter()
+        .collect(),
     ));
 }
 
 #[test]
 #[serial(Aloha)]
 fn aloha_declare_one_zero_one() {
-    async_std::task::block_on(run_aloha( Duration::from_millis(100),
+    async_std::task::block_on(run_aloha(
+        Duration::from_millis(100),
         [
             State::default().declarators(1),
             State::default().declarators(0),
-            State::default().declarators(1)
-        ].into_iter().collect()
+            State::default().declarators(1),
+        ]
+        .into_iter()
+        .collect(),
     ));
 }
 
 #[test]
 #[serial(Aloha)]
 fn aloha_declare_many_zero_many() {
-    async_std::task::block_on(run_aloha( Duration::from_millis(100),
+    async_std::task::block_on(run_aloha(
+        Duration::from_millis(100),
         [
             State::default().declarators(10),
             State::default().declarators(0),
-            State::default().declarators(10)
-        ].into_iter().collect()
+            State::default().declarators(10),
+        ]
+        .into_iter()
+        .collect(),
     ));
 }
 
 #[test]
 #[serial(Aloha)]
 fn aloha_many_scenarios() {
-    async_std::task::block_on(run_aloha( Duration::from_millis(100),
+    async_std::task::block_on(run_aloha(
+        Duration::from_millis(100),
         [
             State::default().declarators(1),
             State::default().declarators(10),
@@ -326,6 +370,8 @@ fn aloha_many_scenarios() {
             State::default().declarators(0),
             State::default().declarators(10),
             State::default().declarators(1),
-        ].into_iter().collect()
+        ]
+        .into_iter()
+        .collect(),
     ));
 }

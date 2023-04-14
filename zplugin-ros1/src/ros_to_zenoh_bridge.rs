@@ -12,41 +12,41 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::{task::JoinHandle, process::Child};
+use async_std::{process::Child, task::JoinHandle};
 
 use log::error;
-use zenoh_core::AsyncResolve;
 use zenoh;
+use zenoh_core::AsyncResolve;
 
-use std::{sync::{ 
+use std::sync::{
+    atomic::{AtomicBool, Ordering::Relaxed},
     Arc,
-    atomic::{AtomicBool, Ordering::Relaxed}
-}};
+};
 
 use async_std::process::Command;
 
-use self::{ros1_to_zenoh_bridge_impl::work_cycle};
+use self::ros1_to_zenoh_bridge_impl::work_cycle;
 
-pub mod zenoh_client; 
-pub mod ros1_client; 
-pub mod discovery;
-pub mod topic_bridge;
 pub mod abstract_bridge;
 pub mod bridge_type;
+pub mod discovery;
+pub mod ros1_client;
+pub mod topic_bridge;
+pub mod zenoh_client;
 
-mod topic_utilities;
-mod topic_mapping;
 mod bridges_storage;
+mod topic_mapping;
+mod topic_utilities;
 
-pub mod environment;
-pub mod ros1_to_zenoh_bridge_impl;
 pub mod aloha_declaration;
 pub mod aloha_subscription;
+pub mod environment;
+pub mod ros1_to_zenoh_bridge_impl;
 
 pub struct Ros1ToZenohBridge {
     flag: Arc<AtomicBool>,
     task_handle: Box<JoinHandle<()>>,
-    rosmaster: Option<Child>
+    rosmaster: Option<Child>,
 }
 impl Ros1ToZenohBridge {
     pub async fn new_with_own_session(config: zenoh::config::Config) -> Self {
@@ -59,7 +59,7 @@ impl Ros1ToZenohBridge {
         Self {
             flag: flag.clone(),
             task_handle: Box::new(async_std::task::spawn(Self::run(session, flag))),
-            rosmaster: None
+            rosmaster: None,
         }
     }
 
@@ -68,13 +68,14 @@ impl Ros1ToZenohBridge {
         match Command::new("rosmaster")
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
-            .spawn() {
+            .spawn()
+        {
             Ok(child) => {
                 self.rosmaster = Some(child);
-            },
+            }
             Err(e) => {
                 error!("Error starting rosmaster: {}", e);
-            },
+            }
         }
         self
     }
@@ -91,16 +92,17 @@ impl Ros1ToZenohBridge {
                 }
                 self.rosmaster = None;
             }
-            None => {
-                match Command::new("killall").arg("rosmaster").spawn() {
-                    Ok(mut child) => {
-                        if let Err(e) = child.status().await {
-                            error!("Error stopping foreign rosmaster: {}", e);
-                        }
-                    },
-                    Err(e) => error!("Error executing killall command to stop foreign rosmaster: {}", e)
+            None => match Command::new("killall").arg("rosmaster").spawn() {
+                Ok(mut child) => {
+                    if let Err(e) = child.status().await {
+                        error!("Error stopping foreign rosmaster: {}", e);
+                    }
                 }
-            }
+                Err(e) => error!(
+                    "Error executing killall command to stop foreign rosmaster: {}",
+                    e
+                ),
+            },
         }
         self
     }
@@ -114,17 +116,8 @@ impl Ros1ToZenohBridge {
         self.async_await().await;
     }
 
-    pub async fn run(
-        session: Arc<zenoh::Session>,
-        flag: Arc<AtomicBool>
-    ) {
-        work_cycle(
-            session,
-            flag,
-            |_v| {},
-            |_status| {}
-        )
-        .await;
+    pub async fn run(session: Arc<zenoh::Session>, flag: Arc<AtomicBool>) {
+        work_cycle(session, flag, |_v| {}, |_status| {}).await;
     }
 }
 impl Drop for Ros1ToZenohBridge {
@@ -132,4 +125,3 @@ impl Drop for Ros1ToZenohBridge {
         self.flag.store(false, Relaxed);
     }
 }
-

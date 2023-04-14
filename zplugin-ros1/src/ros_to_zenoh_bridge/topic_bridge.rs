@@ -12,15 +12,19 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::sync::Arc;
+use super::{
+    abstract_bridge::AbstractBridge,
+    bridge_type::BridgeType,
+    discovery::{LocalResource, LocalResources},
+    ros1_client, zenoh_client,
+};
 use log::error;
-use super::{ros1_client, zenoh_client, discovery::{LocalResources, LocalResource}, bridge_type::BridgeType, abstract_bridge::AbstractBridge};
-
+use std::sync::Arc;
 
 #[derive(PartialEq, Eq)]
 pub enum BridgingMode {
     Lazy,
-    Automatic
+    Automatic,
 }
 
 pub struct TopicBridge {
@@ -36,17 +40,19 @@ pub struct TopicBridge {
     declaration_interface: Arc<LocalResources>,
     declaration: Option<LocalResource>,
 
-    bridge: Option<AbstractBridge>
+    bridge: Option<AbstractBridge>,
 }
 
 impl TopicBridge {
-    pub fn new(topic: rosrust::api::Topic,
-               b_type: BridgeType,
-               declaration_interface: Arc<LocalResources>,
-               ros1_client: Arc<ros1_client::Ros1Client>, 
-               zenoh_client: Arc<zenoh_client::ZenohClient>,
-               briging_mode: BridgingMode) -> Self {
-        return Self { 
+    pub fn new(
+        topic: rosrust::api::Topic,
+        b_type: BridgeType,
+        declaration_interface: Arc<LocalResources>,
+        ros1_client: Arc<ros1_client::Ros1Client>,
+        zenoh_client: Arc<zenoh_client::ZenohClient>,
+        briging_mode: BridgingMode,
+    ) -> Self {
+        return Self {
             topic,
             b_type,
             ros1_client,
@@ -56,7 +62,7 @@ impl TopicBridge {
             required_on_zenoh_side: false,
             declaration_interface,
             declaration: None,
-            bridge: None
+            bridge: None,
         };
     }
 
@@ -93,35 +99,52 @@ impl TopicBridge {
         }
     }
 
-//PRIVATE:
+    //PRIVATE:
     async fn recalc_state(&mut self) {
         self.recalc_declaration().await;
         self.recalc_bridging().await;
     }
- 
+
     async fn recalc_declaration(&mut self) {
         match (self.required_on_ros1_side, &self.declaration) {
-            (true, None) => { self.declaration = Some(self.declaration_interface.declare_with_type(&self.topic, self.b_type).await); }
-            (false, Some(_)) => { self.declaration = None; }
+            (true, None) => {
+                self.declaration = Some(
+                    self.declaration_interface
+                        .declare_with_type(&self.topic, self.b_type)
+                        .await,
+                );
+            }
+            (false, Some(_)) => {
+                self.declaration = None;
+            }
             (_, _) => {}
         }
     }
 
     async fn recalc_bridging(&mut self) {
         let is_discovered_client = self.b_type == BridgeType::Client && self.required_on_zenoh_side;
-        let is_required = self.required_on_ros1_side && (self.briging_mode == BridgingMode::Automatic || self.required_on_zenoh_side); 
+        let is_required = self.required_on_ros1_side
+            && (self.briging_mode == BridgingMode::Automatic || self.required_on_zenoh_side);
 
         if is_required || is_discovered_client {
             self.create_bridge().await;
-        }
-        else {
+        } else {
             self.bridge = None;
         }
     }
 
     async fn create_bridge(&mut self) {
-        match AbstractBridge::new(self.b_type, &self.topic, &self.ros1_client, &self.zenoh_client).await {
-            Ok(val) => {self.bridge = Some(val);}
+        match AbstractBridge::new(
+            self.b_type,
+            &self.topic,
+            &self.ros1_client,
+            &self.zenoh_client,
+        )
+        .await
+        {
+            Ok(val) => {
+                self.bridge = Some(val);
+            }
             Err(e) => {
                 self.bridge = None;
                 error!("Errr creating bridge: {}", e);

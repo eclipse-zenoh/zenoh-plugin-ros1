@@ -24,7 +24,7 @@ async fn main() {
 
     // create bridge with ROS1 master
     // You need to have ros1 installed within your system and have "rosmaster" command available, otherwise this code will fail.
-    // In this example the bridge will start ROS1 master by itself. 
+    // In this example the bridge will start ROS1 master by itself.
     print!("Starting Bridge...");
     #[allow(unused_variables)]
     let bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default())
@@ -39,7 +39,9 @@ async fn main() {
     print!("Creating ROS1 Subscriber...");
     #[allow(unused_variables)]
     let ros1_subscriber = ros1_node
-        .subscribe("/some/ros/topic/", 0, |msg: rosrust::RawMessage| {println!("ROS Subscriber: got message!")})
+        .subscribe("/some/ros/topic/", 0, |msg: rosrust::RawMessage| {
+            println!("ROS Subscriber: got message!")
+        })
         .unwrap();
     println!(" OK!");
 

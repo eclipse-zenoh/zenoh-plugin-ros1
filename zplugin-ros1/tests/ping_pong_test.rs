@@ -13,23 +13,26 @@
 //
 
 use strum_macros::Display;
-use zenoh::{prelude::SplitBuffer};
+use zenoh::prelude::SplitBuffer;
 use zenoh_core::SyncResolve;
 
 use std::{
+    collections::HashSet,
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, Ordering::*, AtomicU64},
+        atomic::{AtomicBool, AtomicU64, Ordering::*},
         Arc, Mutex, RwLock,
-    }, collections::HashSet,
+    },
 };
 
-use zplugin_ros1::ros_to_zenoh_bridge::ros1_to_zenoh_bridge_impl::{BridgeStatus, RosStatus, work_cycle};
 use zplugin_ros1::ros_to_zenoh_bridge::discovery::{LocalResource, LocalResources};
+use zplugin_ros1::ros_to_zenoh_bridge::ros1_to_zenoh_bridge_impl::{
+    work_cycle, BridgeStatus, RosStatus,
+};
 use zplugin_ros1::ros_to_zenoh_bridge::{ros1_client, zenoh_client};
 
 use log::{debug, error};
-use rosrust::{RawMessage, Client, Duration};
+use rosrust::{Client, Duration, RawMessage};
 use std::sync::atomic::AtomicUsize;
 use zenoh::prelude::r#async::*;
 use zenoh_core;
@@ -49,7 +52,8 @@ where
     for i in 0..cycles {
         async_std::task::sleep(core::time::Duration::from_millis(
             millis.try_into().unwrap(),
-        )).await;
+        ))
+        .await;
         if waiter() {
             return true;
         }
@@ -109,27 +113,30 @@ impl RunningBridge {
         self.assert_status(RosStatus::Ok).await;
     }
     pub async fn assert_status(&self, status: RosStatus) {
-        assert!(self.wait_ros_status(status, core::time::Duration::from_secs(10)).await);
+        assert!(
+            self.wait_ros_status(status, core::time::Duration::from_secs(10))
+                .await
+        );
     }
-    pub async fn wait_ros_status(
-        &self,
-        status: RosStatus,
-        timeout: core::time::Duration,
-    ) -> bool {
+    pub async fn wait_ros_status(&self, status: RosStatus, timeout: core::time::Duration) -> bool {
         return wait(
             move || {
                 let val = self.ros_status.lock().unwrap();
                 return *val == status;
             },
             timeout,
-        ).await;
+        )
+        .await;
     }
 
     pub async fn assert_bridge_empy(&self) {
         self.assert_bridge_status(|| BridgeStatus::default()).await;
     }
     pub async fn assert_bridge_status<F: Fn() -> BridgeStatus>(&self, status: F) {
-        assert!(self.wait_bridge_status(status, core::time::Duration::from_secs(120)).await);
+        assert!(
+            self.wait_bridge_status(status, core::time::Duration::from_secs(120))
+                .await
+        );
     }
     pub async fn wait_bridge_status<F: Fn() -> BridgeStatus>(
         &self,
@@ -142,7 +149,8 @@ impl RunningBridge {
                 return *val == (status)();
             },
             timeout,
-        ).await;
+        )
+        .await;
     }
 }
 impl Drop for RunningBridge {
@@ -275,21 +283,21 @@ impl ZenohQuery {
         cycles: Arc<AtomicUsize>,
     ) {
         while running.load(Relaxed) {
-            let query = inner.make_zenoh_query_sync(key.as_str(), data.clone()).await;
+            let query = inner
+                .make_zenoh_query_sync(key.as_str(), data.clone())
+                .await;
             match query.recv_async().await {
-                Ok(reply) => {
-                    match reply.sample {
-                        Ok(value) => {
-                            let returned_data = value.payload.contiguous().to_vec();
-                            assert!(data.eq(&returned_data));
-                            cycles.fetch_add(1, SeqCst);
-                        }
-                        Err(e) => {
-                            error!("ZenohQuery: got reply with error: {}", e);
-                            break;
-                        }
+                Ok(reply) => match reply.sample {
+                    Ok(value) => {
+                        let returned_data = value.payload.contiguous().to_vec();
+                        assert!(data.eq(&returned_data));
+                        cycles.fetch_add(1, SeqCst);
                     }
-                }
+                    Err(e) => {
+                        error!("ZenohQuery: got reply with error: {}", e);
+                        break;
+                    }
+                },
                 Err(e) => {
                     error!("ZenohQuery: failed to get reply with error: {}", e);
                     break;
@@ -307,7 +315,7 @@ impl Drop for ZenohQuery {
 struct ROS1Client {
     running: Arc<AtomicBool>,
     cycles: Arc<AtomicUsize>,
-    ros1_client: Arc<RAIICounter<Client<RawMessage>>>
+    ros1_client: Arc<RAIICounter<Client<RawMessage>>>,
 }
 impl ROS1Client {
     fn new(inner: Arc<BridgeChecker>, key: String, cycles: Arc<AtomicUsize>) -> Self {
@@ -316,7 +324,7 @@ impl ROS1Client {
         return Self {
             running,
             cycles,
-            ros1_client
+            ros1_client,
         };
     }
 
@@ -324,22 +332,23 @@ impl ROS1Client {
         running: Arc<AtomicBool>,
         data: Vec<u8>,
         cycles: Arc<AtomicUsize>,
-        ros1_client: Arc<RAIICounter<Client<RawMessage>>>) {
-
-        ros1_client.data.probe(Duration::from_seconds(10).into() ).unwrap();
+        ros1_client: Arc<RAIICounter<Client<RawMessage>>>,
+    ) {
+        ros1_client
+            .data
+            .probe(Duration::from_seconds(10).into())
+            .unwrap();
 
         while running.load(Relaxed) {
             match ros1_client.data.req(&RawMessage(data.clone())) {
-                Ok(reply) => {
-                    match reply {
-                        Ok(msg) => {
-                            assert!(data.eq(&msg.0));
-                            cycles.fetch_add(1, SeqCst);        
-                        },
-                        Err(e) => {
-                            error!("ROS1Client: got reply with error: {}", e);
-                            break;
-                        }
+                Ok(reply) => match reply {
+                    Ok(msg) => {
+                        assert!(data.eq(&msg.0));
+                        cycles.fetch_add(1, SeqCst);
+                    }
+                    Err(e) => {
+                        error!("ROS1Client: got reply with error: {}", e);
+                        break;
                     }
                 },
                 Err(e) => {
@@ -365,13 +374,15 @@ trait Publisher {
 impl Publisher for ZenohPublisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || inner.put(data).res_sync().unwrap() );
+        async_std::task::spawn_blocking(move || inner.put(data).res_sync().unwrap());
     }
 }
 impl Publisher for ROS1Publisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        async_std::task::spawn_blocking( move || inner.data.send(rosrust::RawMessage(data)).unwrap() );
+        async_std::task::spawn_blocking(move || {
+            inner.data.send(rosrust::RawMessage(data)).unwrap()
+        });
     }
 
     fn ready(&self) -> bool {
@@ -395,12 +406,7 @@ impl Publisher for ROS1Client {
         let cycles = self.cycles.clone();
         let ros1_client = self.ros1_client.clone();
 
-        async_std::task::spawn_blocking(|| Self::query_loop(
-            running,
-            data,
-            cycles,
-            ros1_client
-        ));
+        async_std::task::spawn_blocking(|| Self::query_loop(running, data, cycles, ros1_client));
     }
 }
 
@@ -431,13 +437,11 @@ impl Subscriber for ROS1Subscriber {
 }
 impl Subscriber for ROS1Service {}
 
-
-
 struct PubSub {
     key: String,
     publisher: Box<dyn Publisher>,
     subscriber: Box<dyn Subscriber>,
-    discovery_resource: LocalResource
+    discovery_resource: LocalResource,
 }
 
 struct PingPong {
@@ -451,11 +455,11 @@ impl PingPong {
         self.check_pps(pps_measurements).await;
     }
 
-// PRIVATE:
+    // PRIVATE:
     async fn new_ros1_to_zenoh_service(key: &str, backend: Arc<BridgeChecker>) -> PingPong {
         let cycles = Arc::new(AtomicUsize::new(0));
-        let ros1_service = backend
-            .make_ros_service(key, |q| -> rosrust::ServiceResult<rosrust::RawMessage> {
+        let ros1_service =
+            backend.make_ros_service(key, |q| -> rosrust::ServiceResult<rosrust::RawMessage> {
                 debug!(
                     "PingPong: got query of {} bytes from Zenoh to ROS1!",
                     q.0.len()
@@ -463,7 +467,10 @@ impl PingPong {
                 Ok(q) // echo the request back!
             });
 
-        let discovery_resource = backend.local_resources.declare_client(&BridgeChecker::make_topic(key)).await;
+        let discovery_resource = backend
+            .local_resources
+            .declare_client(&BridgeChecker::make_topic(key))
+            .await;
         let zenoh_query = ZenohQuery::new(backend, key.to_string(), cycles.clone());
 
         return PingPong {
@@ -482,20 +489,27 @@ impl PingPong {
     async fn new_ros1_to_zenoh_client(key: &str, backend: Arc<BridgeChecker>) -> PingPong {
         let cycles = Arc::new(AtomicUsize::new(0));
 
-        let discovery_resource = backend.local_resources.declare_service(&BridgeChecker::make_topic(key)).await;
-        let zenoh_queryable = backend.make_zenoh_queryable(key, |q| {
-            async_std::task::spawn( async move {
-                let key = q.key_expr().clone();
-                let val = q.value().unwrap().clone();
-                q.reply(Ok(Sample::new(key, val))).res_async().await;
-            });
-        }).await;
+        let discovery_resource = backend
+            .local_resources
+            .declare_service(&BridgeChecker::make_topic(key))
+            .await;
+        let zenoh_queryable = backend
+            .make_zenoh_queryable(key, |q| {
+                async_std::task::spawn(async move {
+                    let key = q.key_expr().clone();
+                    let val = q.value().unwrap().clone();
+                    q.reply(Ok(Sample::new(key, val))).res_async().await;
+                });
+            })
+            .await;
 
         return PingPong {
             pub_sub: PubSub {
                 key: key.to_string(),
                 publisher: Box::new(ROS1Client::new(backend, key.to_string(), cycles.clone())),
-                subscriber: Box::new(ZenohQueryable{ inner: zenoh_queryable }) ,
+                subscriber: Box::new(ZenohQueryable {
+                    inner: zenoh_queryable,
+                }),
                 discovery_resource,
             },
             cycles,
@@ -506,7 +520,10 @@ impl PingPong {
         let cycles = Arc::new(AtomicUsize::new(0));
         let ros1_pub = Arc::new(backend.make_ros_publisher(key));
 
-        let discovery_resource = backend.local_resources.declare_subscriber(&BridgeChecker::make_topic(key)).await;
+        let discovery_resource = backend
+            .local_resources
+            .declare_subscriber(&BridgeChecker::make_topic(key))
+            .await;
 
         let c = cycles.clone();
         let rpub = ros1_pub.clone();
@@ -527,7 +544,7 @@ impl PingPong {
                 key: key.to_string(),
                 publisher: Box::new(ROS1Publisher { inner: ros1_pub }),
                 subscriber: Box::new(ZenohSubscriber { inner: zenoh_sub }),
-                discovery_resource
+                discovery_resource,
             },
             cycles,
         };
@@ -537,7 +554,10 @@ impl PingPong {
         let cycles = Arc::new(AtomicUsize::new(0));
         let zenoh_pub = Arc::new(backend.make_zenoh_publisher(key).await);
 
-        let discovery_resource = backend.local_resources.declare_publisher(&BridgeChecker::make_topic(key)).await;
+        let discovery_resource = backend
+            .local_resources
+            .declare_publisher(&BridgeChecker::make_topic(key))
+            .await;
 
         let c = cycles.clone();
         let zpub = zenoh_pub.clone();
@@ -555,7 +575,7 @@ impl PingPong {
                 key: key.to_string(),
                 publisher: Box::new(ZenohPublisher { inner: zenoh_pub }),
                 subscriber: Box::new(ROS1Subscriber { inner: ros1_sub }),
-                discovery_resource
+                discovery_resource,
             },
             cycles,
         };
@@ -603,9 +623,15 @@ impl PingPong {
     }
 
     async fn wait_for_pub_sub_ready(&self) {
-        assert!(Self::wait(move || {
-            return self.pub_sub.publisher.ready() && self.pub_sub.subscriber.ready();
-        }, core::time::Duration::from_secs(30)).await);
+        assert!(
+            Self::wait(
+                move || {
+                    return self.pub_sub.publisher.ready() && self.pub_sub.subscriber.ready();
+                },
+                core::time::Duration::from_secs(30)
+            )
+            .await
+        );
         async_std::task::sleep(time::Duration::from_secs(1)).await;
     }
 
@@ -619,7 +645,8 @@ impl PingPong {
         for i in 0..cycles {
             async_std::task::sleep(core::time::Duration::from_micros(
                 micros.try_into().unwrap(),
-            )).await;
+            ))
+            .await;
             if waiter() {
                 return true;
             }
@@ -644,7 +671,7 @@ impl ROSEnvironment {
         kill_master.wait().unwrap();
 
         return ROSEnvironment { rosmaster: None };
-    } 
+    }
 
     pub fn with_master(mut self) -> Self {
         assert!(self.rosmaster.is_none());
@@ -718,7 +745,9 @@ impl TestEnvironment {
     }
 
     pub async fn assert_bridge_status_synchronized(&self) {
-        self.bridge.assert_bridge_status(|| self.checker.expected_bridge_status.read().unwrap().clone()).await;
+        self.bridge
+            .assert_bridge_status(|| self.checker.expected_bridge_status.read().unwrap().clone())
+            .await;
     }
 
     // PRIVATE
@@ -740,28 +769,31 @@ impl TestEnvironment {
 }
 
 struct RAIICounter<T>
-where 
-    T: Sized
+where
+    T: Sized,
 {
     pub data: T,
-    on_destroy: Box<dyn Fn() + Sync + Send + 'static>
+    on_destroy: Box<dyn Fn() + Sync + Send + 'static>,
 }
 
 impl<T> RAIICounter<T>
 where
-    T: Sized
+    T: Sized,
 {
     fn new<F>(data: T, on_destroy: F) -> Self
     where
-        F: Fn() + Sync + Send + 'static
+        F: Fn() + Sync + Send + 'static,
     {
-         Self { data, on_destroy: Box::new(on_destroy) }
+        Self {
+            data,
+            on_destroy: Box::new(on_destroy),
+        }
     }
 }
 
 impl<T> Drop for RAIICounter<T>
 where
-    T: Sized
+    T: Sized,
 {
     fn drop(&mut self) {
         (self.on_destroy)();
@@ -778,10 +810,7 @@ struct BridgeChecker {
 impl BridgeChecker {
     // PUBLIC
     pub fn new() -> BridgeChecker {
-        let session = zenoh::open(config::peer())
-            .res_sync()
-            .unwrap()
-            .into_arc();
+        let session = zenoh::open(config::peer()).res_sync().unwrap().into_arc();
         return BridgeChecker {
             ros_client: ros1_client::Ros1Client::new("test_ros_node"),
             zenoh_client: zenoh_client::ZenohClient::new(session.clone()),
@@ -859,17 +888,19 @@ impl BridgeChecker {
         let status = self.expected_bridge_status.clone();
         status.write().unwrap().ros_publishers.0 += 1;
         status.write().unwrap().ros_publishers.1 += 1;
-        return RAIICounter::new(self.ros_client.publish(&Self::make_topic(name)).unwrap(),
-                                move || {
-                                    status.write().unwrap().ros_publishers.0 -= 1;
-                                    status.write().unwrap().ros_publishers.1 -= 1;
-                                });
+        return RAIICounter::new(
+            self.ros_client.publish(&Self::make_topic(name)).unwrap(),
+            move || {
+                status.write().unwrap().ros_publishers.0 -= 1;
+                status.write().unwrap().ros_publishers.1 -= 1;
+            },
+        );
     }
 
     pub fn make_ros_subscriber<T, F>(
-        &self, 
-        name: &str, 
-        callback: F
+        &self,
+        name: &str,
+        callback: F,
     ) -> RAIICounter<rosrust::Subscriber>
     where
         T: rosrust::Message,
@@ -878,34 +909,31 @@ impl BridgeChecker {
         let status = self.expected_bridge_status.clone();
         status.write().unwrap().ros_subscribers.0 += 1;
         status.write().unwrap().ros_subscribers.1 += 1;
-        return RAIICounter::new(self.ros_client.subscribe(&Self::make_topic(name), callback)
-                                                     .unwrap(),
-                                move || {
-                                    status.write().unwrap().ros_subscribers.0 -= 1;
-                                    status.write().unwrap().ros_subscribers.1 -= 1;
-                                });
+        return RAIICounter::new(
+            self.ros_client
+                .subscribe(&Self::make_topic(name), callback)
+                .unwrap(),
+            move || {
+                status.write().unwrap().ros_subscribers.0 -= 1;
+                status.write().unwrap().ros_subscribers.1 -= 1;
+            },
+        );
     }
 
-    pub fn make_ros_client(
-        &self,
-        name: &str,
-    ) -> RAIICounter<rosrust::Client<rosrust::RawMessage>>
-    {
+    pub fn make_ros_client(&self, name: &str) -> RAIICounter<rosrust::Client<rosrust::RawMessage>> {
         let status = self.expected_bridge_status.clone();
         status.write().unwrap().ros_clients.0 += 1;
         status.write().unwrap().ros_clients.1 += 1;
-        return  RAIICounter::new(self.ros_client.client(&Self::make_topic(name)).unwrap(),
-                                move || {
-                                    status.write().unwrap().ros_clients.0 -= 1;
-                                    status.write().unwrap().ros_clients.1 -= 1;
-                                });
+        return RAIICounter::new(
+            self.ros_client.client(&Self::make_topic(name)).unwrap(),
+            move || {
+                status.write().unwrap().ros_clients.0 -= 1;
+                status.write().unwrap().ros_clients.1 -= 1;
+            },
+        );
     }
 
-    pub fn make_ros_service<F>(
-        &self,
-        name: &str,
-        handler: F,
-    ) -> RAIICounter<rosrust::Service>
+    pub fn make_ros_service<F>(&self, name: &str, handler: F) -> RAIICounter<rosrust::Service>
     where
         F: Fn(rosrust::RawMessage) -> rosrust::ServiceResult<rosrust::RawMessage>
             + Send
@@ -915,11 +943,15 @@ impl BridgeChecker {
         let status = self.expected_bridge_status.clone();
         status.write().unwrap().ros_services.0 += 1;
         status.write().unwrap().ros_services.1 += 1;
-        return  RAIICounter::new(self.ros_client.service::<rosrust::RawMessage, F>(&Self::make_topic(name), handler).unwrap(),
-                                 move || {
-                                    status.write().unwrap().ros_services.0 -= 1;
-                                    status.write().unwrap().ros_services.1 -= 1;
-                                 });
+        return RAIICounter::new(
+            self.ros_client
+                .service::<rosrust::RawMessage, F>(&Self::make_topic(name), handler)
+                .unwrap(),
+            move || {
+                status.write().unwrap().ros_services.0 -= 1;
+                status.write().unwrap().ros_services.1 -= 1;
+            },
+        );
     }
 
     // PRIVATE
@@ -948,7 +980,9 @@ fn init_with_ros() {
     let ros_publisher = checker.make_ros_publisher("/some/ros/topic");
 
     async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_status(|| *checker.expected_bridge_status.read().unwrap()));
+    async_std::task::block_on(
+        bridge.assert_bridge_status(|| *checker.expected_bridge_status.read().unwrap()),
+    );
 }
 
 #[derive(PartialEq, Eq, Hash, Display)]
@@ -958,34 +992,63 @@ enum Mode {
     Ros1Service,
     Ros1Client,
 
-    FastRun
+    FastRun,
 }
-static UNIQUE_NUMBER: AtomicU64 = AtomicU64::new(0); 
+static UNIQUE_NUMBER: AtomicU64 = AtomicU64::new(0);
 async fn ping_pong_duplex_parallel_many_(
-    env: & TestEnvironment, 
-    number: u32, 
-    mode: std::collections::HashSet<Mode>) 
-{
+    env: &TestEnvironment,
+    number: u32,
+    mode: std::collections::HashSet<Mode>,
+) {
     zenoh_core::zasync_executor_init!();
 
     let make_keyexpr = |i: u32, mode: Mode| -> String {
-        return format!("/some/key/expr{}_{}_{}", i, mode.to_string(), UNIQUE_NUMBER.fetch_add(1, SeqCst));
+        return format!(
+            "/some/key/expr{}_{}_{}",
+            i,
+            mode.to_string(),
+            UNIQUE_NUMBER.fetch_add(1, SeqCst)
+        );
     };
 
     // create scenarios
     let mut ping_pongs = Vec::new();
     for i in 0..number {
         if mode.contains(&Mode::Ros1ToZenoh) {
-            ping_pongs.push(PingPong::new_ros1_to_zenoh(make_keyexpr(i, Mode::Ros1ToZenoh).as_str(), env.checker.clone()).await);
+            ping_pongs.push(
+                PingPong::new_ros1_to_zenoh(
+                    make_keyexpr(i, Mode::Ros1ToZenoh).as_str(),
+                    env.checker.clone(),
+                )
+                .await,
+            );
         }
         if mode.contains(&Mode::ZenohToRos1) {
-            ping_pongs.push(PingPong::new_zenoh_to_ros1(make_keyexpr(i, Mode::ZenohToRos1).as_str(), env.checker.clone()).await);
+            ping_pongs.push(
+                PingPong::new_zenoh_to_ros1(
+                    make_keyexpr(i, Mode::ZenohToRos1).as_str(),
+                    env.checker.clone(),
+                )
+                .await,
+            );
         }
         if mode.contains(&Mode::Ros1Service) {
-            ping_pongs.push(PingPong::new_ros1_to_zenoh_service(make_keyexpr(i, Mode::Ros1Service).as_str(), env.checker.clone()).await);
+            ping_pongs.push(
+                PingPong::new_ros1_to_zenoh_service(
+                    make_keyexpr(i, Mode::Ros1Service).as_str(),
+                    env.checker.clone(),
+                )
+                .await,
+            );
         }
         if mode.contains(&Mode::Ros1Client) {
-            ping_pongs.push(PingPong::new_ros1_to_zenoh_client(make_keyexpr(i, Mode::Ros1Client).as_str(), env.checker.clone()).await);
+            ping_pongs.push(
+                PingPong::new_ros1_to_zenoh_client(
+                    make_keyexpr(i, Mode::Ros1Client).as_str(),
+                    env.checker.clone(),
+                )
+                .await,
+            );
         }
     }
 
@@ -994,8 +1057,7 @@ async fn ping_pong_duplex_parallel_many_(
     for ping_pong in ping_pongs {
         if mode.contains(&Mode::FastRun) {
             vec.push(ping_pong.run(1));
-        }
-        else {
+        } else {
             vec.push(ping_pong.run(TestEnvironment::pps_measurements()));
         }
     }
@@ -1010,98 +1072,205 @@ async fn ping_pong_duplex_parallel_many_(
 #[serial(ROS1)]
 fn ping_pong_zenoh_to_ros1() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::ZenohToRos1])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::ZenohToRos1]),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn ping_pong_zenoh_to_ros1_many() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::ZenohToRos1])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::ZenohToRos1]),
+    ));
 }
 
 #[test]
 #[serial(ROS1)]
 fn ping_pong_ros1_to_zenoh() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::Ros1ToZenoh])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::Ros1ToZenoh]),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn ping_pong_ros1_to_zenoh_many() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::Ros1ToZenoh])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::Ros1ToZenoh]),
+    ));
 }
 
 #[test]
 #[serial(ROS1)]
 fn ping_pong_ros1_service() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::Ros1Service])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::Ros1Service]),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn ping_pong_ros1_service_many() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::Ros1Service])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::Ros1Service]),
+    ));
 }
 
 #[test]
 #[serial(ROS1)]
 fn ping_pong_ros1_client() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::Ros1Client])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::Ros1Client]),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn ping_pong_ros1_client_many() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::Ros1Client])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::Ros1Client]),
+    ));
 }
 
 #[test]
 #[serial(ROS1)]
 fn ping_pong_all_sequential() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::ZenohToRos1])));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::Ros1ToZenoh])));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::Ros1Service])));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::Ros1Client])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::ZenohToRos1]),
+    ));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::Ros1ToZenoh]),
+    ));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::Ros1Service]),
+    ));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([Mode::Ros1Client]),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn ping_pong_all_sequential_many() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::ZenohToRos1])));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::Ros1ToZenoh])));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::Ros1Service])));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::Ros1Client])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::ZenohToRos1]),
+    ));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::Ros1ToZenoh]),
+    ));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::Ros1Service]),
+    ));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([Mode::Ros1Client]),
+    ));
 }
 
 #[test]
 #[serial(ROS1)]
 fn ping_pong_all_parallel() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, 1, HashSet::from([Mode::ZenohToRos1, Mode::Ros1ToZenoh, Mode::Ros1Service, Mode::Ros1Client])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        1,
+        HashSet::from([
+            Mode::ZenohToRos1,
+            Mode::Ros1ToZenoh,
+            Mode::Ros1Service,
+            Mode::Ros1Client,
+        ]),
+    ));
 }
 
 #[test]
 #[serial(ROS1)]
 fn ping_pong_all_parallel_many() {
     let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::ZenohToRos1, Mode::Ros1ToZenoh, Mode::Ros1Service, Mode::Ros1Client])));
+    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([
+            Mode::ZenohToRos1,
+            Mode::Ros1ToZenoh,
+            Mode::Ros1Service,
+            Mode::Ros1Client,
+        ]),
+    ));
 }
 
 async fn main_work(env: &TestEnvironment, main_work_finished: Arc<AtomicBool>) {
     assert!(!main_work_finished.load(Relaxed));
-    ping_pong_duplex_parallel_many_(& env, TestEnvironment::many_count(), HashSet::from([Mode::ZenohToRos1, Mode::Ros1ToZenoh, Mode::Ros1Service, Mode::Ros1Client])).await;
+    ping_pong_duplex_parallel_many_(
+        &env,
+        TestEnvironment::many_count(),
+        HashSet::from([
+            Mode::ZenohToRos1,
+            Mode::Ros1ToZenoh,
+            Mode::Ros1Service,
+            Mode::Ros1Client,
+        ]),
+    )
+    .await;
     main_work_finished.store(true, Relaxed);
 }
 async fn parallel_subwork(env: &TestEnvironment, main_work_finished: Arc<AtomicBool>) {
     while !main_work_finished.load(Relaxed) {
-        ping_pong_duplex_parallel_many_(& env, 10, HashSet::from([Mode::ZenohToRos1, Mode::Ros1ToZenoh, Mode::Ros1Service, Mode::Ros1Client, Mode::FastRun])).await;        
+        ping_pong_duplex_parallel_many_(
+            &env,
+            10,
+            HashSet::from([
+                Mode::ZenohToRos1,
+                Mode::Ros1ToZenoh,
+                Mode::Ros1Service,
+                Mode::Ros1Client,
+                Mode::FastRun,
+            ]),
+        )
+        .await;
     }
 }
-async fn parallel_subworks(env: &TestEnvironment, main_work_finished: Arc<AtomicBool>, concurrent_subwork_count: u32) {
+async fn parallel_subworks(
+    env: &TestEnvironment,
+    main_work_finished: Arc<AtomicBool>,
+    concurrent_subwork_count: u32,
+) {
     let mut subworks = Vec::new();
     for i in 0..concurrent_subwork_count {
         subworks.push(parallel_subwork(env, main_work_finished.clone()));
@@ -1125,25 +1294,29 @@ fn ping_pong_all_overlap_many() {
     let main_work_finished = Arc::new(AtomicBool::new(false));
 
     let main_work = main_work(&env, main_work_finished.clone());
-    let parallel_subworks = parallel_subworks(&env, main_work_finished.clone(), TestEnvironment::many_count());
+    let parallel_subworks = parallel_subworks(
+        &env,
+        main_work_finished.clone(),
+        TestEnvironment::many_count(),
+    );
     async_std::task::block_on(futures::future::join(main_work, parallel_subworks));
 }
 
-
 // there were some issues with rosrust service, so there is a test to check it
-async fn check_query(checker: & BridgeChecker) {
+async fn check_query(checker: &BridgeChecker) {
     let name = "/some/key/expr";
-    let queryable = checker
-        .make_ros_service(name, |q| {
-            print!("got query!\n");
-            Ok(q)
-        });
+    let queryable = checker.make_ros_service(name, |q| {
+        print!("got query!\n");
+        Ok(q)
+    });
 
     let ros_client = checker.make_ros_client(name);
     let data: Vec<u8> = (0..50).collect();
-    let result = ros_client.data.req(&rosrust::RawMessage(data.clone()))
-                                        .unwrap()
-                                        .unwrap();
+    let result = ros_client
+        .data
+        .req(&rosrust::RawMessage(data.clone()))
+        .unwrap()
+        .unwrap();
     assert!(data.eq(&result.0));
 }
 

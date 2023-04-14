@@ -12,37 +12,38 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use async_std::prelude::FutureExt;
+use multiset::HashMultiSet;
 use serial_test::serial;
-use zenoh::{Session, OpenBuilder, config::ModeDependentValue};
+use zenoh::{config::ModeDependentValue, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zplugin_ros1::ros_to_zenoh_bridge::discovery;
-use multiset::HashMultiSet;
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 
 fn session_builder() -> OpenBuilder<zenoh::config::Config> {
     let mut config = zenoh::config::peer();
-    config.timestamping.set_enabled(Some(ModeDependentValue::Unique(true))).unwrap();
+    config
+        .timestamping
+        .set_enabled(Some(ModeDependentValue::Unique(true)))
+        .unwrap();
     return zenoh::open(config);
 }
 
-fn discovery_builder(session: Arc<Session>) -> discovery::DiscoveryBuilder
-{
-    return discovery::DiscoveryBuilder::new(
-        "*".to_string(),
-        "*".to_string(),
-        session);
+fn discovery_builder(session: Arc<Session>) -> discovery::DiscoveryBuilder {
+    return discovery::DiscoveryBuilder::new("*".to_string(), "*".to_string(), session);
 }
 
 fn make_session() -> Arc<Session> {
     session_builder().res_sync().unwrap().into_arc()
 }
 
-fn make_discovery(session: Arc<Session>) -> discovery::Discovery
-{
+fn make_discovery(session: Arc<Session>) -> discovery::Discovery {
     return async_std::task::block_on(discovery_builder(session).build());
 }
 
@@ -67,23 +68,26 @@ fn discovery_instantination_many_instances() {
     }
 }
 
-
-
 struct DiscoveryCollector {
     publishers: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
     subscribers: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
     services: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
-    clients: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>
+    clients: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
 }
 impl DiscoveryCollector {
-    fn new() -> Self { 
-        return Self { publishers: Arc::new(Mutex::new(HashMultiSet::new())),
-                      subscribers: Arc::new(Mutex::new(HashMultiSet::new())),
-                      services: Arc::new(Mutex::new(HashMultiSet::new())),
-                      clients: Arc::new(Mutex::new(HashMultiSet::new())) };
+    fn new() -> Self {
+        return Self {
+            publishers: Arc::new(Mutex::new(HashMultiSet::new())),
+            subscribers: Arc::new(Mutex::new(HashMultiSet::new())),
+            services: Arc::new(Mutex::new(HashMultiSet::new())),
+            clients: Arc::new(Mutex::new(HashMultiSet::new())),
+        };
     }
 
-    pub fn use_builder<'a>(&self, mut builder: discovery::DiscoveryBuilder) -> discovery::DiscoveryBuilder {
+    pub fn use_builder<'a>(
+        &self,
+        mut builder: discovery::DiscoveryBuilder,
+    ) -> discovery::DiscoveryBuilder {
         let p = self.publishers.clone();
         let s = self.subscribers.clone();
         let srv = self.services.clone();
@@ -95,26 +99,26 @@ impl DiscoveryCollector {
         let cli1 = self.clients.clone();
 
         builder
-        .on_discovered(move |b_type, topic| {
-            let container = match b_type {
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => { &p },
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => { &s },
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => { &srv },
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => { &cli },
-            };
-            container.lock().unwrap().insert(topic);
-            Box::new(Box::pin(async {}))
-        })
-        .on_lost(move |b_type, topic| {
-            let container = match b_type {
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => { &p1 },
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => { &s1 },
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => { &srv1 },
-                zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => { &cli1 },
-            };
-            container.lock().unwrap().remove(&topic);
-            Box::new(Box::pin(async {}))
-        });
+            .on_discovered(move |b_type, topic| {
+                let container = match b_type {
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => &p,
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => &s,
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => &srv,
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => &cli,
+                };
+                container.lock().unwrap().insert(topic);
+                Box::new(Box::pin(async {}))
+            })
+            .on_lost(move |b_type, topic| {
+                let container = match b_type {
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => &p1,
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => &s1,
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => &srv1,
+                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => &cli1,
+                };
+                container.lock().unwrap().remove(&topic);
+                Box::new(Box::pin(async {}))
+            });
 
         return builder;
     }
@@ -135,22 +139,29 @@ impl DiscoveryCollector {
         Self::wait(&self.clients, expected).await;
     }
 
-// PRIVATE:
-    async fn wait(container: &Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>, 
-                  expected: HashMultiSet<rosrust::api::Topic>) {
+    // PRIVATE:
+    async fn wait(
+        container: &Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
+        expected: HashMultiSet<rosrust::api::Topic>,
+    ) {
         while expected != *container.lock().unwrap() {
             async_std::task::sleep(core::time::Duration::from_millis(1)).await;
         }
     }
 }
 
-
-
-async fn generate_topics(count: usize, duplication: usize, stage: usize) -> HashMultiSet<rosrust::api::Topic> {
+async fn generate_topics(
+    count: usize,
+    duplication: usize,
+    stage: usize,
+) -> HashMultiSet<rosrust::api::Topic> {
     let mut result = HashMultiSet::new();
     for number in 0..count {
         for _dup in 0..duplication {
-            result.insert(rosrust::api::Topic{name: format!("name_{}_{}",number, stage), datatype: "some".to_string()});
+            result.insert(rosrust::api::Topic {
+                name: format!("name_{}_{}", number, stage),
+                datatype: "some".to_string(),
+            });
         }
     }
     return result;
@@ -158,72 +169,103 @@ async fn generate_topics(count: usize, duplication: usize, stage: usize) -> Hash
 
 #[derive(Default)]
 struct State {
-    publishers_count: usize, publishers_duplication: usize,
-    subscribers_count: usize, subscribers_duplication: usize,
-    services_count: usize, services_duplication: usize,
-    clients_count: usize, clients_duplication: usize,
-    stage: usize
+    publishers_count: usize,
+    publishers_duplication: usize,
+    subscribers_count: usize,
+    subscribers_duplication: usize,
+    services_count: usize,
+    services_duplication: usize,
+    clients_count: usize,
+    clients_duplication: usize,
+    stage: usize,
 }
 impl State {
-    pub fn publishers(mut self, publishers_count: usize, publishers_duplication: usize) -> Self { 
+    pub fn publishers(mut self, publishers_count: usize, publishers_duplication: usize) -> Self {
         self.publishers_count = publishers_count;
         self.publishers_duplication = publishers_duplication;
-        self 
+        self
     }
-    pub fn subscribers(mut self, subscribers_count: usize, subscribers_duplication: usize) -> Self { 
+    pub fn subscribers(mut self, subscribers_count: usize, subscribers_duplication: usize) -> Self {
         self.subscribers_count = subscribers_count;
         self.subscribers_duplication = subscribers_duplication;
-        self 
+        self
     }
-    pub fn services(mut self, services_count: usize, services_duplication: usize) -> Self { 
+    pub fn services(mut self, services_count: usize, services_duplication: usize) -> Self {
         self.services_count = services_count;
         self.services_duplication = services_duplication;
-        self 
+        self
     }
-    pub fn clients(mut self, clients_count: usize, clients_duplication: usize) -> Self { 
+    pub fn clients(mut self, clients_count: usize, clients_duplication: usize) -> Self {
         self.clients_count = clients_count;
         self.clients_duplication = clients_duplication;
-        self 
+        self
     }
-    //pub fn stage(mut self, stage: usize) -> Self { 
+    //pub fn stage(mut self, stage: usize) -> Self {
     //    self.stage = stage;
-    //    self 
+    //    self
     //}
-    async fn summarize(&self) -> (HashMultiSet<rosrust::api::Topic>,
-                                  HashMultiSet<rosrust::api::Topic>,
-                                  HashMultiSet<rosrust::api::Topic>,
-                                  HashMultiSet<rosrust::api::Topic>)
-    {
+    async fn summarize(
+        &self,
+    ) -> (
+        HashMultiSet<rosrust::api::Topic>,
+        HashMultiSet<rosrust::api::Topic>,
+        HashMultiSet<rosrust::api::Topic>,
+        HashMultiSet<rosrust::api::Topic>,
+    ) {
         return (
-            generate_topics(self.publishers_count, self.publishers_duplication, self.stage).await,
-            generate_topics(self.subscribers_count, self.subscribers_duplication, self.stage).await,
+            generate_topics(
+                self.publishers_count,
+                self.publishers_duplication,
+                self.stage,
+            )
+            .await,
+            generate_topics(
+                self.subscribers_count,
+                self.subscribers_duplication,
+                self.stage,
+            )
+            .await,
             generate_topics(self.services_count, self.services_duplication, self.stage).await,
             generate_topics(self.clients_count, self.clients_duplication, self.stage).await,
         );
     }
 }
 
-async fn test_state_transition(src_discovery: &discovery::Discovery,
-                               rcv: &DiscoveryCollector,
-                               state: &State) {
-    let (publishers, 
-         subscribers, 
-         services, 
-         clients) = state.summarize().await;
+async fn test_state_transition(
+    src_discovery: &discovery::Discovery,
+    rcv: &DiscoveryCollector,
+    state: &State,
+) {
+    let (publishers, subscribers, services, clients) = state.summarize().await;
 
     let mut _pub_entities = Vec::new();
     for publisher in publishers.iter() {
-        _pub_entities.push(src_discovery.local_resources().declare_publisher(publisher).await);
+        _pub_entities.push(
+            src_discovery
+                .local_resources()
+                .declare_publisher(publisher)
+                .await,
+        );
     }
 
     let mut _sub_entities = Vec::new();
     for subscriber in subscribers.iter() {
-        _sub_entities.push(src_discovery.local_resources().declare_subscriber(subscriber).await);
+        _sub_entities.push(
+            src_discovery
+                .local_resources()
+                .declare_subscriber(subscriber)
+                .await,
+        );
     }
 
     let mut _srv_entities = Vec::new();
     for service in services.iter() {
-        _srv_entities.push(src_discovery.local_resources().declare_service(service).await);
+        _srv_entities.push(
+            src_discovery
+                .local_resources()
+                .declare_service(service)
+                .await,
+        );
     }
 
     let mut _cl_entities = Vec::new();
@@ -243,101 +285,135 @@ async fn run_discovery(scenario: Vec<State>) {
 
     let rcv = DiscoveryCollector::new();
     let rcv_session = session_builder().res_async().await.unwrap().into_arc();
-    let _rcv_discovery = rcv.use_builder(discovery_builder(rcv_session)).build().await;
+    let _rcv_discovery = rcv
+        .use_builder(discovery_builder(rcv_session))
+        .build()
+        .await;
 
     for scene in scenario {
-        test_state_transition(&src_discovery, 
-                              &rcv, 
-                              &scene).timeout(TIMEOUT).await.expect("Timeout waiting state transition!");
+        test_state_transition(&src_discovery, &rcv, &scene)
+            .timeout(TIMEOUT)
+            .await
+            .expect("Timeout waiting state transition!");
     }
 }
 
 #[test]
 #[serial(ROS1)]
 fn discover_single_publisher() {
-    async_std::task::block_on(run_discovery([State::default().publishers(1, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().publishers(1, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_single_subscriber() {
-    async_std::task::block_on(run_discovery([State::default().subscribers(1, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().subscribers(1, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_single_service() {
-    async_std::task::block_on(run_discovery([State::default().services(1, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().services(1, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_single_client() {
-    async_std::task::block_on(run_discovery([State::default().clients(1, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().clients(1, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_single_transition() {
-    async_std::task::block_on(run_discovery([
-        State::default().publishers(1, 1),
-        State::default().subscribers(1, 1),
-        State::default().services(1, 1),
-        State::default().clients(1, 1),
-    ].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [
+            State::default().publishers(1, 1),
+            State::default().subscribers(1, 1),
+            State::default().services(1, 1),
+            State::default().clients(1, 1),
+        ]
+        .into_iter()
+        .collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_single_transition_with_zero_state() {
-    async_std::task::block_on(run_discovery([
-        State::default().publishers(1, 1),
-        State::default(),
-        State::default().subscribers(1, 1),
-        State::default(),
-        State::default().services(1, 1),
-        State::default(),
-        State::default().clients(1, 1),
-    ].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [
+            State::default().publishers(1, 1),
+            State::default(),
+            State::default().subscribers(1, 1),
+            State::default(),
+            State::default().services(1, 1),
+            State::default(),
+            State::default().clients(1, 1),
+        ]
+        .into_iter()
+        .collect(),
+    ));
 }
-
-
 
 #[test]
 #[serial(ROS1)]
 fn discover_multiple_publishers() {
-    async_std::task::block_on(run_discovery([State::default().publishers(100, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().publishers(100, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_multiple_subscribers() {
-    async_std::task::block_on(run_discovery([State::default().subscribers(100, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().subscribers(100, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_multiple_services() {
-    async_std::task::block_on(run_discovery([State::default().services(100, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().services(100, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_multiple_clients() {
-    async_std::task::block_on(run_discovery([State::default().clients(100, 1)].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [State::default().clients(100, 1)].into_iter().collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_multiple_transition() {
-    async_std::task::block_on(run_discovery([
-        State::default().publishers(100, 1),
-        State::default().subscribers(100, 1),
-        State::default().services(100, 1),
-        State::default().clients(100, 1),
-    ].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [
+            State::default().publishers(100, 1),
+            State::default().subscribers(100, 1),
+            State::default().services(100, 1),
+            State::default().clients(100, 1),
+        ]
+        .into_iter()
+        .collect(),
+    ));
 }
 #[test]
 #[serial(ROS1)]
 fn discover_multiple_transition_with_zero_state() {
-    async_std::task::block_on(run_discovery([
-        State::default().publishers(100, 1),
-        State::default(),
-        State::default().subscribers(100, 1),
-        State::default(),
-        State::default().services(100, 1),
-        State::default(),
-        State::default().clients(100, 1),
-    ].into_iter().collect()));
+    async_std::task::block_on(run_discovery(
+        [
+            State::default().publishers(100, 1),
+            State::default(),
+            State::default().subscribers(100, 1),
+            State::default(),
+            State::default().services(100, 1),
+            State::default(),
+            State::default().clients(100, 1),
+        ]
+        .into_iter()
+        .collect(),
+    ));
 }

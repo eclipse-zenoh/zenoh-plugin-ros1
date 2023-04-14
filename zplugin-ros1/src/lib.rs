@@ -13,11 +13,9 @@
 //
 #![recursion_limit = "1024"]
 
-use ros_to_zenoh_bridge::Ros1ToZenohBridge;
 use ros_to_zenoh_bridge::environment::Environment;
-use std::sync::{
-    Arc
-};
+use ros_to_zenoh_bridge::Ros1ToZenohBridge;
+use std::sync::Arc;
 use zenoh::plugins::{Plugin, RunningPluginTrait, ValidationFunction, ZenohPlugin};
 use zenoh::prelude::r#async::*;
 use zenoh::runtime::Runtime;
@@ -43,18 +41,22 @@ impl Plugin for Ros1Plugin {
     fn start(name: &str, runtime: &Self::StartArgs) -> ZResult<Self::RunningPlugin> {
         let config = runtime.config.lock();
         let self_cfg = config
-            .plugin(name).ok_or("No plugin in the config!")?
-            .as_object().ok_or("Unable to get cfg objet!")?;
+            .plugin(name)
+            .ok_or("No plugin in the config!")?
+            .as_object()
+            .ok_or("Unable to get cfg objet!")?;
 
         // run through the bridge's config options and fill them from plugins config
         let plugin_configuration_entries = Environment::env();
         for entry in plugin_configuration_entries.iter() {
             match self_cfg.get(entry.name) {
-                Some(v) => { entry.set(v); },
-                None => {},
+                Some(v) => {
+                    entry.set(v);
+                }
+                None => {}
             }
         }
-        
+
         std::mem::drop(config);
 
         // return a RunningPlugin to zenohd
@@ -62,10 +64,9 @@ impl Plugin for Ros1Plugin {
     }
 }
 
-
 // The RunningPlugin struct implementing the RunningPluginTrait trait
 struct RunningPlugin {
-    _bridge: Option<Ros1ToZenohBridge>
+    _bridge: Option<Ros1ToZenohBridge>,
 }
 impl RunningPluginTrait for RunningPlugin {
     // Operation returning a ValidationFunction(path, old, new)-> ZResult<Option<serde_json::Map<String, serde_json::Value>>>
@@ -75,7 +76,7 @@ impl RunningPluginTrait for RunningPlugin {
             bail!("Reconfiguration at runtime is not allowed!");
         })
     }
- 
+
     // Function called on any query on admin space that matches this plugin's sub-part of the admin space.
     // Thus the plugin can reply its contribution to the global admin space of this zenohd.
     fn adminspace_getter<'a>(
@@ -89,15 +90,15 @@ impl RunningPluginTrait for RunningPlugin {
 
 impl RunningPlugin {
     fn new(runtime: &Runtime) -> ZResult<Self> {
-        let bridge: ZResult<Ros1ToZenohBridge> = async_std::task::block_on( async {
+        let bridge: ZResult<Ros1ToZenohBridge> = async_std::task::block_on(async {
             // create a zenoh Session that shares the same Runtime than zenohd
             let session = zenoh::init(runtime.clone()).res().await?.into_arc();
             let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
             return Ok(bridge);
         });
-        
+
         return Ok(Self {
-            _bridge: Some(bridge?)
+            _bridge: Some(bridge?),
         });
     }
 }

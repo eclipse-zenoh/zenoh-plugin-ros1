@@ -12,25 +12,28 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::str::FromStr;
 use rosrust::api::resolve::*;
+use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct Entry<'a> {
     pub name: &'a str,
-    pub default: String
+    pub default: String,
 }
 impl<'a> Entry<'a> {
     fn new<Tvar>(name: &'a str, default: Tvar) -> Entry<'a>
     where
-        Tvar: ToString
+        Tvar: ToString,
     {
-        Entry{name, default: default.to_string()}
+        Entry {
+            name,
+            default: default.to_string(),
+        }
     }
 
     pub fn get<Tvar>(&self) -> Tvar
     where
-        Tvar: FromStr + std::convert::From<String>
+        Tvar: FromStr + std::convert::From<String>,
     {
         if let Ok(val) = std::env::var(self.name) {
             if let Ok(val) = val.parse::<Tvar>() {
@@ -42,12 +45,11 @@ impl<'a> Entry<'a> {
 
     pub fn set<Tvar>(&self, value: Tvar)
     where
-        Tvar: ToString
+        Tvar: ToString,
     {
         std::env::set_var(self.name, value.to_string());
     }
 }
-
 
 pub struct Environment;
 impl Environment {
@@ -72,7 +74,8 @@ impl Environment {
             Self::ros_master_uri(),
             Self::ros_hostname(),
             Self::ros_name(),
-            Self::ros_namespace()
-        ].to_vec();
+            Self::ros_namespace(),
+        ]
+        .to_vec();
     }
 }
