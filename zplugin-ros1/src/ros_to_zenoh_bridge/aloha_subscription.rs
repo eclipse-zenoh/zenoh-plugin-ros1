@@ -46,9 +46,14 @@ impl AlohaResource {
     }
 
     pub fn is_active(&self) -> bool {
-        return self.activity.load(Relaxed);
+        self.activity.load(Relaxed)
     }
 }
+
+pub type TCallback = dyn Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+    + Send
+    + Sync
+    + 'static;
 
 pub struct AlohaSubscription {
     task_running: Arc<AtomicBool>,
@@ -86,7 +91,7 @@ impl AlohaSubscription {
             on_resource_undeclared,
         ));
 
-        return Ok(Self { task_running });
+        Ok(Self { task_running })
     }
 
     //PRIVATE:
@@ -119,7 +124,7 @@ impl AlohaSubscription {
         )
         .await;
 
-        return Ok(());
+        Ok(())
     }
 
     async fn listening_task<'a, F>(
@@ -182,7 +187,7 @@ impl AlohaSubscription {
                 let listen = Self::listening_task(
                     task_running.clone(),
                     accumulating_resources,
-                    &subscriber,
+                    subscriber,
                     &on_resource_declared,
                 )
                 .fuse();
@@ -207,9 +212,9 @@ impl AlohaSubscription {
                 }
             }
 
-            accumulating_resources.get_mut().retain(|_key, val| {
-                return val.is_active();
-            });
+            accumulating_resources
+                .get_mut()
+                .retain(|_key, val| val.is_active());
         }
     }
 }
@@ -219,33 +224,19 @@ pub struct AlohaSubscriptionBuilder {
     key: OwnedKeyExpr,
     beacon_period: Duration,
 
-    on_resource_declared: Option<
-        Box<
-            dyn Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
-                + Send
-                + Sync
-                + 'static,
-        >,
-    >,
-    on_resource_undeclared: Option<
-        Box<
-            dyn Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
-                + Send
-                + Sync
-                + 'static,
-        >,
-    >,
+    on_resource_declared: Option<Box<TCallback>>,
+    on_resource_undeclared: Option<Box<TCallback>>,
 }
 
 impl AlohaSubscriptionBuilder {
     pub fn new(session: Arc<Session>, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
-        return Self {
+        Self {
             session,
             key,
             beacon_period,
             on_resource_declared: None,
             on_resource_undeclared: None,
-        };
+        }
     }
 
     pub fn on_resource_declared<F>(mut self, on_resource_declared: F) -> Self
@@ -256,7 +247,7 @@ impl AlohaSubscriptionBuilder {
             + 'static,
     {
         self.on_resource_declared = Some(Box::new(on_resource_declared));
-        return self;
+        self
     }
 
     pub fn on_resource_undeclared<F>(mut self, on_resource_undeclared: F) -> Self
@@ -267,11 +258,11 @@ impl AlohaSubscriptionBuilder {
             + 'static,
     {
         self.on_resource_undeclared = Some(Box::new(on_resource_undeclared));
-        return self;
+        self
     }
 
     pub async fn build(self) -> ZResult<AlohaSubscription> {
-        return AlohaSubscription::new(
+        AlohaSubscription::new(
             self.session,
             self.key,
             self.beacon_period,
@@ -280,6 +271,6 @@ impl AlohaSubscriptionBuilder {
             self.on_resource_undeclared
                 .unwrap_or(Box::new(|_dummy| Box::new(Box::pin(async {})))),
         )
-        .await;
+        .await
     }
 }

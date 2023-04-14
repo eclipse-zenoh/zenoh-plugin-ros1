@@ -31,8 +31,8 @@ pub fn make_topic(datatype: &keyexpr, topic_name: &keyexpr) -> Result<rosrust::a
 
     let mut name = topic_name.to_string();
     name.insert(0, '/');
-    return Ok(rosrust::api::Topic {
+    Ok(rosrust::api::Topic {
         name,
         datatype: datatype.to_string(),
-    });
+    })
 }

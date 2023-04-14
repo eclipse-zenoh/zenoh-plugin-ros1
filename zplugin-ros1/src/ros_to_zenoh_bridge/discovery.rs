@@ -106,9 +106,9 @@ impl RemoteResources {
             }
         }
 
-        return Self {
+        Self {
             _subscriber: subscriber,
-        };
+        }
     }
 
     // PRIVATE:
@@ -142,8 +142,8 @@ impl RemoteResources {
             rosrust::api::Topic,
         ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>,
     {
-        let discovery = discovery_format::parse(&data).map_err(|err| err.to_string())?;
-        return Self::handle_format(discovery, callback).await;
+        let discovery = discovery_format::parse(data).map_err(|err| err.to_string())?;
+        Self::handle_format(discovery, callback).await
     }
 
     async fn handle_format<F>(
@@ -167,27 +167,18 @@ impl RemoteResources {
 
         let ros1_topic = make_topic(datatype, topic)?;
 
-        let b_type;
-        match resource_class.as_str() {
-            ROS1_DISCOVERY_INFO_PUBLISHERS_CLASS => {
-                b_type = BridgeType::Publisher;
-            }
-            ROS1_DISCOVERY_INFO_SUBSCRIBERS_CLASS => {
-                b_type = BridgeType::Subscriber;
-            }
-            ROS1_DISCOVERY_INFO_SERVICES_CLASS => {
-                b_type = BridgeType::Service;
-            }
-            ROS1_DISCOVERY_INFO_CLIENTS_CLASS => {
-                b_type = BridgeType::Client;
-            }
+        let b_type = match resource_class.as_str() {
+            ROS1_DISCOVERY_INFO_PUBLISHERS_CLASS => BridgeType::Publisher,
+            ROS1_DISCOVERY_INFO_SUBSCRIBERS_CLASS => BridgeType::Subscriber,
+            ROS1_DISCOVERY_INFO_SERVICES_CLASS => BridgeType::Service,
+            ROS1_DISCOVERY_INFO_CLIENTS_CLASS => BridgeType::Client,
             _ => {
                 return Err("unexpected resource class!".to_string());
             }
         };
 
         callback(b_type, ros1_topic).await;
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -232,11 +223,11 @@ impl LocalResources {
         bridge_namespace: String,
         session: Arc<zenoh::Session>,
     ) -> LocalResources {
-        return Self {
+        Self {
             session,
             discovery_namespace,
             bridge_namespace,
-        };
+        }
     }
 
     pub async fn declare_with_type(
@@ -309,7 +300,7 @@ impl Discovery {
             + Sync
             + 'static,
     {
-        return Self {
+        Self {
             _remote_resources: RemoteResources::new(
                 session.clone(),
                 discovery_namespace.clone(),
@@ -318,41 +309,26 @@ impl Discovery {
             )
             .await,
             local_resources: LocalResources::new(discovery_namespace, bridge_namespace, session),
-        };
+        }
     }
 
     pub fn local_resources(&self) -> &LocalResources {
-        return &self.local_resources;
+        &self.local_resources
     }
 }
+
+pub type TCallback = dyn Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+    + Send
+    + Sync
+    + 'static;
 
 pub struct DiscoveryBuilder {
     discovery_namespace: String,
     bridge_namespace: String,
     session: Arc<zenoh::Session>,
 
-    on_discovered: Option<
-        Box<
-            dyn Fn(
-                    BridgeType,
-                    rosrust::api::Topic,
-                ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
-                + Send
-                + Sync
-                + 'static,
-        >,
-    >,
-    on_lost: Option<
-        Box<
-            dyn Fn(
-                    BridgeType,
-                    rosrust::api::Topic,
-                ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
-                + Send
-                + Sync
-                + 'static,
-        >,
-    >,
+    on_discovered: Option<Box<TCallback>>,
+    on_lost: Option<Box<TCallback>>,
 }
 
 impl DiscoveryBuilder {
@@ -381,7 +357,7 @@ impl DiscoveryBuilder {
             + 'static,
     {
         self.on_discovered = Some(Box::new(on_discovered));
-        return self;
+        self
     }
     pub fn on_lost<F>(&mut self, on_lost: F) -> &mut Self
     where
@@ -394,11 +370,11 @@ impl DiscoveryBuilder {
             + 'static,
     {
         self.on_lost = Some(Box::new(on_lost));
-        return self;
+        self
     }
 
     pub async fn build(self) -> Discovery {
-        return Discovery::new(
+        Discovery::new(
             self.discovery_namespace,
             self.bridge_namespace,
             self.session,
@@ -407,6 +383,6 @@ impl DiscoveryBuilder {
             self.on_lost
                 .unwrap_or(Box::new(|_, _| Box::new(Box::pin(async {})))),
         )
-        .await;
+        .await
     }
 }

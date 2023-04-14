@@ -52,7 +52,7 @@ impl TopicBridge {
         zenoh_client: Arc<zenoh_client::ZenohClient>,
         briging_mode: BridgingMode,
     ) -> Self {
-        return Self {
+        Self {
             topic,
             b_type,
             ros1_client,
@@ -63,7 +63,7 @@ impl TopicBridge {
             declaration_interface,
             declaration: None,
             bridge: None,
-        };
+        }
     }
 
     pub async fn set_present_in_ros1(&mut self, present: bool) -> bool {
@@ -72,7 +72,7 @@ impl TopicBridge {
         if recalc {
             self.recalc_state().await;
         }
-        return recalc;
+        recalc
     }
 
     pub async fn set_has_complementary_in_zenoh(&mut self, present: bool) -> bool {
@@ -81,21 +81,17 @@ impl TopicBridge {
         if recalc {
             self.recalc_state().await;
         }
-        return recalc;
+        recalc
     }
 
     pub fn is_bridging(&self) -> bool {
-        return self.bridge.is_some();
+        self.bridge.is_some()
     }
 
     pub fn is_actual(&self) -> bool {
         match self.briging_mode {
-            BridgingMode::Lazy => {
-                return self.required_on_ros1_side || self.required_on_zenoh_side;
-            }
-            BridgingMode::Automatic => {
-                return self.required_on_ros1_side;
-            }
+            BridgingMode::Lazy => self.required_on_ros1_side || self.required_on_zenoh_side,
+            BridgingMode::Automatic => self.required_on_ros1_side,
         }
     }
 

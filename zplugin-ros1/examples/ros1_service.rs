@@ -77,7 +77,9 @@ async fn main() {
                 println!("Zenoh: got reply!");
                 assert!(data == val.sample.unwrap().value.payload.contiguous().to_vec());
             }
-            Err(_) => {}
+            Err(e) => {
+                println!("Zenoh got error: {}", e);
+            }
         }
         async_std::task::sleep(core::time::Duration::from_secs(1)).await;
     }

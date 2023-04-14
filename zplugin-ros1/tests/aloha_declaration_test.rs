@@ -28,41 +28,40 @@ use zplugin_ros1::ros_to_zenoh_bridge::{aloha_declaration, aloha_subscription};
 const TIMEOUT: Duration = Duration::from_secs(30);
 
 fn session_builder() -> OpenBuilder<zenoh::config::Config> {
-    return zenoh::open(zenoh::config::peer());
+    zenoh::open(zenoh::config::peer())
 }
 
-fn declaration_builder<'a>(
+fn declaration_builder(
     session: Arc<Session>,
     beacon_period: Duration,
 ) -> aloha_declaration::AlohaDeclaration {
-    return aloha_declaration::AlohaDeclaration::new(
+    aloha_declaration::AlohaDeclaration::new(
         session,
         zenoh::key_expr::OwnedKeyExpr::from_str("key").unwrap(),
         beacon_period,
-    );
+    )
 }
 
 fn subscription_builder(
     session: Arc<Session>,
     beacon_period: Duration,
 ) -> aloha_subscription::AlohaSubscriptionBuilder {
-    return aloha_subscription::AlohaSubscriptionBuilder::new(
+    aloha_subscription::AlohaSubscriptionBuilder::new(
         session,
         zenoh::key_expr::OwnedKeyExpr::from_str("key").unwrap(),
         beacon_period,
-    );
+    )
 }
 
 fn make_session() -> Arc<Session> {
-    return session_builder().res_sync().unwrap().into_arc();
+    session_builder().res_sync().unwrap().into_arc()
 }
 
 fn make_subscription(
     session: Arc<Session>,
     beacon_period: Duration,
 ) -> aloha_subscription::AlohaSubscription {
-    return async_std::task::block_on(subscription_builder(session, beacon_period).build())
-        .unwrap();
+    async_std::task::block_on(subscription_builder(session, beacon_period).build()).unwrap()
 }
 
 #[test]
@@ -111,11 +110,11 @@ impl<'a> PPCMeasurement<'a> {
             .res_async()
             .await?;
 
-        return Ok(Self {
+        Ok(Self {
             _subscriber: subscriber,
             ppc,
             measurement_period,
-        });
+        })
     }
 
     pub async fn measure_ppc(&self) -> usize {
@@ -133,14 +132,14 @@ struct DeclarationCollector {
 }
 impl DeclarationCollector {
     fn new() -> Self {
-        return Self {
+        Self {
             resources: Arc::new(Mutex::new(HashSet::new())),
             to_be_declared: Arc::new(Mutex::new(HashSet::new())),
             to_be_undeclared: Arc::new(Mutex::new(HashSet::new())),
-        };
+        }
     }
 
-    pub fn use_builder<'b>(
+    pub fn use_builder(
         &self,
         mut builder: aloha_subscription::AlohaSubscriptionBuilder,
     ) -> aloha_subscription::AlohaSubscriptionBuilder {
@@ -162,7 +161,7 @@ impl DeclarationCollector {
                 Box::new(Box::pin(async move {}))
             });
 
-        return builder;
+        builder
     }
 
     pub fn arm(

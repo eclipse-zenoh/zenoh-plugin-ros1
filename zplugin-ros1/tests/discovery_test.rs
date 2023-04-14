@@ -32,11 +32,11 @@ fn session_builder() -> OpenBuilder<zenoh::config::Config> {
         .timestamping
         .set_enabled(Some(ModeDependentValue::Unique(true)))
         .unwrap();
-    return zenoh::open(config);
+    zenoh::open(config)
 }
 
 fn discovery_builder(session: Arc<Session>) -> discovery::DiscoveryBuilder {
-    return discovery::DiscoveryBuilder::new("*".to_string(), "*".to_string(), session);
+    discovery::DiscoveryBuilder::new("*".to_string(), "*".to_string(), session)
 }
 
 fn make_session() -> Arc<Session> {
@@ -44,7 +44,7 @@ fn make_session() -> Arc<Session> {
 }
 
 fn make_discovery(session: Arc<Session>) -> discovery::Discovery {
-    return async_std::task::block_on(discovery_builder(session).build());
+    async_std::task::block_on(discovery_builder(session).build())
 }
 
 #[test]
@@ -76,15 +76,15 @@ struct DiscoveryCollector {
 }
 impl DiscoveryCollector {
     fn new() -> Self {
-        return Self {
+        Self {
             publishers: Arc::new(Mutex::new(HashMultiSet::new())),
             subscribers: Arc::new(Mutex::new(HashMultiSet::new())),
             services: Arc::new(Mutex::new(HashMultiSet::new())),
             clients: Arc::new(Mutex::new(HashMultiSet::new())),
-        };
+        }
     }
 
-    pub fn use_builder<'a>(
+    pub fn use_builder(
         &self,
         mut builder: discovery::DiscoveryBuilder,
     ) -> discovery::DiscoveryBuilder {
@@ -120,7 +120,7 @@ impl DiscoveryCollector {
                 Box::new(Box::pin(async {}))
             });
 
-        return builder;
+        builder
     }
 
     pub async fn wait_publishers(&self, expected: HashMultiSet<rosrust::api::Topic>) {
@@ -164,7 +164,7 @@ async fn generate_topics(
             });
         }
     }
-    return result;
+    result
 }
 
 #[derive(Default)]
@@ -212,7 +212,7 @@ impl State {
         HashMultiSet<rosrust::api::Topic>,
         HashMultiSet<rosrust::api::Topic>,
     ) {
-        return (
+        (
             generate_topics(
                 self.publishers_count,
                 self.publishers_duplication,
@@ -227,7 +227,7 @@ impl State {
             .await,
             generate_topics(self.services_count, self.services_duplication, self.stage).await,
             generate_topics(self.clients_count, self.clients_duplication, self.stage).await,
-        );
+        )
     }
 }
 

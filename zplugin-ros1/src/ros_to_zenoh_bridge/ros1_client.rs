@@ -82,22 +82,18 @@ impl Ros1Client {
         mut state: rosrust::api::error::Response<rosrust::api::SystemState>,
     ) -> rosrust::api::error::Response<rosrust::api::SystemState> {
         debug!("system state before filter: {:#?}", state);
-        match state.as_mut() {
-            Ok(value) => {
-                let name = self.ros.name();
+        if let Ok(value) = state.as_mut() {
+            let name = self.ros.name();
 
-                let retain_lambda = |x: &rosrust::api::TopicData| {
-                    return x.connections.len() > 1
-                        || (x.connections.len() == 1 && x.connections[0] != name);
-                };
+            let retain_lambda = |x: &rosrust::api::TopicData| {
+                x.connections.len() > 1 || (x.connections.len() == 1 && x.connections[0] != name)
+            };
 
-                value.publishers.retain(retain_lambda);
-                value.subscribers.retain(retain_lambda);
-                value.services.retain(retain_lambda);
-            }
-            Err(_) => {}
+            value.publishers.retain(retain_lambda);
+            value.subscribers.retain(retain_lambda);
+            value.services.retain(retain_lambda);
         }
         debug!("system state after filter: {:#?}", state);
-        return state;
+        state
     }
 }

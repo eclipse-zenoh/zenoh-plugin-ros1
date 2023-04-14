@@ -29,28 +29,19 @@ impl Ros1TopicMapping {
         ros1_client: &ros1_client::Ros1Client,
     ) -> rosrust::api::error::Response<Ros1TopicMapping> {
         match ros1_client.state() {
-            Ok(state_val) => {
-                match ros1_client.topic_types() {
-                    Ok(topics_val) => {
-                        debug!("topics: {:#?}", topics_val);
-                        return Ok(Ros1TopicMapping::new(&state_val, &topics_val));
-                    }
-                    Err(e) => {
-                        return Err(e);
-                    }
-                };
-            }
-            Err(e) => {
-                return Err(e);
-            }
-        };
+            Ok(state_val) => match ros1_client.topic_types() {
+                Ok(topics_val) => {
+                    debug!("topics: {:#?}", topics_val);
+                    Ok(Ros1TopicMapping::new(&state_val, &topics_val))
+                }
+                Err(e) => Err(e),
+            },
+            Err(e) => Err(e),
+        }
     }
 
     // PRIVATE:
-    fn new(
-        state: &rosrust::api::SystemState,
-        topics: &Vec<rosrust::api::Topic>,
-    ) -> Ros1TopicMapping {
+    fn new(state: &rosrust::api::SystemState, topics: &[rosrust::api::Topic]) -> Ros1TopicMapping {
         let mut result = Ros1TopicMapping {
             published: HashSet::new(),
             subscribed: HashSet::new(),
@@ -62,25 +53,27 @@ impl Ros1TopicMapping {
         Ros1TopicMapping::fill(&mut result.published, &state.publishers, topics);
         Ros1TopicMapping::fill(&mut result.serviced, &state.services, topics);
 
-        return result;
+        result
     }
 
     fn fill(
         dst: &mut HashSet<rosrust::api::Topic>,
-        data: &Vec<rosrust::api::TopicData>,
-        topics: &Vec<rosrust::api::Topic>,
+        data: &[rosrust::api::TopicData],
+        topics: &[rosrust::api::Topic],
     ) {
         for item in data.iter() {
             let topic = topics.iter().find(|x| x.name == item.name);
-            if topic.is_none() {
-                debug!("Unable to find datatype for topic {}", item.name);
-                dst.insert(rosrust::api::Topic {
-                    name: item.name.clone(),
-                    datatype: "*".to_string(),
-                });
-            } else {
-                let t = topic.unwrap();
-                dst.insert(t.clone());
+            match topic {
+                None => {
+                    debug!("Unable to find datatype for topic {}", item.name);
+                    dst.insert(rosrust::api::Topic {
+                        name: item.name.clone(),
+                        datatype: "*".to_string(),
+                    });
+                }
+                Some(val) => {
+                    dst.insert(val.clone());
+                }
             }
         }
     }

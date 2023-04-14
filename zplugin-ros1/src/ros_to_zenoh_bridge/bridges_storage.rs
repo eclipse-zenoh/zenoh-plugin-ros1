@@ -71,7 +71,7 @@ impl Bridges {
         fill(&mut result.ros_publishers, &self.publisher_bridges);
         fill(&mut result.ros_services, &self.service_bridges);
         fill(&mut result.ros_subscribers, &self.subscriber_bridges);
-        return result;
+        result
     }
 
     fn clear(&mut self) {
@@ -204,9 +204,9 @@ impl<'a> ElementAccessor<'a> {
         // erase all non-actual bridges
         {
             let size_before_retain = self.access.container.len();
-            self.access.container.retain(|_topic, bridge| {
-                return bridge.is_actual();
-            });
+            self.access
+                .container
+                .retain(|_topic, bridge| bridge.is_actual());
             smth_changed |= size_before_retain != self.access.container.len();
         }
 
@@ -230,7 +230,7 @@ impl<'a> ElementAccessor<'a> {
                 }
             }
         }
-        return smth_changed;
+        smth_changed
     }
 }
 
@@ -312,14 +312,14 @@ impl BridgesStorage {
             .for_type(BridgeType::Subscriber)
             .receive_ros1_state(&mut ros1_state.subscribed)
             .await;
-        return smth_changed;
+        smth_changed
     }
 
     pub fn status(&self) -> BridgeStatus {
-        return self.bridges.status();
+        self.bridges.status()
     }
 
     pub fn clear(&mut self) {
-        return self.bridges.clear();
+        self.bridges.clear()
     }
 }

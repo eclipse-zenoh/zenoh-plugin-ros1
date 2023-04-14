@@ -48,7 +48,7 @@ impl AbstractBridge {
                 ),
             }
         };
-        return Ok(Self { _impl });
+        Ok(Self { _impl })
     }
 }
 
@@ -73,16 +73,14 @@ impl Ros1ToZenohClient {
             topic.name, topic.datatype
         );
 
-        let zenoh_key = make_zenoh_key(&topic).to_string();
+        let zenoh_key = make_zenoh_key(topic).to_string();
         match ros1_client.service::<rosrust::RawMessage, _>(
             topic,
             move |q| -> rosrust::ServiceResult<rosrust::RawMessage> {
                 return Self::on_query(&zenoh_key, q, zenoh_client.as_ref());
             },
         ) {
-            Ok(service) => {
-                return Ok(Ros1ToZenohClient { _service: service });
-            }
+            Ok(service) => Ok(Ros1ToZenohClient { _service: service }),
             Err(e) => {
                 zenoh_core::bail!("Ros error: {}", e.to_string())
             }
@@ -109,7 +107,7 @@ impl Ros1ToZenohClient {
                     Ok(value) => {
                         let data = value.payload.contiguous().to_vec();
                         debug!("Zenoh -> ROS1: sending {} bytes!", data.len());
-                        return Ok(rosrust::RawMessage(data));
+                        Ok(rosrust::RawMessage(data))
                     }
                     Err(e) => {
                         error!(
@@ -117,7 +115,7 @@ impl Ros1ToZenohClient {
                             e
                         );
                         let error = e.to_string();
-                        return Err(error);
+                        Err(error)
                     }
                 },
                 Err(e) => {
@@ -126,7 +124,7 @@ impl Ros1ToZenohClient {
                         e
                     );
                     let error = e.to_string();
-                    return Err(error);
+                    Err(error)
                 }
             },
             Err(e) => {
@@ -135,7 +133,7 @@ impl Ros1ToZenohClient {
                     e
                 );
                 let error = e.to_string();
-                return Err(error);
+                Err(error)
             }
         }
     }
@@ -163,9 +161,9 @@ impl Ros1ToZenohService {
                         async_std::task::spawn(Self::on_query(client_in_arc.clone(), query));
                     })
                     .await?;
-                return Ok(Ros1ToZenohService {
+                Ok(Ros1ToZenohService {
                     _queryable: queryable,
-                });
+                })
             }
             Err(e) => {
                 zenoh_core::bail!("Ros error: {}", e.to_string())
@@ -200,10 +198,9 @@ impl Ros1ToZenohService {
     ) {
         // rosrust is synchronous, so we will use spawn_blocking. If there will be an async mode some day for the rosrust,
         // than reply_to_query can be refactored to async very easily
-        let res = async_std::task::spawn_blocking(move || {
-            return ros1_client.req(&rosrust::RawMessage(payload));
-        })
-        .await;
+        let res =
+            async_std::task::spawn_blocking(move || ros1_client.req(&rosrust::RawMessage(payload)))
+                .await;
         match Self::reply_to_query(res, &query).await {
             Ok(_) => {}
             Err(e) => {
@@ -258,7 +255,7 @@ impl Ros1ToZenohService {
                     .await?;
             }
         }
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -286,11 +283,9 @@ impl Ros1ToZenoh {
                 }
             }
         }) {
-            Ok(subscriber) => {
-                return Ok(Ros1ToZenoh {
-                    _subscriber: subscriber,
-                });
-            }
+            Ok(subscriber) => Ok(Ros1ToZenoh {
+                _subscriber: subscriber,
+            }),
             Err(e) => {
                 zenoh_core::bail!("Ros error: {}", e.to_string())
             }
@@ -330,9 +325,9 @@ impl ZenohToRos1 {
                         });
                     })
                     .await?;
-                return Ok(ZenohToRos1 {
+                Ok(ZenohToRos1 {
                     _subscriber: subscriber,
-                });
+                })
             }
             Err(e) => {
                 zenoh_core::bail!("Ros error: {}", e.to_string())

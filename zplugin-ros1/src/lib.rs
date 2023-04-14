@@ -49,11 +49,8 @@ impl Plugin for Ros1Plugin {
         // run through the bridge's config options and fill them from plugins config
         let plugin_configuration_entries = Environment::env();
         for entry in plugin_configuration_entries.iter() {
-            match self_cfg.get(entry.name) {
-                Some(v) => {
-                    entry.set(v);
-                }
-                None => {}
+            if let Some(v) = self_cfg.get(entry.name) {
+                entry.set(v);
             }
         }
 
@@ -94,11 +91,11 @@ impl RunningPlugin {
             // create a zenoh Session that shares the same Runtime than zenohd
             let session = zenoh::init(runtime.clone()).res().await?.into_arc();
             let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
-            return Ok(bridge);
+            Ok(bridge)
         });
 
-        return Ok(Self {
+        Ok(Self {
             _bridge: Some(bridge?),
-        });
+        })
     }
 }

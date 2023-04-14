@@ -14,7 +14,6 @@
 
 use zenoh_core::AsyncResolve;
 
-use rosrust;
 use zplugin_ros1::ros_to_zenoh_bridge::Ros1ToZenohBridge;
 
 #[async_std::main]

@@ -42,17 +42,14 @@ impl ZenohClient {
 
         match self.make_keyexpr(key_expr).await {
             Ok(opt_keyexpr) => {
-                return self
-                    .session
+                self.session
                     .declare_subscriber(opt_keyexpr)
                     .callback(callback)
                     .allowed_origin(Locality::Remote)
                     .res_async()
-                    .await;
+                    .await
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -61,17 +58,14 @@ impl ZenohClient {
 
         match self.make_keyexpr(key_expr).await {
             Ok(opt_keyexpr) => {
-                return self
-                    .session
+                self.session
                     .declare_publisher(opt_keyexpr)
                     .allowed_destination(Locality::Remote)
                     .congestion_control(CongestionControl::Block)
                     .res_async()
-                    .await;
+                    .await
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -87,17 +81,14 @@ impl ZenohClient {
 
         match self.make_keyexpr(key_expr).await {
             Ok(opt_keyexpr) => {
-                return self
-                    .session
+                self.session
                     .declare_queryable(opt_keyexpr)
                     .allowed_origin(Locality::Remote)
                     .callback(callback)
                     .res_async()
-                    .await;
+                    .await
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -114,17 +105,14 @@ impl ZenohClient {
 
         match self.make_keyexpr(key_expr).await {
             Ok(opt_keyexpr) => {
-                return self
-                    .session
+                self.session
                     .get(opt_keyexpr)
                     .with_value(data)
                     .callback(callback)
                     .res_async()
-                    .await;
+                    .await
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -137,17 +125,14 @@ impl ZenohClient {
 
         match self.make_keyexpr(key_expr).await {
             Ok(opt_keyexpr) => {
-                return self
-                    .session
+                self.session
                     .get(opt_keyexpr)
                     .with_value(data)
                     .allowed_destination(Locality::Remote)
                     .res_async()
-                    .await;
+                    .await
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => Err(e),
         }
     }
 

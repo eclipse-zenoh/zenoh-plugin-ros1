@@ -39,7 +39,7 @@ impl AlohaDeclaration {
             key,
             session,
         ));
-        return Self { monitor_running };
+        Self { monitor_running }
     }
 
     //PRIVATE:
@@ -66,7 +66,7 @@ impl AlohaDeclaration {
 
         let mut sending_beacons = true;
         Self::start_beacon_task(
-            beacon_period.clone(),
+            beacon_period,
             key.clone(),
             session.clone(),
             beacon_task_flag.clone(),
@@ -87,7 +87,7 @@ impl AlohaDeclaration {
                         .await;
                         if remote_beacons.load(std::sync::atomic::Ordering::SeqCst) == 0 {
                             Self::start_beacon_task(
-                                beacon_period.clone(),
+                                beacon_period,
                                 key.clone(),
                                 session.clone(),
                                 beacon_task_flag.clone(),
@@ -98,11 +98,9 @@ impl AlohaDeclaration {
                     }
                 }
                 _ => {
-                    if sending_beacons {
-                        if rand::random::<bool>() {
-                            Self::stop_beacon_task(beacon_task_flag.clone()).await;
-                            sending_beacons = false;
-                        }
+                    if sending_beacons && rand::random::<bool>() {
+                        Self::stop_beacon_task(beacon_task_flag.clone()).await;
+                        sending_beacons = false;
                     }
                 }
             }

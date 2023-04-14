@@ -51,7 +51,7 @@ pub struct Ros1ToZenohBridge {
 impl Ros1ToZenohBridge {
     pub async fn new_with_own_session(config: zenoh::config::Config) -> Self {
         let session = zenoh::open(config).res_async().await.unwrap().into_arc();
-        return Self::new_with_external_session(session);
+        Self::new_with_external_session(session)
     }
 
     pub fn new_with_external_session(session: Arc<zenoh::Session>) -> Self {
