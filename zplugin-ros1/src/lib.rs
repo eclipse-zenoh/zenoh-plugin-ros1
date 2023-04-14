@@ -54,7 +54,7 @@ impl Plugin for Ros1Plugin {
             }
         }
 
-        std::mem::drop(config);
+        drop(config);
 
         // return a RunningPlugin to zenohd
         Ok(Box::new(RunningPlugin::new(runtime)?))
@@ -63,7 +63,7 @@ impl Plugin for Ros1Plugin {
 
 // The RunningPlugin struct implementing the RunningPluginTrait trait
 struct RunningPlugin {
-    _bridge: Option<Ros1ToZenohBridge>,
+    _bridge: Ros1ToZenohBridge,
 }
 impl RunningPluginTrait for RunningPlugin {
     // Operation returning a ValidationFunction(path, old, new)-> ZResult<Option<serde_json::Map<String, serde_json::Value>>>
@@ -95,7 +95,7 @@ impl RunningPlugin {
         });
 
         Ok(Self {
-            _bridge: Some(bridge?),
+            _bridge: bridge?,
         })
     }
 }
