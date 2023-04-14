@@ -12,15 +12,18 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::{task::JoinHandle};
+use async_std::{task::JoinHandle, process::Child};
 
+use log::error;
 use zenoh_core::AsyncResolve;
 use zenoh;
 
 use std::{sync::{ 
     Arc,
     atomic::{AtomicBool, Ordering::Relaxed}
-}, process::Command};
+}};
+
+use async_std::process::Command;
 
 use self::{ros1_to_zenoh_bridge_impl::work_cycle};
 
@@ -43,15 +46,15 @@ pub mod aloha_subscription;
 pub struct Ros1ToZenohBridge {
     flag: Arc<AtomicBool>,
     task_handle: Box<JoinHandle<()>>,
-    rosmaster: Option<std::process::Child>
+    rosmaster: Option<Child>
 }
 impl Ros1ToZenohBridge {
     pub async fn new_with_own_session(config: zenoh::config::Config) -> Self {
         let session = zenoh::open(config).res_async().await.unwrap().into_arc();
-        return Self::new_with_external_session(session).await;
+        return Self::new_with_external_session(session);
     }
 
-    pub async fn new_with_external_session(session: Arc<zenoh::Session>) -> Self {
+    pub fn new_with_external_session(session: Arc<zenoh::Session>) -> Self {
         let flag = Arc::new(AtomicBool::new(true));
         Self {
             flag: flag.clone(),
@@ -60,33 +63,46 @@ impl Ros1ToZenohBridge {
         }
     }
 
-    pub async fn with_ros1_master(mut self) -> Self {
+    pub fn with_ros1_master(mut self) -> Self {
         assert!(self.rosmaster.is_none());
-
-        self.rosmaster = Some(
-            Command::new("rosmaster")
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()
-                .unwrap(),
-        );
-
-        return self;
+        match Command::new("rosmaster")
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn() {
+            Ok(child) => {
+                self.rosmaster = Some(child);
+            },
+            Err(e) => {
+                error!("Error starting rosmaster: {}", e);
+            },
+        }
+        self
     }
 
     pub async fn without_ros1_master(mut self) -> Self {
         assert!(self.rosmaster.is_some());
 
-        if self.rosmaster.is_some() {
-            self.rosmaster.take().unwrap().kill().unwrap();
-            self.rosmaster = None;
+        match &mut self.rosmaster {
+            Some(child) => {
+                if child.kill().is_ok() {
+                    if let Err(e) = child.status().await {
+                        error!("Error stopping child rosmaster: {}", e);
+                    }
+                }
+                self.rosmaster = None;
+            }
+            None => {
+                match Command::new("killall").arg("rosmaster").spawn() {
+                    Ok(mut child) => {
+                        if let Err(e) = child.status().await {
+                            error!("Error stopping foreign rosmaster: {}", e);
+                        }
+                    },
+                    Err(e) => error!("Error executing killall command to stop foreign rosmaster: {}", e)
+                }
+            }
         }
-        else {
-            let mut kill_master = Command::new("killall").arg("rosmaster").spawn().unwrap();
-            kill_master.wait().unwrap();
-        }
-
-        return self;
+        self
     }
 
     pub async fn async_await(&mut self) {

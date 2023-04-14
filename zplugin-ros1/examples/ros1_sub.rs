@@ -29,8 +29,7 @@ async fn main() {
     #[allow(unused_variables)]
     let bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default())
         .await
-        .with_ros1_master()
-        .await;
+        .with_ros1_master();
     println!(" OK!");
 
     // create ROS1 node and subscriber

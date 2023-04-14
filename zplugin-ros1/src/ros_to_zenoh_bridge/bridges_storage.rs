@@ -72,17 +72,17 @@ impl Bridges {
 struct Access<'a> {
     container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>,
     b_type: BridgeType,
-    ros1_client: &'a Arc<ros1_client::Ros1Client>, 
-    zenoh_client: &'a Arc<zenoh_client::ZenohClient>,
-    declaration_interface: &'a Arc<LocalResources>
+    ros1_client: Arc<ros1_client::Ros1Client>, 
+    zenoh_client: Arc<zenoh_client::ZenohClient>,
+    declaration_interface: Arc<LocalResources>
 }
 
 impl<'a> Access<'a> {
     fn new(b_type: BridgeType,
            container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>, 
-           ros1_client: &'a Arc<ros1_client::Ros1Client>,
-           zenoh_client: &'a Arc<zenoh_client::ZenohClient>,
-           declaration_interface: &'a Arc<LocalResources>) -> Self {
+           ros1_client: Arc<ros1_client::Ros1Client>,
+           zenoh_client: Arc<zenoh_client::ZenohClient>,
+           declaration_interface: Arc<LocalResources>) -> Self {
         Self { 
             container,
             b_type,
@@ -100,9 +100,9 @@ pub struct ComplementaryElementAccessor<'a> {
 impl<'a> ComplementaryElementAccessor<'a> {
     fn new(b_type: BridgeType,
            container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>, 
-           ros1_client: &'a Arc<ros1_client::Ros1Client>,
-           zenoh_client: &'a Arc<zenoh_client::ZenohClient>,
-           declaration_interface: &'a Arc<LocalResources>) -> Self {
+           ros1_client: Arc<ros1_client::Ros1Client>,
+           zenoh_client: Arc<zenoh_client::ZenohClient>,
+           declaration_interface: Arc<LocalResources>) -> Self {
         Self { access: Access::new(b_type, container, ros1_client, zenoh_client, declaration_interface) }
     }
 
@@ -146,9 +146,9 @@ pub struct ElementAccessor<'a> {
 impl<'a> ElementAccessor<'a> {
     fn new(b_type: BridgeType,
            container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>, 
-           ros1_client: &'a Arc<ros1_client::Ros1Client>,
-           zenoh_client: &'a Arc<zenoh_client::ZenohClient>,
-           declaration_interface: &'a Arc<LocalResources>) -> Self {
+           ros1_client: Arc<ros1_client::Ros1Client>,
+           zenoh_client: Arc<zenoh_client::ZenohClient>,
+           declaration_interface: Arc<LocalResources>) -> Self {
         Self { access: Access::new(b_type, container, ros1_client, zenoh_client, declaration_interface) }
     }
 
@@ -193,10 +193,11 @@ impl<'a> ElementAccessor<'a> {
 
 
 pub struct TypeAccessor<'a> {
-    storage: &'a mut BridgesStorage
+    storage: &'a mut BridgesStorage,
+    _v: bool
 }
 impl<'a> TypeAccessor<'a> {
-    fn new(storage: &'a mut BridgesStorage) -> Self { Self { storage } }
+    fn new(storage: &'a mut BridgesStorage) -> Self { Self { storage, _v: false } }
 
     pub fn complementary_for(&'a mut self, b_type: BridgeType) -> ComplementaryElementAccessor<'a> {
         let b_type = match b_type {
@@ -208,9 +209,9 @@ impl<'a> TypeAccessor<'a> {
         ComplementaryElementAccessor::new(
             b_type,
             self.storage.bridges.container_mut(b_type),
-            &self.storage.ros1_client,
-            &self.storage.zenoh_client,
-            &self.storage.declaration_interface
+            self.storage.ros1_client.clone(),
+            self.storage.zenoh_client.clone(),
+            self.storage.declaration_interface.clone()
         )
     }
 
@@ -218,9 +219,9 @@ impl<'a> TypeAccessor<'a> {
         ElementAccessor::new(
             b_type,
             self.storage.bridges.container_mut(b_type),
-            &self.storage.ros1_client,
-            &self.storage.zenoh_client,
-            &self.storage.declaration_interface
+            self.storage.ros1_client.clone(),
+            self.storage.zenoh_client.clone(),
+            self.storage.declaration_interface.clone()
         )
     }
 }

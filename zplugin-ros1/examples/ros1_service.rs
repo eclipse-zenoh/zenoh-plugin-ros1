@@ -15,7 +15,6 @@
 use zenoh::prelude::SplitBuffer;
 use zenoh_core::AsyncResolve;
 
-use rosrust;
 use zplugin_ros1::ros_to_zenoh_bridge::Ros1ToZenohBridge;
 
 #[async_std::main]
@@ -30,8 +29,7 @@ async fn main() {
     #[allow(unused_variables)]
     let bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default())
         .await
-        .with_ros1_master()
-        .await;
+        .with_ros1_master();
     println!(" OK!");
 
     // create ROS1 node and service

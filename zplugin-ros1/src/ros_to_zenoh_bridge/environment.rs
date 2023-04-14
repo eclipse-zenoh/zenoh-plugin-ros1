@@ -25,23 +25,19 @@ impl<'a> Entry<'a> {
     where
         Tvar: ToString
     {
-        return Entry{name, default: default.to_string()};
+        Entry{name, default: default.to_string()}
     }
 
     pub fn get<Tvar>(&self) -> Tvar
     where
         Tvar: FromStr + std::convert::From<String>
     {
-        match std::env::var(self.name) {
-            Ok(val) => {
-                match val.parse::<Tvar>() {
-                    Ok(val) => return val,
-                    Err(..) => {}
-                };
+        if let Ok(val) = std::env::var(self.name) {
+            if let Ok(val) = val.parse::<Tvar>() {
+                return val;
             }
-            Err(..) => {}
-        };
-        return self.default.clone().into();
+        }
+        self.default.clone().into()
     }
 
     pub fn set<Tvar>(&self, value: Tvar)
@@ -53,7 +49,7 @@ impl<'a> Entry<'a> {
 }
 
 
-pub struct Environment {}
+pub struct Environment;
 impl Environment {
     pub fn ros_master_uri() -> Entry<'static> {
         return Entry::new("ROS_MASTER_URI", master());

@@ -42,7 +42,9 @@ impl Plugin for Ros1Plugin {
     // The first operation called by zenohd on the plugin
     fn start(name: &str, runtime: &Self::StartArgs) -> ZResult<Self::RunningPlugin> {
         let config = runtime.config.lock();
-        let self_cfg = config.plugin(name).unwrap().as_object().unwrap();
+        let self_cfg = config
+            .plugin(name).ok_or("No plugin in the config!")?
+            .as_object().ok_or("Unable to get cfg objet!")?;
 
         // run through the bridge's config options and fill them from plugins config
         let plugin_configuration_entries = Environment::env();
@@ -56,14 +58,13 @@ impl Plugin for Ros1Plugin {
         std::mem::drop(config);
 
         // return a RunningPlugin to zenohd
-        Ok(Box::new(RunningPlugin::new(name.clone(), runtime.clone())))
+        Ok(Box::new(RunningPlugin::new(runtime)?))
     }
 }
 
 
 // The RunningPlugin struct implementing the RunningPluginTrait trait
 struct RunningPlugin {
-    _name: String,
     _bridge: Option<Ros1ToZenohBridge>
 }
 impl RunningPluginTrait for RunningPlugin {
@@ -74,7 +75,7 @@ impl RunningPluginTrait for RunningPlugin {
             bail!("Reconfiguration at runtime is not allowed!");
         })
     }
-
+ 
     // Function called on any query on admin space that matches this plugin's sub-part of the admin space.
     // Thus the plugin can reply its contribution to the global admin space of this zenohd.
     fn adminspace_getter<'a>(
@@ -87,17 +88,16 @@ impl RunningPluginTrait for RunningPlugin {
 }
 
 impl RunningPlugin {
-    fn new(name: &str, runtime: Runtime) -> Self {
-        let bridge = async_std::task::block_on( async {
+    fn new(runtime: &Runtime) -> ZResult<Self> {
+        let bridge: ZResult<Ros1ToZenohBridge> = async_std::task::block_on( async {
             // create a zenoh Session that shares the same Runtime than zenohd
-            let session = zenoh::init(runtime.clone()).res().await.unwrap().into_arc();
-            let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session).await;
-            return bridge;
+            let session = zenoh::init(runtime.clone()).res().await?.into_arc();
+            let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
+            return Ok(bridge);
         });
         
-        return Self {
-            _name: name.to_string(),
-            _bridge: Some(bridge)
-        };
+        return Ok(Self {
+            _bridge: Some(bridge?)
+        });
     }
 }

@@ -12,6 +12,7 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::future;
 use zplugin_ros1::ros_to_zenoh_bridge::Ros1ToZenohBridge;
 
 #[async_std::main]
@@ -27,5 +28,5 @@ async fn main() {
     println!(" OK!");
 
     println!("Running bridge, press Ctrl+C to exit...");
-    async_std::task::sleep(core::time::Duration::MAX).await;
+    future::pending::<()>().await;
 }
