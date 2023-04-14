@@ -80,7 +80,7 @@ jobs:
         run: cargo install cargo-nextest --locked
 
       - name: Install ROS
-        run: apt install ros-base
+        run: apt install -y ros-base
 
       - name: Run tests
         uses: actions-rs/cargo@v1
