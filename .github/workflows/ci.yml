@@ -76,17 +76,14 @@ jobs:
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
-      - name: Install nextest
-        run: cargo install cargo-nextest --locked
-
       - name: Install ROS
         run: apt install -y ros-base
 
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
-          command: nextest
-          args: run
+          command: test
+          args: --verbose
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
           ASYNC_STD_THREAD_COUNT: 4
