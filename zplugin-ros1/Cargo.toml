@@ -18,7 +18,7 @@ authors = [
 	"Dmitrii Bannov <dmitrii.bannov@zettascale.tech>",
 ]
 edition = "2021"
-repository = "https://github.com/ZettaScaleLabs/zenoh-plugin-ros1"
+repository = "https://github.com/eclipse-zenoh/zenoh-plugin-ros1"
 homepage = "http://zenoh.io"
 license = " EPL-2.0 OR Apache-2.0"
 categories = ["network-programming"]

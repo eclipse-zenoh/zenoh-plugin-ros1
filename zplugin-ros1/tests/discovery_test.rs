@@ -13,6 +13,8 @@
 //
 
 use std::{
+    net::SocketAddr,
+    str::FromStr,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -20,14 +22,19 @@ use std::{
 use async_std::prelude::FutureExt;
 use multiset::HashMultiSet;
 use serial_test::serial;
-use zenoh::{config::ModeDependentValue, OpenBuilder, Session};
+use zenoh::{config::ModeDependentValue, prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
-use zplugin_ros1::ros_to_zenoh_bridge::discovery;
+use zplugin_ros1::ros_to_zenoh_bridge::{discovery, topic_utilities::make_topic};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 
 fn session_builder() -> OpenBuilder<zenoh::config::Config> {
     let mut config = zenoh::config::peer();
+    config
+        .scouting
+        .multicast
+        .set_address(Some(SocketAddr::from_str("224.0.0.224:16001").unwrap()))
+        .unwrap();
     config
         .timestamping
         .set_enabled(Some(ModeDependentValue::Unique(true)))
@@ -158,10 +165,15 @@ async fn generate_topics(
     let mut result = HashMultiSet::new();
     for number in 0..count {
         for _dup in 0..duplication {
-            result.insert(rosrust::api::Topic {
-                name: format!("name_{}_{}", number, stage),
-                datatype: "some".to_string(),
-            });
+            unsafe {
+                let topic = make_topic(
+                    keyexpr::from_str_unchecked("some"),
+                    keyexpr::from_str_unchecked(format!("name_{}_{}", number, stage).as_str()),
+                )
+                .unwrap();
+
+                result.insert(topic);
+            }
         }
     }
     result

@@ -23,8 +23,7 @@ async fn main() {
     // create bridge with ROS1 master
     // In this example the bridge will connect to master specified by ROS_MASTER_URI env variable (default http://localhost:11311/)
     print!("Starting Bridge...");
-    #[allow(unused_variables)]
-    let bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default()).await;
+    let _bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default()).await;
     println!(" OK!");
 
     println!("Running bridge, press Ctrl+C to exit...");

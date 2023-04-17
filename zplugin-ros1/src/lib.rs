@@ -94,8 +94,6 @@ impl RunningPlugin {
             Ok(bridge)
         });
 
-        Ok(Self {
-            _bridge: bridge?,
-        })
+        Ok(Self { _bridge: bridge? })
     }
 }

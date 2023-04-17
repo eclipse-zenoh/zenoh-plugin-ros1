@@ -14,6 +14,7 @@
 
 use std::{
     collections::HashSet,
+    net::SocketAddr,
     str::FromStr,
     sync::{atomic::AtomicUsize, Arc, Mutex},
     time::Duration,
@@ -28,7 +29,13 @@ use zplugin_ros1::ros_to_zenoh_bridge::{aloha_declaration, aloha_subscription};
 const TIMEOUT: Duration = Duration::from_secs(30);
 
 fn session_builder() -> OpenBuilder<zenoh::config::Config> {
-    zenoh::open(zenoh::config::peer())
+    let mut config = zenoh::config::peer();
+    config
+        .scouting
+        .multicast
+        .set_address(Some(SocketAddr::from_str("224.0.0.224:16000").unwrap()))
+        .unwrap();
+    zenoh::open(config)
 }
 
 fn declaration_builder(
@@ -65,7 +72,7 @@ fn make_subscription(
 }
 
 #[test]
-#[serial(ROS1)]
+#[serial(Aloha)]
 fn discovery_instantination_one_instance() {
     let session = make_session();
     let _declaration = declaration_builder(session.clone(), Duration::from_secs(1));
@@ -73,7 +80,7 @@ fn discovery_instantination_one_instance() {
 }
 
 #[test]
-#[serial(ROS1)]
+#[serial(Aloha)]
 fn discovery_instantination_many_instances() {
     let mut sessions = Vec::new();
     let mut declarations = Vec::new();
