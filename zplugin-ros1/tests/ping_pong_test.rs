@@ -14,7 +14,7 @@
 
 use strum_macros::Display;
 use zenoh::prelude::SplitBuffer;
-use zenoh_core::SyncResolve;
+use zenoh_core::{zresult::ZResult, bail, SyncResolve};
 
 use std::{
     collections::HashSet,
@@ -162,7 +162,7 @@ impl Drop for RunningBridge {
 #[serial(ROS1)]
 fn env_checks_no_master_init_and_exit_immed() {
     let _ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     async_std::task::block_on(bridge.assert_ros_error());
     async_std::task::block_on(bridge.assert_bridge_empy());
 }
@@ -171,7 +171,7 @@ fn env_checks_no_master_init_and_exit_immed() {
 #[serial(ROS1)]
 fn env_checks_no_master_init_and_wait() {
     let _ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     async_std::task::block_on(bridge.assert_ros_error());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -183,7 +183,7 @@ fn env_checks_no_master_init_and_wait() {
 #[serial(ROS1)]
 fn env_checks_with_master_init_and_exit_immed() {
     let _ros_env = ROSEnvironment::new().with_master();
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     async_std::task::block_on(bridge.assert_ros_ok());
     async_std::task::block_on(bridge.assert_bridge_empy());
 }
@@ -192,7 +192,7 @@ fn env_checks_with_master_init_and_exit_immed() {
 #[serial(ROS1)]
 fn env_checks_with_master_init_and_wait() {
     let _ros_env = ROSEnvironment::new().with_master();
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     async_std::task::block_on(bridge.assert_ros_ok());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -204,7 +204,7 @@ fn env_checks_with_master_init_and_wait() {
 #[serial(ROS1)]
 fn env_checks_with_master_init_and_loose_master() {
     let mut _ros_env = Some(ROSEnvironment::new().with_master());
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     async_std::task::block_on(bridge.assert_ros_ok());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -222,7 +222,7 @@ fn env_checks_with_master_init_and_loose_master() {
 #[serial(ROS1)]
 fn env_checks_with_master_init_and_wait_for_master() {
     let mut _ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     async_std::task::block_on(bridge.assert_ros_error());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -240,7 +240,7 @@ fn env_checks_with_master_init_and_wait_for_master() {
 #[serial(ROS1)]
 fn env_checks_with_master_init_and_reconnect_many_times_to_master() {
     let mut ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     for _i in 0..20 {
         async_std::task::block_on(bridge.assert_ros_error());
         async_std::task::block_on(bridge.assert_bridge_empy());
@@ -274,6 +274,28 @@ impl ZenohQuery {
         }
     }
 
+    async fn make_query(inner: &Arc<BridgeChecker>, key: &str, data: &Vec<u8>) -> ZResult<()> {
+        let query = inner.make_zenoh_query_sync(key, data.clone()).await;
+        match query.recv_async().await {
+            Ok(reply) => match reply.sample {
+                Ok(value) => {
+                    let returned_data = value.payload.contiguous().to_vec();
+                    if data.eq(&returned_data) {
+                        Ok(())
+                    } else {
+                        bail!("ZenohQuery: data is not equal! \n Sent data: {:?} \nReturned data: {:?}", data, returned_data);
+                    }
+                }
+                Err(e) => {
+                    bail!("ZenohQuery: got reply with error: {}", e);
+                }
+            },
+            Err(e) => {
+                bail!("ZenohQuery: failed to get reply with error: {}", e);
+            }
+        }
+    }
+
     async fn query_loop(
         inner: Arc<BridgeChecker>,
         key: String,
@@ -282,24 +304,12 @@ impl ZenohQuery {
         cycles: Arc<AtomicUsize>,
     ) {
         while running.load(Relaxed) {
-            let query = inner
-                .make_zenoh_query_sync(key.as_str(), data.clone())
-                .await;
-            match query.recv_async().await {
-                Ok(reply) => match reply.sample {
-                    Ok(value) => {
-                        let returned_data = value.payload.contiguous().to_vec();
-                        assert!(data.eq(&returned_data));
-                        cycles.fetch_add(1, SeqCst);
-                    }
-                    Err(e) => {
-                        error!("ZenohQuery: got reply with error: {}", e);
-                        break;
-                    }
-                },
+            match Self::make_query(&inner, &key, &data).await {
+                Ok(_) => {
+                    cycles.fetch_add(1, SeqCst);
+                }
                 Err(e) => {
-                    error!("ZenohQuery: failed to get reply with error: {}", e);
-                    break;
+                    error!("{}", e);
                 }
             }
         }
@@ -397,6 +407,15 @@ impl Publisher for ZenohQuery {
             data,
             self.cycles.clone(),
         ));
+    }
+
+    fn ready(&self) -> bool {
+        let data = (0..10).collect();
+        async_std::task::block_on(
+            async move {
+            Self::make_query(&self.inner, &self.key, &data).await
+            }
+        ).is_ok()
     }
 }
 impl Publisher for ROS1Client {
@@ -707,7 +726,7 @@ impl TestEnvironment {
         let ros_env = ROSEnvironment::new().with_master();
 
         // start bridge
-        let bridge = RunningBridge::new(zenoh::config::Config::default());
+        let bridge = RunningBridge::new(zenoh::config::peer());
 
         // start checker's engine
         let checker = Arc::new(BridgeChecker::new());
@@ -945,7 +964,7 @@ impl BridgeChecker {
 #[serial(ROS1)]
 fn init_with_ros() {
     let _ros_env = ROSEnvironment::new().with_master();
-    let bridge = RunningBridge::new(zenoh::config::Config::default());
+    let bridge = RunningBridge::new(zenoh::config::peer());
     let checker = BridgeChecker::new();
 
     async_std::task::block_on(bridge.assert_ros_ok());

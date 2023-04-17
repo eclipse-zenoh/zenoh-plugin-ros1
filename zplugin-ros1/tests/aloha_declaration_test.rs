@@ -73,7 +73,7 @@ fn make_subscription(
 
 #[test]
 #[serial(Aloha)]
-fn discovery_instantination_one_instance() {
+fn aloha_instantination_one_instance() {
     let session = make_session();
     let _declaration = declaration_builder(session.clone(), Duration::from_secs(1));
     let _subscription = make_subscription(session, Duration::from_secs(1));
@@ -81,11 +81,11 @@ fn discovery_instantination_one_instance() {
 
 #[test]
 #[serial(Aloha)]
-fn discovery_instantination_many_instances() {
+fn aloha_instantination_many_instances() {
     let mut sessions = Vec::new();
     let mut declarations = Vec::new();
     let mut subscriptions = Vec::new();
-    for _i in 0..10 {
+    for _ in 0..10 {
         let session = make_session();
         sessions.push(session.clone());
         declarations.push(declaration_builder(session.clone(), Duration::from_secs(1)));

@@ -15,7 +15,7 @@
 use zenoh::prelude::keyexpr;
 
 pub fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {
-    return topic.name.trim_start_matches('/').trim_end_matches('/');
+    topic.name.trim_start_matches('/').trim_end_matches('/')
 }
 
 pub fn make_topic(datatype: &keyexpr, topic_name: &keyexpr) -> Result<rosrust::api::Topic, String> {

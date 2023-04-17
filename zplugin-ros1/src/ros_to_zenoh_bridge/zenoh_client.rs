@@ -40,33 +40,23 @@ impl ZenohClient {
     {
         debug!("Creating Subscriber on {}", key_expr);
 
-        match self.make_keyexpr(key_expr).await {
-            Ok(opt_keyexpr) => {
-                self.session
-                    .declare_subscriber(opt_keyexpr)
-                    .callback(callback)
-                    .allowed_origin(Locality::Remote)
-                    .res_async()
-                    .await
-            }
-            Err(e) => Err(e),
-        }
+        self.session
+            .declare_subscriber(key_expr)
+            .callback(callback)
+            .allowed_origin(Locality::Remote)
+            .res_async()
+            .await
     }
 
     pub async fn publish(&self, key_expr: &str) -> ZResult<zenoh::publication::Publisher<'static>> {
         debug!("Creating Publisher on {}", key_expr);
 
-        match self.make_keyexpr(key_expr).await {
-            Ok(opt_keyexpr) => {
-                self.session
-                    .declare_publisher(opt_keyexpr)
-                    .allowed_destination(Locality::Remote)
-                    .congestion_control(CongestionControl::Block)
-                    .res_async()
-                    .await
-            }
-            Err(e) => Err(e),
-        }
+        self.session
+            .declare_publisher(key_expr.to_owned())
+            .allowed_destination(Locality::Remote)
+            .congestion_control(CongestionControl::Block)
+            .res_async()
+            .await
     }
 
     pub async fn make_queryable<Callback>(
@@ -79,17 +69,12 @@ impl ZenohClient {
     {
         info!("Creating Queryable on {}", key_expr);
 
-        match self.make_keyexpr(key_expr).await {
-            Ok(opt_keyexpr) => {
-                self.session
-                    .declare_queryable(opt_keyexpr)
-                    .allowed_origin(Locality::Remote)
-                    .callback(callback)
-                    .res_async()
-                    .await
-            }
-            Err(e) => Err(e),
-        }
+        self.session
+            .declare_queryable(key_expr)
+            .allowed_origin(Locality::Remote)
+            .callback(callback)
+            .res_async()
+            .await
     }
 
     pub async fn make_query<Callback>(
@@ -103,17 +88,13 @@ impl ZenohClient {
     {
         debug!("Creating Query on {}", key_expr);
 
-        match self.make_keyexpr(key_expr).await {
-            Ok(opt_keyexpr) => {
-                self.session
-                    .get(opt_keyexpr)
-                    .with_value(data)
-                    .callback(callback)
-                    .res_async()
-                    .await
-            }
-            Err(e) => Err(e),
-        }
+        self.session
+            .get(key_expr)
+            .with_value(data)
+            .callback(callback)
+            .allowed_destination(Locality::Remote)
+            .res_async()
+            .await
     }
 
     pub async fn make_query_sync(
@@ -123,25 +104,10 @@ impl ZenohClient {
     ) -> ZResult<flume::Receiver<zenoh::query::Reply>> {
         debug!("Creating Query on {}", key_expr);
 
-        match self.make_keyexpr(key_expr).await {
-            Ok(opt_keyexpr) => {
-                self.session
-                    .get(opt_keyexpr)
-                    .with_value(data)
-                    .allowed_destination(Locality::Remote)
-                    .res_async()
-                    .await
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    // PRIVATE
-    async fn make_keyexpr(&self, key_expr: &str) -> ZResult<zenoh::key_expr::KeyExpr<'static>> {
-        debug!("Create optimized keyexpr {}", key_expr);
-
         self.session
-            .declare_keyexpr(key_expr.to_string())
+            .get(key_expr)
+            .with_value(data)
+            .allowed_destination(Locality::Remote)
             .res_async()
             .await
     }

@@ -143,7 +143,7 @@ impl TopicBridge {
             }
             Err(e) => {
                 self.bridge = None;
-                error!("Errr creating bridge: {}", e);
+                error!("Error creating bridge: {}", e);
             }
         }
     }
