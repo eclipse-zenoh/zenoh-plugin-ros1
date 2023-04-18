@@ -50,7 +50,7 @@ impl Plugin for Ros1Plugin {
         let plugin_configuration_entries = Environment::env();
         for entry in plugin_configuration_entries.iter() {
             if let Some(v) = self_cfg.get(entry.name) {
-                entry.set(v);
+                entry.set(v.to_string());
             }
         }
 

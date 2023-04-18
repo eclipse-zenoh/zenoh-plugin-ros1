@@ -20,8 +20,9 @@ use super::{
 };
 use log::error;
 use std::sync::Arc;
+use strum_macros::{Display, EnumString};
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, EnumString, Clone, Display)]
 pub enum BridgingMode {
     Lazy,
     Automatic,

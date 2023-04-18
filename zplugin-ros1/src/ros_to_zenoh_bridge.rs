@@ -24,22 +24,47 @@ use std::sync::{
 
 use self::ros1_to_zenoh_bridge_impl::work_cycle;
 
-pub mod abstract_bridge;
+#[cfg(feature = "test")]
+pub mod aloha_declaration;
+#[cfg(feature = "test")]
+pub mod aloha_subscription;
+#[cfg(feature = "test")]
 pub mod bridge_type;
+#[cfg(feature = "test")]
 pub mod discovery;
+#[cfg(feature = "test")]
 pub mod ros1_client;
-pub mod topic_bridge;
+#[cfg(feature = "test")]
+pub mod ros1_to_zenoh_bridge_impl;
+#[cfg(feature = "test")]
+pub mod topic_utilities;
+#[cfg(feature = "test")]
 pub mod zenoh_client;
 
+#[cfg(not(feature = "test"))]
+mod aloha_declaration;
+#[cfg(not(feature = "test"))]
+mod aloha_subscription;
+#[cfg(not(feature = "test"))]
+mod bridge_type;
+#[cfg(not(feature = "test"))]
+mod discovery;
+#[cfg(not(feature = "test"))]
+mod ros1_client;
+#[cfg(not(feature = "test"))]
+mod ros1_to_zenoh_bridge_impl;
+#[cfg(not(feature = "test"))]
+mod topic_utilities;
+#[cfg(not(feature = "test"))]
+mod zenoh_client;
+
+mod abstract_bridge;
 mod bridges_storage;
+mod topic_bridge;
 mod topic_mapping;
 
-pub mod aloha_declaration;
-pub mod aloha_subscription;
 pub mod environment;
 pub mod ros1_master_ctrl;
-pub mod ros1_to_zenoh_bridge_impl;
-pub mod topic_utilities;
 
 pub struct Ros1ToZenohBridge {
     flag: Arc<AtomicBool>,
@@ -59,17 +84,18 @@ impl Ros1ToZenohBridge {
         }
     }
 
-    pub async fn async_await(&mut self) {
-        self.task_handle.as_mut().await;
-    }
-
     pub async fn stop(&mut self) {
         self.flag.store(false, Relaxed);
         self.async_await().await;
     }
 
-    pub async fn run(session: Arc<zenoh::Session>, flag: Arc<AtomicBool>) {
+    //PRIVATE:
+    async fn run(session: Arc<zenoh::Session>, flag: Arc<AtomicBool>) {
         work_cycle(session, flag, |_v| {}, |_status| {}).await;
+    }
+
+    async fn async_await(&mut self) {
+        self.task_handle.as_mut().await;
     }
 }
 impl Drop for Ros1ToZenohBridge {

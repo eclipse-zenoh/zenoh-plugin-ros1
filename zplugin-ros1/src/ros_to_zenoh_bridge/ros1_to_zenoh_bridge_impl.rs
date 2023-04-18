@@ -16,9 +16,12 @@ use async_std::sync::Mutex;
 
 use zenoh;
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering::Relaxed},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc,
+    },
+    time::Duration,
 };
 
 use log::{debug, error};
@@ -59,7 +62,7 @@ pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
     BridgeStatisticsCallback: Fn(BridgeStatus),
 {
     let ros1_client = Arc::new(ros1_client::Ros1Client::new(
-        Environment::ros_name().get::<String>().as_str(),
+        Environment::ros_name().get().as_str(),
     ));
     let zenoh_client = Arc::new(zenoh_client::ZenohClient::new(session.clone()));
 
@@ -153,6 +156,8 @@ where
         bridges: Arc<Mutex<BridgesStorage>>,
         flag: Arc<AtomicBool>,
     ) {
+        let poll_interval: Duration = Environment::master_polling_interval().get().into();
+
         while flag.load(Relaxed) {
             let cl = ros1_client.clone();
             let ros1_state = async_std::task::spawn_blocking(move || {
@@ -175,9 +180,9 @@ where
 
                     async_std::task::sleep({
                         if smth_changed {
-                            core::time::Duration::from_millis(100)
+                            poll_interval / 2
                         } else {
-                            core::time::Duration::from_millis(200)
+                            poll_interval
                         }
                     })
                     .await;
@@ -191,7 +196,7 @@ where
                         Self::cleanup(&mut locked);
                         self.report_bridge_statistics(&locked);
                     }
-                    async_std::task::sleep(core::time::Duration::from_millis(500)).await;
+                    async_std::task::sleep(poll_interval).await;
                 }
             }
         }

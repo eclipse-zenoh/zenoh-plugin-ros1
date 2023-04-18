@@ -31,6 +31,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 no_mangle = ["zenoh-plugin-trait/no_mangle"]
 default = ["no_mangle"]
+test = []
 
 [dependencies]
 env_logger = "0.9.1"
@@ -43,6 +44,9 @@ serde = "1.0.147"
 serde_json = "1.0.85"
 async-global-executor = "2.3.1"
 rand = "0.8.5"
+strum = "0.24"
+strum_macros = "0.24"
+duration-string = "0.3.0"
 
 # zenoh = { version = "0.6.0-beta.1", features = ["unstable"] }
 zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
@@ -65,10 +69,9 @@ rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "fea
 # rosrust = { path = "../../rosrust/rosrust/rosrust" }
 
 [dev-dependencies]
-strum = "0.24"
-strum_macros = "0.24"
 serial_test = "0.10.0"
 multiset = "0.0.5"
+zplugin-ros1 = { path = ".", features = ["test"]}
 
 [dependencies.async-std]
 version = "=1.12.0"

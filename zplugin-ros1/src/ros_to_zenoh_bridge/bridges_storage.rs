@@ -18,13 +18,9 @@ use std::{
 };
 
 use super::{
-    bridge_type::BridgeType,
-    discovery::LocalResources,
-    ros1_client,
-    ros1_to_zenoh_bridge_impl::BridgeStatus,
-    topic_bridge::{self, TopicBridge},
-    topic_mapping::Ros1TopicMapping,
-    zenoh_client,
+    bridge_type::BridgeType, discovery::LocalResources, environment::Environment, ros1_client,
+    ros1_to_zenoh_bridge_impl::BridgeStatus, topic_bridge::TopicBridge,
+    topic_mapping::Ros1TopicMapping, zenoh_client,
 };
 
 struct Bridges {
@@ -156,7 +152,7 @@ impl<'a> ComplementaryElementAccessor<'a> {
                     self.access.declaration_interface.clone(),
                     self.access.ros1_client.clone(),
                     self.access.zenoh_client.clone(),
-                    topic_bridge::BridgingMode::Automatic,
+                    Environment::bridging_mode().get(),
                 ))
                 .set_has_complementary_in_zenoh(true)
                 .await;
@@ -223,7 +219,7 @@ impl<'a> ElementAccessor<'a> {
                         self.access.declaration_interface.clone(),
                         self.access.ros1_client.clone(),
                         self.access.zenoh_client.clone(),
-                        topic_bridge::BridgingMode::Automatic,
+                        Environment::bridging_mode().get(),
                     ));
                     inserted.set_present_in_ros1(true).await;
                     smth_changed = true;

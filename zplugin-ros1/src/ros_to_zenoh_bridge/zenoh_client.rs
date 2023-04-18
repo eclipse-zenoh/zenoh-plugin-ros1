@@ -44,6 +44,7 @@ impl ZenohClient {
             .declare_subscriber(key_expr)
             .callback(callback)
             .allowed_origin(Locality::Remote)
+            .reliability(Reliability::Reliable)
             .res_async()
             .await
     }
