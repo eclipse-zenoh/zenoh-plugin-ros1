@@ -2245,7 +2245,7 @@ dependencies = [
 [[package]]
 name = "ros_message"
 version = "0.1.0"
-source = "git+https://github.com/ZettaScaleLabs/rosrust.git?branch=feature/fix_bugs#a3fc4ceefa82a58250677b12cfe3c9df4ea239f0"
+source = "git+https://github.com/ZettaScaleLabs/rosrust.git?branch=feature/fix_bugs#3ff335ae909e494578d2c9b5d020c5ade58f39cf"
 dependencies = [
  "array-init",
  "hex",
@@ -2261,7 +2261,7 @@ dependencies = [
 [[package]]
 name = "rosrust"
 version = "0.9.10"
-source = "git+https://github.com/ZettaScaleLabs/rosrust.git?branch=feature/fix_bugs#a3fc4ceefa82a58250677b12cfe3c9df4ea239f0"
+source = "git+https://github.com/ZettaScaleLabs/rosrust.git?branch=feature/fix_bugs#3ff335ae909e494578d2c9b5d020c5ade58f39cf"
 dependencies = [
  "byteorder",
  "colored",
@@ -2284,7 +2284,7 @@ dependencies = [
 [[package]]
 name = "rosrust_codegen"
 version = "0.9.6"
-source = "git+https://github.com/ZettaScaleLabs/rosrust.git?branch=feature/fix_bugs#a3fc4ceefa82a58250677b12cfe3c9df4ea239f0"
+source = "git+https://github.com/ZettaScaleLabs/rosrust.git?branch=feature/fix_bugs#3ff335ae909e494578d2c9b5d020c5ade58f39cf"
 dependencies = [
  "error-chain 0.12.4",
  "hex",

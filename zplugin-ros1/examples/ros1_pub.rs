@@ -13,7 +13,9 @@
 //
 
 use zenoh_core::AsyncResolve;
-use zplugin_ros1::ros_to_zenoh_bridge::{ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge};
+use zplugin_ros1::ros_to_zenoh_bridge::{
+    environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
+};
 
 #[async_std::main]
 async fn main() {
@@ -34,7 +36,11 @@ async fn main() {
 
     // create ROS1 node and publisher
     print!("Creating ROS1 Node...");
-    let ros1_node = rosrust::api::Ros::new("ROS1_test_node").unwrap();
+    let ros1_node = rosrust::api::Ros::new(
+        Environment::ros_name().get().as_str(),
+        Environment::ros_master_uri().get().as_str(),
+    )
+    .unwrap();
     println!(" OK!");
     print!("Creating ROS1 Publisher...");
     let ros1_publisher = ros1_node

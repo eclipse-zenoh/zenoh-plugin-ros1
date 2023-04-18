@@ -21,9 +21,9 @@ pub struct Ros1Client {
 
 impl Ros1Client {
     // PUBLIC
-    pub fn new(name: &str) -> Ros1Client {
+    pub fn new(name: &str, master_uri: &str) -> Ros1Client {
         Ros1Client {
-            ros: rosrust::api::Ros::new(name).unwrap(),
+            ros: rosrust::api::Ros::new(name, master_uri).unwrap(),
         }
     }
 

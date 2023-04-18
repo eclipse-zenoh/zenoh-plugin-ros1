@@ -13,41 +13,30 @@
 //
 
 use std::{
-    net::SocketAddr,
-    str::FromStr,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use async_std::prelude::FutureExt;
 use multiset::HashMultiSet;
-use serial_test::serial;
-use zenoh::{config::ModeDependentValue, prelude::keyexpr, OpenBuilder, Session};
+use zenoh::{prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
-use zplugin_ros1::ros_to_zenoh_bridge::{discovery, topic_utilities::make_topic};
+use zplugin_ros1::ros_to_zenoh_bridge::{
+    discovery, test_helpers::IsolatedConfig, topic_utilities::make_topic,
+};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 
-fn session_builder() -> OpenBuilder<zenoh::config::Config> {
-    let mut config = zenoh::config::peer();
-    config
-        .scouting
-        .multicast
-        .set_address(Some(SocketAddr::from_str("224.0.0.224:16001").unwrap()))
-        .unwrap();
-    config
-        .timestamping
-        .set_enabled(Some(ModeDependentValue::Unique(true)))
-        .unwrap();
-    zenoh::open(config)
+fn session_builder(cfg: &IsolatedConfig) -> OpenBuilder<zenoh::config::Config> {
+    zenoh::open(cfg.peer())
 }
 
 fn discovery_builder(session: Arc<Session>) -> discovery::DiscoveryBuilder {
     discovery::DiscoveryBuilder::new("*".to_string(), "*".to_string(), session)
 }
 
-fn make_session() -> Arc<Session> {
-    session_builder().res_sync().unwrap().into_arc()
+fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
+    session_builder(cfg).res_sync().unwrap().into_arc()
 }
 
 fn make_discovery(session: Arc<Session>) -> discovery::Discovery {
@@ -55,18 +44,17 @@ fn make_discovery(session: Arc<Session>) -> discovery::Discovery {
 }
 
 #[test]
-#[serial(ROS1)]
 fn discovery_instantination_one_instance() {
-    let session = make_session();
+    let session = make_session(&IsolatedConfig::default());
     let _discovery = make_discovery(session);
 }
 
 #[test]
-#[serial(ROS1)]
 fn discovery_instantination_many_instances() {
+    let cfg = IsolatedConfig::default();
     let mut sessions = Vec::new();
     for _i in 0..10 {
-        sessions.push(make_session());
+        sessions.push(make_session(&cfg));
     }
 
     let mut discoveries = Vec::new();
@@ -207,10 +195,7 @@ impl State {
         self.clients_duplication = clients_duplication;
         self
     }
-    //pub fn stage(mut self, stage: usize) -> Self {
-    //    self.stage = stage;
-    //    self
-    //}
+
     async fn summarize(
         &self,
     ) -> (
@@ -287,11 +272,13 @@ async fn test_state_transition(
 }
 
 async fn run_discovery(scenario: Vec<State>) {
-    let src_session = session_builder().res_async().await.unwrap().into_arc();
+    let cfg = IsolatedConfig::default();
+
+    let src_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
     let src_discovery = discovery_builder(src_session).build().await;
 
     let rcv = DiscoveryCollector::new();
-    let rcv_session = session_builder().res_async().await.unwrap().into_arc();
+    let rcv_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
     let _rcv_discovery = rcv
         .use_builder(discovery_builder(rcv_session))
         .build()
@@ -306,35 +293,30 @@ async fn run_discovery(scenario: Vec<State>) {
 }
 
 #[test]
-#[serial(ROS1)]
 fn discover_single_publisher() {
     async_std::task::block_on(run_discovery(
         [State::default().publishers(1, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_single_subscriber() {
     async_std::task::block_on(run_discovery(
         [State::default().subscribers(1, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_single_service() {
     async_std::task::block_on(run_discovery(
         [State::default().services(1, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_single_client() {
     async_std::task::block_on(run_discovery(
         [State::default().clients(1, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_single_transition() {
     async_std::task::block_on(run_discovery(
         [
@@ -348,7 +330,6 @@ fn discover_single_transition() {
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_single_transition_with_zero_state() {
     async_std::task::block_on(run_discovery(
         [
@@ -366,35 +347,30 @@ fn discover_single_transition_with_zero_state() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn discover_multiple_publishers() {
     async_std::task::block_on(run_discovery(
         [State::default().publishers(100, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_multiple_subscribers() {
     async_std::task::block_on(run_discovery(
         [State::default().subscribers(100, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_multiple_services() {
     async_std::task::block_on(run_discovery(
         [State::default().services(100, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_multiple_clients() {
     async_std::task::block_on(run_discovery(
         [State::default().clients(100, 1)].into_iter().collect(),
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_multiple_transition() {
     async_std::task::block_on(run_discovery(
         [
@@ -408,7 +384,6 @@ fn discover_multiple_transition() {
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn discover_multiple_transition_with_zero_state() {
     async_std::task::block_on(run_discovery(
         [

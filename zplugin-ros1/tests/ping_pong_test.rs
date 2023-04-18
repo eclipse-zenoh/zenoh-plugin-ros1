@@ -13,22 +13,24 @@
 //
 
 use strum_macros::Display;
-use zenoh::{config::ModeDependentValue, prelude::SplitBuffer};
+use zenoh::prelude::SplitBuffer;
 use zenoh_core::{bail, zresult::ZResult, SyncResolve};
 
 use std::{
     collections::HashSet,
-    net::SocketAddr,
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering::*},
+        atomic::{AtomicBool, AtomicU64, Ordering::*},
         Arc, Mutex, RwLock,
     },
 };
 
-use zplugin_ros1::ros_to_zenoh_bridge::discovery::{LocalResource, LocalResources};
 use zplugin_ros1::ros_to_zenoh_bridge::ros1_to_zenoh_bridge_impl::{
     work_cycle, BridgeStatus, RosStatus,
+};
+use zplugin_ros1::ros_to_zenoh_bridge::{
+    discovery::{LocalResource, LocalResources},
+    test_helpers::{IsolatedConfig, IsolatedROSMaster},
 };
 use zplugin_ros1::ros_to_zenoh_bridge::{ros1_client, zenoh_client};
 
@@ -39,8 +41,6 @@ use zenoh::prelude::r#async::*;
 
 use std::process::Command;
 use std::{thread, time};
-
-use serial_test::serial;
 
 async fn wait<Waiter>(waiter: Waiter, timeout: core::time::Duration) -> bool
 where
@@ -69,13 +69,14 @@ struct RunningBridge {
     bridge_status: Arc<Mutex<BridgeStatus>>,
 }
 impl RunningBridge {
-    pub fn new(config: zenoh::config::Config) -> RunningBridge {
+    pub fn new(config: zenoh::config::Config, ros_master_uri: String) -> RunningBridge {
         let result = RunningBridge {
             flag: Arc::new(AtomicBool::new(true)),
             ros_status: Arc::new(Mutex::new(RosStatus::Unknown)),
             bridge_status: Arc::new(Mutex::new(BridgeStatus::default())),
         };
         async_std::task::spawn(Self::run(
+            ros_master_uri,
             config,
             result.flag.clone(),
             result.ros_status.clone(),
@@ -85,6 +86,7 @@ impl RunningBridge {
     }
 
     async fn run(
+        ros_master_uri: String,
         config: zenoh::config::Config,
         flag: Arc<AtomicBool>,
         ros_status: Arc<Mutex<RosStatus>>,
@@ -92,6 +94,7 @@ impl RunningBridge {
     ) {
         let session = zenoh::open(config).res_async().await.unwrap().into_arc();
         work_cycle(
+            ros_master_uri.as_str(),
             session,
             flag,
             move |v| {
@@ -160,19 +163,19 @@ impl Drop for RunningBridge {
 }
 
 #[test]
-#[serial(ROS1)]
 fn env_checks_no_master_init_and_exit_immed() {
-    let _ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port);
+    let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
     async_std::task::block_on(bridge.assert_ros_error());
     async_std::task::block_on(bridge.assert_bridge_empy());
 }
 
 #[test]
-#[serial(ROS1)]
 fn env_checks_no_master_init_and_wait() {
-    let _ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port);
+    let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
     async_std::task::block_on(bridge.assert_ros_error());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -181,19 +184,20 @@ fn env_checks_no_master_init_and_wait() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn env_checks_with_master_init_and_exit_immed() {
-    let _ros_env = ROSEnvironment::new().with_master();
-    let bridge = RunningBridge::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
+    let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
     async_std::task::block_on(bridge.assert_ros_ok());
     async_std::task::block_on(bridge.assert_bridge_empy());
 }
 
 #[test]
-#[serial(ROS1)]
 fn env_checks_with_master_init_and_wait() {
-    let _ros_env = ROSEnvironment::new().with_master();
-    let bridge = RunningBridge::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
+    let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
+
     async_std::task::block_on(bridge.assert_ros_ok());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -202,10 +206,10 @@ fn env_checks_with_master_init_and_wait() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn env_checks_with_master_init_and_loose_master() {
-    let mut _ros_env = Some(ROSEnvironment::new().with_master());
-    let bridge = RunningBridge::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let mut _ros_env = Some(ROSEnvironment::new(roscfg.port.port).with_master());
+    let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
     async_std::task::block_on(bridge.assert_ros_ok());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -220,10 +224,10 @@ fn env_checks_with_master_init_and_loose_master() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn env_checks_with_master_init_and_wait_for_master() {
-    let mut _ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let mut _ros_env = ROSEnvironment::new(roscfg.port.port);
+    let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
     async_std::task::block_on(bridge.assert_ros_error());
     async_std::task::block_on(bridge.assert_bridge_empy());
     thread::sleep(time::Duration::from_secs(1));
@@ -238,10 +242,10 @@ fn env_checks_with_master_init_and_wait_for_master() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn env_checks_with_master_init_and_reconnect_many_times_to_master() {
-    let mut ros_env = ROSEnvironment::new();
-    let bridge = RunningBridge::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let mut ros_env = ROSEnvironment::new(roscfg.port.port);
+    let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
     for _i in 0..20 {
         async_std::task::block_on(bridge.assert_ros_error());
         async_std::task::block_on(bridge.assert_bridge_empy());
@@ -687,6 +691,7 @@ impl PingPong {
 }
 
 struct ROSEnvironment {
+    ros_master_port: u16,
     rosmaster: Option<std::process::Child>,
 }
 impl Drop for ROSEnvironment {
@@ -697,11 +702,11 @@ impl Drop for ROSEnvironment {
     }
 }
 impl ROSEnvironment {
-    pub fn new() -> Self {
-        let mut kill_master = Command::new("killall").arg("rosmaster").spawn().unwrap();
-        kill_master.wait().unwrap();
-
-        ROSEnvironment { rosmaster: None }
+    pub fn new(ros_master_port: u16) -> Self {
+        ROSEnvironment {
+            rosmaster: None,
+            ros_master_port,
+        }
     }
 
     pub fn with_master(mut self) -> Self {
@@ -709,6 +714,7 @@ impl ROSEnvironment {
 
         self.rosmaster = Some(
             Command::new("rosmaster")
+                .arg(format!("-p {}", self.ros_master_port).as_str())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()
@@ -730,7 +736,6 @@ impl ROSEnvironment {
     }
 }
 
-static TEST_PORT: AtomicU16 = AtomicU16::new(17000);
 struct TestEnvironment {
     pub bridge: RunningBridge,
     pub checker: Arc<BridgeChecker>,
@@ -738,16 +743,17 @@ struct TestEnvironment {
 }
 impl TestEnvironment {
     pub fn new() -> TestEnvironment {
-        let port = TEST_PORT.fetch_add(1, SeqCst);
+        let cfg = IsolatedConfig::default();
+        let roscfg = IsolatedROSMaster::default();
 
         // start environment for ROS
-        let ros_env = ROSEnvironment::new().with_master();
+        let ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
 
         // start bridge
-        let bridge = RunningBridge::new(Self::config(port));
+        let bridge = RunningBridge::new(cfg.peer(), roscfg.master_uri());
 
         // start checker's engine
-        let checker = Arc::new(BridgeChecker::new(Self::config(port)));
+        let checker = Arc::new(BridgeChecker::new(cfg.peer(), roscfg.master_uri().as_str()));
 
         // this will wait for the bridge to have some expected initial state and serves two purposes:
         // - asserts on the expected state
@@ -796,22 +802,6 @@ impl TestEnvironment {
         }
         default
     }
-
-    fn config(port: u16) -> zenoh::config::Config {
-        let mut config = zenoh::config::peer();
-        config
-            .scouting
-            .multicast
-            .set_address(Some(
-                SocketAddr::from_str(format!("224.0.0.224:{}", port).as_str()).unwrap(),
-            ))
-            .unwrap();
-        config
-            .timestamping
-            .set_enabled(Some(ModeDependentValue::Unique(true)))
-            .unwrap();
-        config
-    }
 }
 
 struct RAIICounter<T>
@@ -855,10 +845,10 @@ struct BridgeChecker {
 }
 impl BridgeChecker {
     // PUBLIC
-    pub fn new(config: zenoh::config::Config) -> BridgeChecker {
+    pub fn new(config: zenoh::config::Config, ros_master_uri: &str) -> BridgeChecker {
         let session = zenoh::open(config).res_sync().unwrap().into_arc();
         BridgeChecker {
-            ros_client: ros1_client::Ros1Client::new("test_ros_node"),
+            ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri),
             zenoh_client: zenoh_client::ZenohClient::new(session.clone()),
             local_resources: LocalResources::new("*".to_string(), "*".to_string(), session),
             expected_bridge_status: Arc::new(RwLock::new(BridgeStatus::default())),
@@ -1078,7 +1068,6 @@ async fn ping_pong_duplex_parallel_many_(
 }
 
 #[test]
-#[serial(ROS1)]
 fn ping_pong_zenoh_to_ros1() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1088,7 +1077,6 @@ fn ping_pong_zenoh_to_ros1() {
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn ping_pong_zenoh_to_ros1_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1099,7 +1087,6 @@ fn ping_pong_zenoh_to_ros1_many() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn ping_pong_ros1_to_zenoh() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1109,7 +1096,6 @@ fn ping_pong_ros1_to_zenoh() {
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn ping_pong_ros1_to_zenoh_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1120,7 +1106,6 @@ fn ping_pong_ros1_to_zenoh_many() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn ping_pong_ros1_service() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1130,7 +1115,6 @@ fn ping_pong_ros1_service() {
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn ping_pong_ros1_service_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1141,7 +1125,6 @@ fn ping_pong_ros1_service_many() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn ping_pong_ros1_client() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1151,7 +1134,6 @@ fn ping_pong_ros1_client() {
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn ping_pong_ros1_client_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1162,7 +1144,6 @@ fn ping_pong_ros1_client_many() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn ping_pong_all_sequential() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1187,7 +1168,6 @@ fn ping_pong_all_sequential() {
     ));
 }
 #[test]
-#[serial(ROS1)]
 fn ping_pong_all_sequential_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1213,7 +1193,6 @@ fn ping_pong_all_sequential_many() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn ping_pong_all_parallel() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1229,7 +1208,6 @@ fn ping_pong_all_parallel() {
 }
 
 #[test]
-#[serial(ROS1)]
 fn ping_pong_all_parallel_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
@@ -1287,7 +1265,6 @@ async fn parallel_subworks(
     futures::future::join_all(subworks).await;
 }
 #[test]
-#[serial(ROS1)]
 fn ping_pong_all_overlap_one() {
     let env = TestEnvironment::new();
     let main_work_finished = Arc::new(AtomicBool::new(false));
@@ -1297,7 +1274,6 @@ fn ping_pong_all_overlap_one() {
     async_std::task::block_on(futures::future::join(main_work, parallel_subworks));
 }
 #[test]
-#[serial(ROS1)]
 fn ping_pong_all_overlap_many() {
     let env = TestEnvironment::new();
     let main_work_finished = Arc::new(AtomicBool::new(false));
@@ -1326,9 +1302,12 @@ async fn check_query(checker: &BridgeChecker) {
 }
 
 #[test]
-#[serial(ROS1)]
 fn check_query_() {
-    let _ros_env = ROSEnvironment::new().with_master();
-    let checker = BridgeChecker::new(zenoh::config::peer());
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
+    let checker = BridgeChecker::new(
+        IsolatedConfig::default().peer(),
+        roscfg.master_uri().as_str(),
+    );
     futures::executor::block_on(check_query(&checker));
 }

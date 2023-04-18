@@ -22,7 +22,7 @@ use std::sync::{
     Arc,
 };
 
-use self::ros1_to_zenoh_bridge_impl::work_cycle;
+use self::{environment::Environment, ros1_to_zenoh_bridge_impl::work_cycle};
 
 #[cfg(feature = "test")]
 pub mod aloha_declaration;
@@ -36,6 +36,8 @@ pub mod discovery;
 pub mod ros1_client;
 #[cfg(feature = "test")]
 pub mod ros1_to_zenoh_bridge_impl;
+#[cfg(feature = "test")]
+pub mod test_helpers;
 #[cfg(feature = "test")]
 pub mod topic_utilities;
 #[cfg(feature = "test")]
@@ -91,7 +93,14 @@ impl Ros1ToZenohBridge {
 
     //PRIVATE:
     async fn run(session: Arc<zenoh::Session>, flag: Arc<AtomicBool>) {
-        work_cycle(session, flag, |_v| {}, |_status| {}).await;
+        work_cycle(
+            Environment::ros_master_uri().get().as_str(),
+            session,
+            flag,
+            |_v| {},
+            |_status| {},
+        )
+        .await;
     }
 
     async fn async_await(&mut self) {

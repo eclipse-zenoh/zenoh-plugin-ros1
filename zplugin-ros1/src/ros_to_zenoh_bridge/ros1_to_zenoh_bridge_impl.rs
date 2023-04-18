@@ -53,6 +53,7 @@ pub struct BridgeStatus {
 }
 
 pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
+    ros_master_uri: &str,
     session: Arc<zenoh::Session>,
     flag: Arc<AtomicBool>,
     ros_status_callback: RosStatusCallback,
@@ -63,6 +64,7 @@ pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
 {
     let ros1_client = Arc::new(ros1_client::Ros1Client::new(
         Environment::ros_name().get().as_str(),
+        ros_master_uri,
     ));
     let zenoh_client = Arc::new(zenoh_client::ZenohClient::new(session.clone()));
 

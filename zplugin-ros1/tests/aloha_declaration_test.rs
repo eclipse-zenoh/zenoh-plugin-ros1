@@ -14,28 +14,22 @@
 
 use std::{
     collections::HashSet,
-    net::SocketAddr,
     str::FromStr,
     sync::{atomic::AtomicUsize, Arc, Mutex},
     time::Duration,
 };
 
 use async_std::prelude::FutureExt;
-use serial_test::serial;
 use zenoh::{plugins::ZResult, prelude::OwnedKeyExpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
-use zplugin_ros1::ros_to_zenoh_bridge::{aloha_declaration, aloha_subscription};
+use zplugin_ros1::ros_to_zenoh_bridge::{
+    aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
+};
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
-fn session_builder() -> OpenBuilder<zenoh::config::Config> {
-    let mut config = zenoh::config::peer();
-    config
-        .scouting
-        .multicast
-        .set_address(Some(SocketAddr::from_str("224.0.0.224:16000").unwrap()))
-        .unwrap();
-    zenoh::open(config)
+fn session_builder(cfg: &IsolatedConfig) -> OpenBuilder<zenoh::config::Config> {
+    zenoh::open(cfg.peer())
 }
 
 fn declaration_builder(
@@ -60,8 +54,8 @@ fn subscription_builder(
     )
 }
 
-fn make_session() -> Arc<Session> {
-    session_builder().res_sync().unwrap().into_arc()
+fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
+    session_builder(cfg).res_sync().unwrap().into_arc()
 }
 
 fn make_subscription(
@@ -72,21 +66,20 @@ fn make_subscription(
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_instantination_one_instance() {
-    let session = make_session();
+    let session = make_session(&IsolatedConfig::default());
     let _declaration = declaration_builder(session.clone(), Duration::from_secs(1));
     let _subscription = make_subscription(session, Duration::from_secs(1));
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_instantination_many_instances() {
+    let cfg = IsolatedConfig::default();
     let mut sessions = Vec::new();
     let mut declarations = Vec::new();
     let mut subscriptions = Vec::new();
     for _ in 0..10 {
-        let session = make_session();
+        let session = make_session(&cfg);
         sessions.push(session.clone());
         declarations.push(declaration_builder(session.clone(), Duration::from_secs(1)));
     }
@@ -210,6 +203,7 @@ impl State {
 }
 
 async fn test_state_transition<'a>(
+    cfg: &IsolatedConfig,
     beacon_period: Duration,
     declaring_sessions: &mut Vec<Arc<Session>>,
     declarations: &mut Vec<aloha_declaration::AlohaDeclaration>,
@@ -244,7 +238,7 @@ async fn test_state_transition<'a>(
 
     while declarations.len() < state.declarators_count {
         if declaring_sessions.len() <= declarations.len() {
-            declaring_sessions.push(session_builder().res_async().await.unwrap().into_arc());
+            declaring_sessions.push(session_builder(cfg).res_async().await.unwrap().into_arc());
         }
         declarations.push(declaration_builder(
             declaring_sessions[declarations.len()].clone(),
@@ -264,11 +258,12 @@ async fn test_state_transition<'a>(
 }
 
 async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
+    let cfg = IsolatedConfig::default();
     let mut declaring_sessions: Vec<Arc<Session>> = Vec::new();
     let mut declarations: Vec<aloha_declaration::AlohaDeclaration> = Vec::new();
 
     let mut collector = DeclarationCollector::new();
-    let subscription_session = session_builder().res_async().await.unwrap().into_arc();
+    let subscription_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
     let _subscriber = collector
         .use_builder(subscription_builder(
             subscription_session.clone(),
@@ -287,6 +282,7 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
     for scene in scenario {
         println!("Transiting State: {}", scene.declarators_count);
         test_state_transition(
+            &cfg,
             beacon_period,
             &mut declaring_sessions,
             &mut declarations,
@@ -301,7 +297,6 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_declare_one() {
     async_std::task::block_on(run_aloha(
         Duration::from_millis(100),
@@ -310,7 +305,6 @@ fn aloha_declare_one() {
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_declare_many() {
     async_std::task::block_on(run_aloha(
         Duration::from_millis(100),
@@ -319,7 +313,6 @@ fn aloha_declare_many() {
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_declare_many_one_many() {
     async_std::task::block_on(run_aloha(
         Duration::from_millis(100),
@@ -334,7 +327,6 @@ fn aloha_declare_many_one_many() {
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_declare_one_zero_one() {
     async_std::task::block_on(run_aloha(
         Duration::from_millis(100),
@@ -349,7 +341,6 @@ fn aloha_declare_one_zero_one() {
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_declare_many_zero_many() {
     async_std::task::block_on(run_aloha(
         Duration::from_millis(100),
@@ -364,7 +355,6 @@ fn aloha_declare_many_zero_many() {
 }
 
 #[test]
-#[serial(Aloha)]
 fn aloha_many_scenarios() {
     async_std::task::block_on(run_aloha(
         Duration::from_millis(100),

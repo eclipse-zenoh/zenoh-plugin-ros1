@@ -40,8 +40,11 @@ fn start_and_stop_master_and_check_connectivity() {
     });
 
     // start ros1 client
-    let ros1_client =
-        rosrust::api::Ros::new("start_and_stop_master_and_check_connectivity_client").unwrap();
+    let ros1_client = rosrust::api::Ros::new(
+        "start_and_stop_master_and_check_connectivity_client",
+        "http://localhost:11311/",
+    )
+    .unwrap();
 
     // wait for correct  status from rosmaster....
     let mut has_rosmaster = false;
