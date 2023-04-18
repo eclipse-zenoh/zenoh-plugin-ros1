@@ -712,26 +712,30 @@ impl ROSEnvironment {
     pub fn with_master(mut self) -> Self {
         assert!(self.rosmaster.is_none());
 
-        self.rosmaster = Some(
-            Command::new("rosmaster")
-                .arg(format!("-p {}", self.ros_master_port).as_str())
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::piped())
-                .spawn()
-                .unwrap(),
-        );
+        let rosmaster_cmd = Command::new("rosmaster")
+            .arg(format!("-p {}", self.ros_master_port).as_str())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn();
+
+        match rosmaster_cmd {
+            Ok(val) => {
+                self.rosmaster = Some(val);
+            }
+            Err(e) => {
+                println!("Error while starting rosmaster: {}", e);
+                panic!("{}", e);
+            }
+        }
 
         self
     }
 
     pub fn without_master(mut self) -> Self {
         assert!(self.rosmaster.is_some());
-
-        if self.rosmaster.is_some() {
-            self.rosmaster.take().unwrap().kill().unwrap();
-            self.rosmaster = None;
-        }
-
+        let mut child = self.rosmaster.take().unwrap();
+        child.kill().unwrap();
+        child.wait().unwrap();
         self
     }
 }
