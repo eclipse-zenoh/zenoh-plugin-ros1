@@ -54,10 +54,7 @@ impl RemoteResources {
         on_lost: F,
     ) -> Self
     where
-        F: Fn(
-                BridgeType,
-                rosrust::api::Topic,
-            ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -114,10 +111,7 @@ impl RemoteResources {
     // PRIVATE:
     async fn process<F>(data: KeyExpr<'_>, callback: Arc<F>)
     where
-        F: Fn(
-                BridgeType,
-                rosrust::api::Topic,
-            ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -137,10 +131,7 @@ impl RemoteResources {
 
     async fn parse_format<F>(data: &KeyExpr<'_>, callback: &Arc<F>) -> Result<(), String>
     where
-        F: Fn(
-            BridgeType,
-            rosrust::api::Topic,
-        ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>,
+        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         let discovery = discovery_format::parse(data).map_err(|err| err.to_string())?;
         Self::handle_format(discovery, callback).await
@@ -151,10 +142,7 @@ impl RemoteResources {
         callback: &Arc<F>,
     ) -> Result<(), String>
     where
-        F: Fn(
-            BridgeType,
-            rosrust::api::Topic,
-        ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>,
+        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         //let discovery_namespace = discovery.discovery_namespace().ok_or("No discovery_namespace present!")?;
         let datatype = discovery.data_type().ok_or("No data_type present!")?;
@@ -292,10 +280,7 @@ impl Discovery {
         on_lost: F,
     ) -> Self
     where
-        F: Fn(
-                BridgeType,
-                rosrust::api::Topic,
-            ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -317,7 +302,7 @@ impl Discovery {
     }
 }
 
-pub type TCallback = dyn Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+pub type TCallback = dyn Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
     + Send
     + Sync
     + 'static;
@@ -346,12 +331,9 @@ impl DiscoveryBuilder {
         }
     }
 
-    pub fn on_discovered<F>(&mut self, on_discovered: F) -> &mut Self
+    pub fn on_discovered<F>(mut self, on_discovered: F) -> Self
     where
-        F: Fn(
-                BridgeType,
-                rosrust::api::Topic,
-            ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -359,12 +341,9 @@ impl DiscoveryBuilder {
         self.on_discovered = Some(Box::new(on_discovered));
         self
     }
-    pub fn on_lost<F>(&mut self, on_lost: F) -> &mut Self
+    pub fn on_lost<F>(mut self, on_lost: F) -> Self
     where
-        F: Fn(
-                BridgeType,
-                rosrust::api::Topic,
-            ) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,

@@ -14,7 +14,7 @@
 
 use std::{
     cell::Cell,
-    collections::{btree_map::Entry::*, BTreeMap},
+    collections::{hash_map::Entry::*, HashMap},
     sync::{
         atomic::{AtomicBool, Ordering::Relaxed},
         Arc,
@@ -50,7 +50,7 @@ impl AlohaResource {
     }
 }
 
-pub type TCallback = dyn Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+pub type TCallback = dyn Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send>
     + Send
     + Sync
     + 'static;
@@ -73,9 +73,7 @@ impl AlohaSubscription {
         on_resource_undeclared: F,
     ) -> ZResult<Self>
     where
-        F: Fn(
-                zenoh::key_expr::KeyExpr,
-            ) -> Box<dyn futures::Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -104,14 +102,12 @@ impl AlohaSubscription {
         on_resource_undeclared: F,
     ) -> ZResult<()>
     where
-        F: Fn(
-                zenoh::key_expr::KeyExpr,
-            ) -> Box<dyn futures::Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
     {
-        let mut accumulating_resources = Cell::new(BTreeMap::<String, AlohaResource>::new());
+        let mut accumulating_resources = Cell::new(HashMap::<OwnedKeyExpr, AlohaResource>::new());
         let subscriber = session.declare_subscriber(key).res_async().await?;
 
         Self::accumulating_task(
@@ -129,33 +125,26 @@ impl AlohaSubscription {
 
     async fn listening_task<'a, F>(
         task_running: Arc<AtomicBool>,
-        accumulating_resources: &mut Cell<BTreeMap<String, AlohaResource>>,
+        accumulating_resources: &mut Cell<HashMap<OwnedKeyExpr, AlohaResource>>,
         subscriber: &'a zenoh::subscriber::Subscriber<'a, Receiver<Sample>>,
         on_resource_declared: &F,
     ) where
-        F: Fn(
-                zenoh::key_expr::KeyExpr,
-            ) -> Box<dyn futures::Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
     {
         while task_running.load(Relaxed) {
             match subscriber.recv_async().await {
-                Ok(val) => {
-                    match accumulating_resources
-                        .get_mut()
-                        .entry(val.key_expr.to_string())
-                    {
-                        Occupied(mut val) => {
-                            val.get_mut().update();
-                        }
-                        Vacant(entry) => {
-                            entry.insert(AlohaResource::new());
-                            on_resource_declared(val.key_expr).await;
-                        }
+                Ok(val) => match accumulating_resources.get_mut().entry(val.key_expr.into()) {
+                    Occupied(mut val) => {
+                        val.get_mut().update();
                     }
-                }
+                    Vacant(entry) => {
+                        on_resource_declared(entry.key().into()).await;
+                        entry.insert(AlohaResource::new());
+                    }
+                },
                 Err(e) => {
                     error!("Listening error: {}", e);
                 }
@@ -166,14 +155,12 @@ impl AlohaSubscription {
     async fn accumulating_task<'a, F>(
         task_running: Arc<AtomicBool>,
         accumulate_period: Duration,
-        accumulating_resources: &mut Cell<BTreeMap<String, AlohaResource>>,
+        accumulating_resources: &mut Cell<HashMap<OwnedKeyExpr, AlohaResource>>,
         subscriber: &'a zenoh::subscriber::Subscriber<'a, Receiver<Sample>>,
         on_resource_declared: F,
         on_resource_undeclared: F,
     ) where
-        F: Fn(
-                zenoh::key_expr::KeyExpr,
-            ) -> Box<dyn futures::Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -205,10 +192,7 @@ impl AlohaSubscription {
 
             for (key, val) in accumulating_resources.get_mut().iter() {
                 if !val.is_active() {
-                    unsafe {
-                        on_resource_undeclared(zenoh::key_expr::KeyExpr::from_str_uncheckend(key))
-                            .await
-                    };
+                    on_resource_undeclared(key.into()).await;
                 }
             }
 
@@ -241,7 +225,7 @@ impl AlohaSubscriptionBuilder {
 
     pub fn on_resource_declared<F>(mut self, on_resource_declared: F) -> Self
     where
-        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -252,7 +236,7 @@ impl AlohaSubscriptionBuilder {
 
     pub fn on_resource_undeclared<F>(mut self, on_resource_undeclared: F) -> Self
     where
-        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send + Sync>
+        F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,

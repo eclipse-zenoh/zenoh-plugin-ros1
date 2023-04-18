@@ -91,10 +91,7 @@ impl DiscoveryCollector {
         }
     }
 
-    pub fn use_builder(
-        &self,
-        mut builder: discovery::DiscoveryBuilder,
-    ) -> discovery::DiscoveryBuilder {
+    pub fn use_builder(&self, builder: discovery::DiscoveryBuilder) -> discovery::DiscoveryBuilder {
         let p = self.publishers.clone();
         let s = self.subscribers.clone();
         let srv = self.services.clone();
@@ -125,9 +122,7 @@ impl DiscoveryCollector {
                 };
                 container.lock().unwrap().remove(&topic);
                 Box::new(Box::pin(async {}))
-            });
-
-        builder
+            })
     }
 
     pub async fn wait_publishers(&self, expected: HashMultiSet<rosrust::api::Topic>) {

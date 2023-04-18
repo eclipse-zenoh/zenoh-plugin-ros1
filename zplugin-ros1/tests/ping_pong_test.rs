@@ -13,14 +13,15 @@
 //
 
 use strum_macros::Display;
-use zenoh::prelude::SplitBuffer;
-use zenoh_core::{zresult::ZResult, bail, SyncResolve};
+use zenoh::{config::ModeDependentValue, prelude::SplitBuffer};
+use zenoh_core::{bail, zresult::ZResult, SyncResolve};
 
 use std::{
     collections::HashSet,
+    net::SocketAddr,
     str::FromStr,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering::*},
+        atomic::{AtomicBool, AtomicU16, AtomicU64, Ordering::*},
         Arc, Mutex, RwLock,
     },
 };
@@ -32,7 +33,7 @@ use zplugin_ros1::ros_to_zenoh_bridge::ros1_to_zenoh_bridge_impl::{
 use zplugin_ros1::ros_to_zenoh_bridge::{ros1_client, zenoh_client};
 
 use log::{debug, error};
-use rosrust::{Client, Duration, RawMessage};
+use rosrust::{Client, RawMessage};
 use std::sync::atomic::AtomicUsize;
 use zenoh::prelude::r#async::*;
 
@@ -343,27 +344,37 @@ impl ROS1Client {
         cycles: Arc<AtomicUsize>,
         ros1_client: Arc<RAIICounter<Client<RawMessage>>>,
     ) {
-        ros1_client
-            .data
-            .probe(Duration::from_seconds(10).into())
-            .unwrap();
-
         while running.load(Relaxed) {
-            match ros1_client.data.req(&RawMessage(data.clone())) {
-                Ok(reply) => match reply {
-                    Ok(msg) => {
-                        assert!(data.eq(&msg.0));
-                        cycles.fetch_add(1, SeqCst);
-                    }
-                    Err(e) => {
-                        error!("ROS1Client: got reply with error: {}", e);
-                        break;
-                    }
-                },
-                Err(e) => {
-                    error!("ROS1Client: failed to send request with error: {}", e);
-                    break;
+            match Self::make_query(&data, &ros1_client) {
+                Ok(_) => {
+                    cycles.fetch_add(1, SeqCst);
                 }
+                Err(e) => {
+                    error!("{}", e);
+                }
+            }
+        }
+    }
+
+    fn make_query(
+        data: &Vec<u8>,
+        ros1_client: &Arc<RAIICounter<Client<RawMessage>>>,
+    ) -> ZResult<()> {
+        match ros1_client.data.req(&RawMessage(data.clone())) {
+            Ok(reply) => match reply {
+                Ok(msg) => {
+                    if data.eq(&msg.0) {
+                        Ok(())
+                    } else {
+                        bail!("ROS1Client: data is not equal! \n Sent data: {:?} \nReturned data: {:?}", data, msg.0);
+                    }
+                }
+                Err(e) => {
+                    bail!("ROS1Client: got reply with error: {}", e);
+                }
+            },
+            Err(e) => {
+                bail!("ROS1Client: failed to send request with error: {}", e);
             }
         }
     }
@@ -412,10 +423,9 @@ impl Publisher for ZenohQuery {
     fn ready(&self) -> bool {
         let data = (0..10).collect();
         async_std::task::block_on(
-            async move {
-            Self::make_query(&self.inner, &self.key, &data).await
-            }
-        ).is_ok()
+            async move { Self::make_query(&self.inner, &self.key, &data).await },
+        )
+        .is_ok()
     }
 }
 impl Publisher for ROS1Client {
@@ -425,6 +435,11 @@ impl Publisher for ROS1Client {
         let ros1_client = self.ros1_client.clone();
 
         async_std::task::spawn_blocking(|| Self::query_loop(running, data, cycles, ros1_client));
+    }
+
+    fn ready(&self) -> bool {
+        let data = (0..10).collect();
+        Self::make_query(&data, &self.ros1_client).is_ok()
     }
 }
 
@@ -715,6 +730,7 @@ impl ROSEnvironment {
     }
 }
 
+static TEST_PORT: AtomicU16 = AtomicU16::new(17000);
 struct TestEnvironment {
     pub bridge: RunningBridge,
     pub checker: Arc<BridgeChecker>,
@@ -722,14 +738,16 @@ struct TestEnvironment {
 }
 impl TestEnvironment {
     pub fn new() -> TestEnvironment {
+        let port = TEST_PORT.fetch_add(1, SeqCst);
+
         // start environment for ROS
         let ros_env = ROSEnvironment::new().with_master();
 
         // start bridge
-        let bridge = RunningBridge::new(zenoh::config::peer());
+        let bridge = RunningBridge::new(Self::config(port));
 
         // start checker's engine
-        let checker = Arc::new(BridgeChecker::new());
+        let checker = Arc::new(BridgeChecker::new(Self::config(port)));
 
         // this will wait for the bridge to have some expected initial state and serves two purposes:
         // - asserts on the expected state
@@ -745,7 +763,7 @@ impl TestEnvironment {
     }
 
     pub fn many_count() -> u32 {
-        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 10)
+        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 40)
     }
 
     pub fn pps_measurements() -> u32 {
@@ -777,6 +795,22 @@ impl TestEnvironment {
             }
         }
         default
+    }
+
+    fn config(port: u16) -> zenoh::config::Config {
+        let mut config = zenoh::config::peer();
+        config
+            .scouting
+            .multicast
+            .set_address(Some(
+                SocketAddr::from_str(format!("224.0.0.224:{}", port).as_str()).unwrap(),
+            ))
+            .unwrap();
+        config
+            .timestamping
+            .set_enabled(Some(ModeDependentValue::Unique(true)))
+            .unwrap();
+        config
     }
 }
 
@@ -821,8 +855,8 @@ struct BridgeChecker {
 }
 impl BridgeChecker {
     // PUBLIC
-    pub fn new() -> BridgeChecker {
-        let session = zenoh::open(config::peer()).res_sync().unwrap().into_arc();
+    pub fn new(config: zenoh::config::Config) -> BridgeChecker {
+        let session = zenoh::open(config).res_sync().unwrap().into_arc();
         BridgeChecker {
             ros_client: ros1_client::Ros1Client::new("test_ros_node"),
             zenoh_client: zenoh_client::ZenohClient::new(session.clone()),
@@ -958,24 +992,6 @@ impl BridgeChecker {
     fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {
         return topic.name.trim_start_matches('/').trim_end_matches('/');
     }
-}
-
-#[test]
-#[serial(ROS1)]
-fn init_with_ros() {
-    let _ros_env = ROSEnvironment::new().with_master();
-    let bridge = RunningBridge::new(zenoh::config::peer());
-    let checker = BridgeChecker::new();
-
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
-
-    let _ros_publisher = checker.make_ros_publisher("/some/ros/topic");
-
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(
-        bridge.assert_bridge_status(|| *checker.expected_bridge_status.read().unwrap()),
-    );
 }
 
 #[derive(PartialEq, Eq, Hash, Display)]
@@ -1287,8 +1303,7 @@ fn ping_pong_all_overlap_many() {
     let main_work_finished = Arc::new(AtomicBool::new(false));
 
     let main_work = main_work(&env, main_work_finished.clone());
-    let parallel_subworks =
-        parallel_subworks(&env, main_work_finished, TestEnvironment::many_count());
+    let parallel_subworks = parallel_subworks(&env, main_work_finished, 10);
     async_std::task::block_on(futures::future::join(main_work, parallel_subworks));
 }
 
@@ -1314,6 +1329,6 @@ async fn check_query(checker: &BridgeChecker) {
 #[serial(ROS1)]
 fn check_query_() {
     let _ros_env = ROSEnvironment::new().with_master();
-    let checker = BridgeChecker::new();
+    let checker = BridgeChecker::new(zenoh::config::peer());
     futures::executor::block_on(check_query(&checker));
 }

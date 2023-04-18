@@ -12,8 +12,7 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::sync::{Mutex, MutexGuard};
-use futures::{pin_mut, select, FutureExt};
+use async_std::sync::Mutex;
 
 use zenoh;
 
@@ -29,7 +28,10 @@ use crate::ros_to_zenoh_bridge::{
     ros1_client, topic_mapping, zenoh_client,
 };
 
-use super::{discovery::DiscoveryBuilder, ros1_client::Ros1Client};
+use super::{
+    discovery::{Discovery, DiscoveryBuilder},
+    ros1_client::Ros1Client,
+};
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum RosStatus {
@@ -73,75 +75,46 @@ pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
         local_resources,
     )));
 
+    let _discovery = make_discovery(session.clone(), bridges.clone()).await;
+
     let mut bridge = RosToZenohBridge::new(ros_status_callback, statistics_callback);
-
-    let discovery = make_discovery(session.clone(), bridges.clone()).fuse();
-
-    let run = bridge.run(ros1_client, bridges, flag).fuse();
-
-    pin_mut!(discovery, run);
-
-    select! {
-        _ = discovery => {},
-        _ = run => {}
-    };
+    bridge.run(ros1_client, bridges, flag).await;
 }
 
-async fn make_discovery<'a>(session: Arc<zenoh::Session>, bridges: Arc<Mutex<BridgesStorage>>) {
-    let mut builder = DiscoveryBuilder::new("*".to_string(), "*".to_string(), session);
+async fn make_discovery<'a>(
+    session: Arc<zenoh::Session>,
+    bridges: Arc<Mutex<BridgesStorage>>,
+) -> Discovery {
+    let bridges2 = bridges.clone();
 
-    let (add_tx, add_rx) = flume::unbounded();
-    let (rem_tx, rem_rx) = flume::unbounded();
-
-    let add_tx = Arc::new(add_tx);
-    let rem_tx = Arc::new(rem_tx);
-
+    let builder = DiscoveryBuilder::new("*".to_string(), "*".to_string(), session);
     builder
         .on_discovered(move |b_type, topic| {
-            let add_tx = add_tx.clone();
+            let bridges = bridges.clone();
             Box::new(Box::pin(async move {
-                match add_tx.send_async((b_type, topic)).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("Error posting topic discoery to channel: {}", e);
-                    }
-                }
+                bridges
+                    .lock()
+                    .await
+                    .bridges()
+                    .complementary_for(b_type)
+                    .complementary_entity_discovered(topic)
+                    .await;
             }))
         })
         .on_lost(move |b_type, topic| {
-            let rem_tx = rem_tx.clone();
+            let bridges = bridges2.clone();
             Box::new(Box::pin(async move {
-                match rem_tx.send_async((b_type, topic)).await {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("Error posting topic loss to channel: {}", e);
-                    }
-                }
+                bridges
+                    .lock()
+                    .await
+                    .bridges()
+                    .complementary_for(b_type)
+                    .complementary_entity_lost(topic)
+                    .await;
             }))
-        });
-
-    let _discovery = builder.build().await;
-
-    loop {
-        select! {
-            add = add_rx.recv_async().fuse() => {
-                match add {
-                    Ok((b_type, topic)) => {
-                        bridges.lock().await.bridges().complementary_for(b_type).complementary_entity_discovered(topic).await;
-                    }
-                    Err(_) => todo!(),
-                }
-            }
-            rem = rem_rx.recv_async().fuse() => {
-                match rem {
-                    Ok((b_type, topic)) => {
-                        bridges.lock().await.bridges().complementary_for(b_type).complementary_entity_lost(topic).await;
-                    }
-                    Err(_) => todo!(),
-                }
-            }
-        }
-    }
+        })
+        .build()
+        .await
 }
 
 struct RosToZenohBridge<RosStatusCallback, BridgeStatisticsCallback>
@@ -189,26 +162,35 @@ where
 
             debug!("ros state: {:#?}", ros1_state);
 
-            let mut locked = bridges.lock().await;
             match ros1_state {
                 Ok(mut ros1_state_val) => {
                     self.transit_ros_status(RosStatus::Ok);
 
-                    if locked.receive_ros1_state(&mut ros1_state_val).await {
-                        self.report_bridge_statistics(&locked).await;
-                        async_std::task::sleep(core::time::Duration::from_millis(100)).await;
-                    } else {
-                        self.report_bridge_statistics(&locked).await;
-                        async_std::task::sleep(core::time::Duration::from_millis(200)).await;
+                    let smth_changed;
+                    {
+                        let mut locked = bridges.lock().await;
+                        smth_changed = locked.receive_ros1_state(&mut ros1_state_val).await;
+                        self.report_bridge_statistics(&locked);
                     }
+
+                    async_std::task::sleep({
+                        if smth_changed {
+                            core::time::Duration::from_millis(100)
+                        } else {
+                            core::time::Duration::from_millis(200)
+                        }
+                    })
+                    .await;
                 }
                 Err(e) => {
                     error!("Error reading ROS state: {}", e);
 
                     self.transit_ros_status(RosStatus::Error);
-                    Self::cleanup(&mut locked);
-                    self.report_bridge_statistics(&locked).await;
-
+                    {
+                        let mut locked = bridges.lock().await;
+                        Self::cleanup(&mut locked);
+                        self.report_bridge_statistics(&locked);
+                    }
                     async_std::task::sleep(core::time::Duration::from_millis(500)).await;
                 }
             }
@@ -223,11 +205,11 @@ where
         }
     }
 
-    async fn report_bridge_statistics(&self, locked: &MutexGuard<'_, BridgesStorage>) {
+    fn report_bridge_statistics(&self, locked: &BridgesStorage) {
         (self.statistics_callback)(locked.status());
     }
 
-    fn cleanup(locked: &mut MutexGuard<'_, BridgesStorage>) {
+    fn cleanup(locked: &mut BridgesStorage) {
         locked.clear();
     }
 }

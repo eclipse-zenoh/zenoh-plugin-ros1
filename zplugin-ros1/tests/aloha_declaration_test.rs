@@ -22,7 +22,7 @@ use std::{
 
 use async_std::prelude::FutureExt;
 use serial_test::serial;
-use zenoh::{plugins::ZResult, OpenBuilder, Session};
+use zenoh::{plugins::ZResult, prelude::OwnedKeyExpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zplugin_ros1::ros_to_zenoh_bridge::{aloha_declaration, aloha_subscription};
 
@@ -132,10 +132,10 @@ impl<'a> PPCMeasurement<'a> {
 }
 
 struct DeclarationCollector {
-    resources: Arc<Mutex<HashSet<zenoh::key_expr::KeyExpr<'static>>>>,
+    resources: Arc<Mutex<HashSet<zenoh::key_expr::OwnedKeyExpr>>>,
 
-    to_be_declared: Arc<Mutex<HashSet<zenoh::key_expr::KeyExpr<'static>>>>,
-    to_be_undeclared: Arc<Mutex<HashSet<zenoh::key_expr::KeyExpr<'static>>>>,
+    to_be_declared: Arc<Mutex<HashSet<zenoh::key_expr::OwnedKeyExpr>>>,
+    to_be_undeclared: Arc<Mutex<HashSet<zenoh::key_expr::OwnedKeyExpr>>>,
 }
 impl DeclarationCollector {
     fn new() -> Self {
@@ -158,14 +158,22 @@ impl DeclarationCollector {
 
         builder = builder
             .on_resource_declared(move |k| {
-                assert!(declared.lock().unwrap().remove(&k.clone().into_owned()));
-                assert!(r.lock().unwrap().insert(k.into_owned()));
-                Box::new(Box::pin(async {}))
+                let declared = declared.clone();
+                let r = r.clone();
+                let k_owned = OwnedKeyExpr::from(k);
+                Box::new(Box::pin(async move {
+                    assert!(declared.lock().unwrap().remove::<OwnedKeyExpr>(&k_owned));
+                    assert!(r.lock().unwrap().insert(k_owned));
+                }))
             })
             .on_resource_undeclared(move |k| {
-                assert!(undeclared.lock().unwrap().remove(&k.clone().into_owned()));
-                assert!(r2.lock().unwrap().remove(&k.into_owned()));
-                Box::new(Box::pin(async move {}))
+                let undeclared = undeclared.clone();
+                let r2 = r2.clone();
+                let k_owned = OwnedKeyExpr::from(k);
+                Box::new(Box::pin(async move {
+                    assert!(undeclared.lock().unwrap().remove(&k_owned));
+                    assert!(r2.lock().unwrap().remove(&k_owned));
+                }))
             });
 
         builder
@@ -173,14 +181,14 @@ impl DeclarationCollector {
 
     pub fn arm(
         &mut self,
-        declared: HashSet<zenoh::key_expr::KeyExpr<'static>>,
-        undeclared: HashSet<zenoh::key_expr::KeyExpr<'static>>,
+        declared: HashSet<zenoh::key_expr::OwnedKeyExpr>,
+        undeclared: HashSet<zenoh::key_expr::OwnedKeyExpr>,
     ) {
         *self.to_be_declared.lock().unwrap() = declared;
         *self.to_be_undeclared.lock().unwrap() = undeclared;
     }
 
-    pub async fn wait(&self, expected: HashSet<zenoh::key_expr::KeyExpr<'static>>) {
+    pub async fn wait(&self, expected: HashSet<zenoh::key_expr::OwnedKeyExpr>) {
         while !self.to_be_declared.lock().unwrap().is_empty()
             || !self.to_be_undeclared.lock().unwrap().is_empty()
             || expected != *self.resources.lock().unwrap()
@@ -209,12 +217,10 @@ async fn test_state_transition<'a>(
     ppc_measurer: &'a PPCMeasurement<'a>,
     state: &State,
 ) {
-    let ke = zenoh::key_expr::KeyExpr::from_str("key")
-        .unwrap()
-        .into_owned();
-    let mut result: HashSet<zenoh::key_expr::KeyExpr> = HashSet::new();
-    let mut undeclared: HashSet<zenoh::key_expr::KeyExpr> = HashSet::new();
-    let mut declared: HashSet<zenoh::key_expr::KeyExpr> = HashSet::new();
+    let ke = zenoh::key_expr::OwnedKeyExpr::from_str("key").unwrap();
+    let mut result: HashSet<zenoh::key_expr::OwnedKeyExpr> = HashSet::new();
+    let mut undeclared: HashSet<zenoh::key_expr::OwnedKeyExpr> = HashSet::new();
+    let mut declared: HashSet<zenoh::key_expr::OwnedKeyExpr> = HashSet::new();
 
     match (declarations.len(), state.declarators_count) {
         (0, 0) => {}

@@ -70,11 +70,9 @@ impl AlohaDeclaration {
             key.clone(),
             session.clone(),
             beacon_task_flag.clone(),
-        )
-        .await;
+        );
 
         while monitor_running.load(std::sync::atomic::Ordering::Relaxed) {
-            async_std::task::sleep(beacon_period).await;
             match remote_beacons.fetch_and(0, std::sync::atomic::Ordering::SeqCst) {
                 0 => {
                     if !sending_beacons {
@@ -91,24 +89,24 @@ impl AlohaDeclaration {
                                 key.clone(),
                                 session.clone(),
                                 beacon_task_flag.clone(),
-                            )
-                            .await;
+                            );
                             sending_beacons = true;
                         }
                     }
                 }
                 _ => {
                     if sending_beacons && rand::random::<bool>() {
-                        Self::stop_beacon_task(beacon_task_flag.clone()).await;
+                        Self::stop_beacon_task(beacon_task_flag.clone());
                         sending_beacons = false;
                     }
                 }
             }
+            async_std::task::sleep(beacon_period).await;
         }
-        Self::stop_beacon_task(beacon_task_flag).await;
+        Self::stop_beacon_task(beacon_task_flag.clone());
     }
 
-    async fn start_beacon_task(
+    fn start_beacon_task(
         beacon_period: Duration,
         key: OwnedKeyExpr,
         session: Arc<Session>,
@@ -123,7 +121,7 @@ impl AlohaDeclaration {
         ));
     }
 
-    async fn stop_beacon_task(running: Arc<AtomicBool>) {
+    fn stop_beacon_task(running: Arc<AtomicBool>) {
         running.store(false, std::sync::atomic::Ordering::Relaxed);
     }
 
