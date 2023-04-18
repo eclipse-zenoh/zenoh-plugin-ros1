@@ -13,16 +13,14 @@
 #
 [package]
 name = "zplugin-ros1"
-version = "0.0.1"
-authors = [
-	"Dmitrii Bannov <dmitrii.bannov@zettascale.tech>",
-]
-edition = "2021"
-repository = "https://github.com/eclipse-zenoh/zenoh-plugin-ros1"
-homepage = "http://zenoh.io"
-license = " EPL-2.0 OR Apache-2.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
 categories = ["network-programming"]
-description = "Zenoh plugin for ROS1"
+description = "Zenoh plugin for bidging ROS1"
 
 [lib]
 name = "zplugin_ros1"
@@ -34,40 +32,25 @@ default = ["no_mangle"]
 test = []
 
 [dependencies]
-env_logger = "0.9.1"
-flume = "0.10.14"
-futures = "0.3.24"
-git-version = "0.3.5"
-lazy_static = "1.4.0"
-log = "0.4.17"
-serde = "1.0.147"
-serde_json = "1.0.85"
-async-global-executor = "2.3.1"
-rand = "0.8.5"
-strum = "0.24"
-strum_macros = "0.24"
-duration-string = "0.3.0"
-
-# zenoh = { version = "0.6.0-beta.1", features = ["unstable"] }
-zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
-# zenoh = { path = "../../../zenoh/zenoh", features = ["unstable"] }
-
-# zenoh-ext = { version = "0.6.0-beta.1", features = ["unstable"] }
-zenoh-ext = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
-# zenoh-ext = { path = "../../../zenoh/zenoh-ext", features = ["unstable"] }
-
-# zenoh-core = { version = "0.6.0-beta.1" }
-zenoh-core = { git = "https://github.com/eclipse-zenoh/zenoh.git" }
-# zenoh-core = { path = "../../../zenoh/commons/zenoh-core" }
-
-# zenoh-plugin-trait = { version = "0.6.0-beta.1", default-features = false }
-zenoh-plugin-trait = { git = "https://github.com/eclipse-zenoh/zenoh.git", default-features = false }
-# zenoh-plugin-trait = { path = "../../../zenoh/plugins/zenoh-plugin-trait", default-features = false }
-
-# rosrust = "0.9"
-rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "feature/fix_bugs" }
-# rosrust = { path = "../../rosrust/rosrust/rosrust" }
-
+env_logger = { workspace = true }
+flume = { workspace = true }
+futures = { workspace = true }
+git-version = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-global-executor = { workspace = true }
+rand = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+duration-string = { workspace = true }
+zenoh = { workspace = true }
+zenoh-ext = { workspace = true }
+zenoh-core = { workspace = true }
+zenoh-plugin-trait = { workspace = true }
+rosrust = { workspace = true }
+ 
 [dev-dependencies]
 serial_test = "0.10.0"
 multiset = "0.0.5"
@@ -78,4 +61,12 @@ version = "=1.12.0"
 features = ["unstable", "attributes"]
 
 [build-dependencies]
-rustc_version = "0.4"
+rustc_version = { workspace = true }
+
+[package.metadata.deb]
+name = "zenoh-plugin-ros1"
+maintainer = "zenoh-dev@eclipse.org"
+copyright = "2017, 2022 ZettaScale Technology Inc."
+section = "net"
+license-file = ["../LICENSE", "0"]
+depends = "zenohd (=0.7.0-rc)"

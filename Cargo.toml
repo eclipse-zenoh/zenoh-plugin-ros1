@@ -16,14 +16,41 @@ members = [
   "zplugin-ros1",
 ]
 
+[workspace.package]
+version = "0.7.0-rc"
+authors = [
+    "Dmitrii Bannov <dmitrii.bannov@zettascale.tech>",
+    "Luca Cominardi <luca@zettascale.tech>"
+]
+edition = "2021"
+repository = "https://github.com/eclipse-zenoh/zenoh-plugin-ros1"
+homepage = "http://zenoh.io"
+license = " EPL-2.0 OR Apache-2.0"
+
+[workspace.dependencies]
+env_logger = "0.9.1"
+flume = "0.10.14"
+futures = "0.3.24"
+git-version = "0.3.5"
+lazy_static = "1.4.0"
+log = "0.4.17"
+serde = "1.0.147"
+serde_json = "1.0.85"
+async-global-executor = "2.3.1"
+rand = "0.8.5"
+strum = "0.24"
+strum_macros = "0.24"
+duration-string = "0.3.0"
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
+zenoh-ext = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
+zenoh-core = { git = "https://github.com/eclipse-zenoh/zenoh.git" }
+zenoh-plugin-trait = { git = "https://github.com/eclipse-zenoh/zenoh.git", default-features = false }
+rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "feature/fix_bugs" }
+rustc_version = "0.4"
+
 [profile.release]
 debug = false
 lto = "fat"
 codegen-units = 1
 opt-level = 3
 panic = "abort"
-
-#[[bench]]
-#name = "benchmarks"
-#harness = false
-#path = "tests/benchmarks.rs"
