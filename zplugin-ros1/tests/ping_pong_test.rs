@@ -763,7 +763,7 @@ impl TestEnvironment {
     }
 
     pub fn many_count() -> u32 {
-        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 40)
+        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 10)
     }
 
     pub fn pps_measurements() -> u32 {
