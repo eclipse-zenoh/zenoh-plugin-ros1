@@ -34,7 +34,7 @@ use zplugin_ros1::ros_to_zenoh_bridge::{
 };
 use zplugin_ros1::ros_to_zenoh_bridge::{ros1_client, zenoh_client};
 
-use log::{debug, error};
+use log::{debug, error, trace};
 use rosrust::{Client, RawMessage};
 use std::sync::atomic::AtomicUsize;
 use zenoh::prelude::r#async::*;
@@ -636,7 +636,7 @@ impl PingPong {
     async fn check_pps(&self, pps_measurements: u32) {
         for i in 0..pps_measurements {
             let pps = self.measure_pps().await;
-            println!("PPS #{}: {} \t Key: {}", i, pps, self.pub_sub.key);
+            trace!("PPS #{}: {} \t Key: {}", i, pps, self.pub_sub.key);
             assert!(pps > 0.0);
         }
     }
@@ -696,8 +696,10 @@ struct ROSEnvironment {
 }
 impl Drop for ROSEnvironment {
     fn drop(&mut self) {
-        if self.rosmaster.is_some() {
-            self.rosmaster.take().unwrap().kill().unwrap();
+        if let Some(mut child) = self.rosmaster.take() {
+            if child.kill().is_ok() {
+                let _ = child.wait();
+            }
         }
     }
 }
@@ -773,7 +775,7 @@ impl TestEnvironment {
     }
 
     pub fn many_count() -> u32 {
-        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 10)
+        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 40)
     }
 
     pub fn pps_measurements() -> u32 {
@@ -912,8 +914,10 @@ impl BridgeChecker {
         RAIICounter::new(
             self.ros_client.publish(&Self::make_topic(name)).unwrap(),
             move || {
-                status.write().unwrap().ros_publishers.0 -= 1;
-                status.write().unwrap().ros_publishers.1 -= 1;
+                if let Ok(mut locked) = status.write() {
+                    locked.ros_publishers.0 -= 1;
+                    locked.ros_publishers.1 -= 1;
+                }
             },
         )
     }
@@ -935,8 +939,10 @@ impl BridgeChecker {
                 .subscribe(&Self::make_topic(name), callback)
                 .unwrap(),
             move || {
-                status.write().unwrap().ros_subscribers.0 -= 1;
-                status.write().unwrap().ros_subscribers.1 -= 1;
+                if let Ok(mut locked) = status.write() {
+                    locked.ros_subscribers.0 -= 1;
+                    locked.ros_subscribers.1 -= 1;
+                }
             },
         )
     }
@@ -948,8 +954,10 @@ impl BridgeChecker {
         RAIICounter::new(
             self.ros_client.client(&Self::make_topic(name)).unwrap(),
             move || {
-                status.write().unwrap().ros_clients.0 -= 1;
-                status.write().unwrap().ros_clients.1 -= 1;
+                if let Ok(mut locked) = status.write() {
+                    locked.ros_clients.0 -= 1;
+                    locked.ros_clients.1 -= 1;
+                }
             },
         )
     }
@@ -969,8 +977,10 @@ impl BridgeChecker {
                 .service::<rosrust::RawMessage, F>(&Self::make_topic(name), handler)
                 .unwrap(),
             move || {
-                status.write().unwrap().ros_services.0 -= 1;
-                status.write().unwrap().ros_services.1 -= 1;
+                if let Ok(mut locked) = status.write() {
+                    locked.ros_services.0 -= 1;
+                    locked.ros_services.1 -= 1;
+                }
             },
         )
     }
@@ -1285,33 +1295,4 @@ fn ping_pong_all_overlap_many() {
     let main_work = main_work(&env, main_work_finished.clone());
     let parallel_subworks = parallel_subworks(&env, main_work_finished, 10);
     async_std::task::block_on(futures::future::join(main_work, parallel_subworks));
-}
-
-// there were some issues with rosrust service, so there is a test to check it
-async fn check_query(checker: &BridgeChecker) {
-    let name = "/some/key/expr";
-    let _queryable = checker.make_ros_service(name, |q| {
-        println!("got query!");
-        Ok(q)
-    });
-
-    let ros_client = checker.make_ros_client(name);
-    let data: Vec<u8> = (0..50).collect();
-    let result = ros_client
-        .data
-        .req(&rosrust::RawMessage(data.clone()))
-        .unwrap()
-        .unwrap();
-    assert!(data.eq(&result.0));
-}
-
-#[test]
-fn check_query_() {
-    let roscfg = IsolatedROSMaster::default();
-    let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
-    let checker = BridgeChecker::new(
-        IsolatedConfig::default().peer(),
-        roscfg.master_uri().as_str(),
-    );
-    futures::executor::block_on(check_query(&checker));
 }

@@ -21,7 +21,7 @@ pub struct IsolatedPort {
 }
 impl Default for IsolatedPort {
     fn default() -> Self {
-        static TEST_PORT: AtomicU16 = AtomicU16::new(17000);
+        static TEST_PORT: AtomicU16 = AtomicU16::new(20000);
         Self {
             port: TEST_PORT.fetch_add(1, SeqCst),
         }

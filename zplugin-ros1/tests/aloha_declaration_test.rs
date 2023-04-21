@@ -15,11 +15,11 @@
 use std::{
     collections::HashSet,
     str::FromStr,
-    sync::{atomic::AtomicUsize, Arc, Mutex},
+    sync::{atomic::AtomicUsize, Arc},
     time::Duration,
 };
 
-use async_std::prelude::FutureExt;
+use async_std::{prelude::FutureExt, sync::Mutex};
 use zenoh::{plugins::ZResult, prelude::OwnedKeyExpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zplugin_ros1::ros_to_zenoh_bridge::{
@@ -155,8 +155,8 @@ impl DeclarationCollector {
                 let r = r.clone();
                 let k_owned = OwnedKeyExpr::from(k);
                 Box::new(Box::pin(async move {
-                    assert!(declared.lock().unwrap().remove::<OwnedKeyExpr>(&k_owned));
-                    assert!(r.lock().unwrap().insert(k_owned));
+                    assert!(declared.lock().await.remove::<OwnedKeyExpr>(&k_owned));
+                    assert!(r.lock().await.insert(k_owned));
                 }))
             })
             .on_resource_undeclared(move |k| {
@@ -164,27 +164,28 @@ impl DeclarationCollector {
                 let r2 = r2.clone();
                 let k_owned = OwnedKeyExpr::from(k);
                 Box::new(Box::pin(async move {
-                    assert!(undeclared.lock().unwrap().remove(&k_owned));
-                    assert!(r2.lock().unwrap().remove(&k_owned));
+                    let st = k_owned.to_string(); 
+                    assert!(undeclared.lock().await.remove(&k_owned));
+                    assert!(r2.lock().await.remove(&k_owned));
                 }))
             });
 
         builder
     }
 
-    pub fn arm(
+    pub async fn arm(
         &mut self,
         declared: HashSet<zenoh::key_expr::OwnedKeyExpr>,
         undeclared: HashSet<zenoh::key_expr::OwnedKeyExpr>,
     ) {
-        *self.to_be_declared.lock().unwrap() = declared;
-        *self.to_be_undeclared.lock().unwrap() = undeclared;
+        *self.to_be_declared.lock().await = declared;
+        *self.to_be_undeclared.lock().await = undeclared;
     }
 
     pub async fn wait(&self, expected: HashSet<zenoh::key_expr::OwnedKeyExpr>) {
-        while !self.to_be_declared.lock().unwrap().is_empty()
-            || !self.to_be_undeclared.lock().unwrap().is_empty()
-            || expected != *self.resources.lock().unwrap()
+        while !self.to_be_declared.lock().await.is_empty()
+            || !self.to_be_undeclared.lock().await.is_empty()
+            || expected != *self.resources.lock().await
         {
             async_std::task::sleep(core::time::Duration::from_millis(1)).await;
         }
@@ -230,7 +231,7 @@ async fn test_state_transition<'a>(
         }
     }
 
-    collector.arm(declared, undeclared);
+    collector.arm(declared, undeclared).await;
 
     while declarations.len() > state.declarators_count {
         declarations.pop();

@@ -13,7 +13,6 @@
 //
 
 use std::{
-    cell::Cell,
     collections::{hash_map::Entry::*, HashMap},
     sync::{
         atomic::{AtomicBool, Ordering::Relaxed},
@@ -22,8 +21,9 @@ use std::{
     time::Duration,
 };
 
+use async_std::sync::Mutex;
 use flume::Receiver;
-use futures::{pin_mut, select, Future, FutureExt};
+use futures::{Future, FutureExt, join};
 use log::error;
 use zenoh::{plugins::ZResult, prelude::r#async::*};
 
@@ -107,25 +107,33 @@ impl AlohaSubscription {
             + Sync
             + 'static,
     {
-        let mut accumulating_resources = Cell::new(HashMap::<OwnedKeyExpr, AlohaResource>::new());
+        let accumulating_resources = Mutex::new(HashMap::<OwnedKeyExpr, AlohaResource>::new());
         let subscriber = session.declare_subscriber(key).res_async().await?;
 
-        Self::accumulating_task(
+
+        let listen = Self::listening_task(
+            task_running.clone(),
+            &accumulating_resources,
+            &subscriber,
+            &on_resource_declared,
+        )
+        .fuse();
+
+        let listen_timeout = Self::accumulating_task(
             task_running,
             beacon_period * 3,
-            &mut accumulating_resources,
-            &subscriber,
-            on_resource_declared,
+            &accumulating_resources,
             on_resource_undeclared,
-        )
-        .await;
+        ).fuse();
+
+        join!(listen, listen_timeout);
 
         Ok(())
     }
 
     async fn listening_task<'a, F>(
         task_running: Arc<AtomicBool>,
-        accumulating_resources: &mut Cell<HashMap<OwnedKeyExpr, AlohaResource>>,
+        accumulating_resources: &Mutex<HashMap<OwnedKeyExpr, AlohaResource>>,
         subscriber: &'a zenoh::subscriber::Subscriber<'a, Receiver<Sample>>,
         on_resource_declared: &F,
     ) where
@@ -136,7 +144,7 @@ impl AlohaSubscription {
     {
         while task_running.load(Relaxed) {
             match subscriber.recv_async().await {
-                Ok(val) => match accumulating_resources.get_mut().entry(val.key_expr.into()) {
+                Ok(val) => match accumulating_resources.lock().await.entry(val.key_expr.into()) {
                     Occupied(mut val) => {
                         val.get_mut().update();
                     }
@@ -155,9 +163,7 @@ impl AlohaSubscription {
     async fn accumulating_task<'a, F>(
         task_running: Arc<AtomicBool>,
         accumulate_period: Duration,
-        accumulating_resources: &mut Cell<HashMap<OwnedKeyExpr, AlohaResource>>,
-        subscriber: &'a zenoh::subscriber::Subscriber<'a, Receiver<Sample>>,
-        on_resource_declared: F,
+        accumulating_resources: &Mutex<HashMap<OwnedKeyExpr, AlohaResource>>,
         on_resource_undeclared: F,
     ) where
         F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
@@ -166,38 +172,21 @@ impl AlohaSubscription {
             + 'static,
     {
         while task_running.load(Relaxed) {
-            accumulating_resources.get_mut().iter_mut().for_each(|val| {
+            accumulating_resources.lock().await.iter_mut().for_each(|val| {
                 val.1.reset();
             });
 
-            {
-                let listen = Self::listening_task(
-                    task_running.clone(),
-                    accumulating_resources,
-                    subscriber,
-                    &on_resource_declared,
-                )
-                .fuse();
-                let listen_timeout = async_std::task::sleep(accumulate_period).fuse();
-                pin_mut!(listen, listen_timeout);
-                select! {
-                    () = listen => {
+            async_std::task::sleep(accumulate_period).await;
 
-                    },
-                    () = listen_timeout => {
-
-                    }
-                };
-            }
-
-            for (key, val) in accumulating_resources.get_mut().iter() {
+            for (key, val) in accumulating_resources.lock().await.iter() {
                 if !val.is_active() {
                     on_resource_undeclared(key.into()).await;
                 }
             }
 
             accumulating_resources
-                .get_mut()
+                .lock()
+                .await
                 .retain(|_key, val| val.is_active());
         }
     }
