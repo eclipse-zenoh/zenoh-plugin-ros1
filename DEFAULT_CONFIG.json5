@@ -1,0 +1,92 @@
+////
+//// This file presents the default configuration used by `zplugin-ros1` plugin.
+//// The "ros1" JSON5 object below can be used as such in the "plugins" part of a config file for the zenoh router (zenohd).
+////
+{
+  plugins: {
+    ////
+    //// ROS1 bridge related configuration
+    //// All settings are optional and are unset by default - uncomment the ones you want to set
+    ////
+    ros1: {
+      ////
+      //// ROS_MASTER_URI: A URI of the ROS1 Master to connect to, the defailt is http://localhost:11311/
+      ////
+      // ROS_MASTER_URI: "http://localhost:11311/",
+
+      ////
+      //// ROS_HOSTNAME: A hostname to send to ROS1 Master, the default is system's hostname
+      ////
+      // ROS_HOSTNAME: "hostname",
+
+      ////
+      //// ROS_NAME: A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge" 
+      ////
+      // ROS_NAME: "ros1_to_zenoh_bridge",
+
+      ////
+      //// ROS_BRIDGING_MODE: When to bridge topics:
+      //// "Automatic"(default) - bridge topics once they are declared locally
+      //// "Lazy" - bridge topics once they are declared both locally and required remotely through discovery
+      //// Warn: this setting is ignored for local ROS1 clients, as they require a tricky discovery mechanism  
+      ////
+      // ROS_BRIDGING_MODE: "Automatic",
+
+      ////
+      //// ROS_MASTER_POLLING_INTERVAL: An interval how to poll the ROS1 master for status
+      //// Bridge polls ROS1 master to get information on local topics, as this is the only way to keep
+      //// this info updated. This is the interval of this polling. The default is "100ms"
+      ////
+      //// Takes a string such as 100ms, 2s, 5m
+      //// The string format is [0-9]+(ns|us|ms|[smhdwy])
+      ////
+      // ROS_MASTER_POLLING_INTERVAL: "100ms",
+    },
+
+    ////
+    //// REST API configuration (active only if this part is defined)
+    ////
+    // rest: {
+    //   ////
+    //   //// The HTTP port number (for all network interfaces).
+    //   //// You can bind on a specific interface setting a "<local_ip>:<port>" string.
+    //   ////
+    //   http_port: 8000,
+    // },
+  },
+
+  ////
+  //// zenoh related configuration (see zenoh documentation for more details)
+  ////
+
+  ////
+  //// id: The identifier (as hex-string) that zenoh-bridge-ros1 must use. If not set, a random UUIDv4 will be used.
+  //// WARNING: this id must be unique in your zenoh network.
+  // id: "A00001",
+
+  ////
+  //// mode: The bridge's mode (peer or client)
+  ////
+  //mode: "client",
+
+  ////
+  //// Which endpoints to connect to. E.g. tcp/localhost:7447.
+  //// By configuring the endpoints, it is possible to tell zenoh which router/peer to connect to at startup.
+  ////
+  connect: {
+    endpoints: [
+      // "<proto>/<ip>:<port>"
+    ]
+  },
+
+  ////
+  //// Which endpoints to listen on. E.g. tcp/localhost:7447.
+  //// By configuring the endpoints, it is possible to tell zenoh which are the endpoints that other routers, 
+  //// peers, or client can use to establish a zenoh session.
+  ////
+  listen: {
+    endpoints: [
+      // "<proto>/<ip>:<port>"
+    ]
+  },
+}
