@@ -19,16 +19,6 @@ pub fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {
 }
 
 pub fn make_topic(datatype: &keyexpr, topic_name: &keyexpr) -> Result<rosrust::api::Topic, String> {
-    match datatype.as_str() {
-        "*" | "**" => return Err("incorrect datatype!".into()),
-        _ => {}
-    }
-
-    match topic_name.as_str() {
-        "*" | "**" => return Err("incorrect topic name!".into()),
-        _ => {}
-    }
-
     let mut name = topic_name.to_string();
     name.insert(0, '/');
     Ok(rosrust::api::Topic {

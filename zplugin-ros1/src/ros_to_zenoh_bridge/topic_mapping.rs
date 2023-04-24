@@ -22,7 +22,6 @@ pub struct Ros1TopicMapping {
     pub published: HashSet<rosrust::api::Topic>,
     pub subscribed: HashSet<rosrust::api::Topic>,
     pub serviced: HashSet<rosrust::api::Topic>,
-    pub clients: HashSet<rosrust::api::Topic>,
 }
 impl Ros1TopicMapping {
     pub fn topic_mapping(
@@ -46,7 +45,6 @@ impl Ros1TopicMapping {
             published: HashSet::new(),
             subscribed: HashSet::new(),
             serviced: HashSet::new(),
-            clients: HashSet::new(),
         };
 
         Ros1TopicMapping::fill(&mut result.subscribed, &state.subscribers, topics);

@@ -23,7 +23,7 @@ use std::{
 
 use async_std::sync::Mutex;
 use flume::Receiver;
-use futures::{Future, FutureExt, join};
+use futures::{join, Future, FutureExt};
 use log::error;
 use zenoh::{plugins::ZResult, prelude::r#async::*};
 
@@ -110,7 +110,6 @@ impl AlohaSubscription {
         let accumulating_resources = Mutex::new(HashMap::<OwnedKeyExpr, AlohaResource>::new());
         let subscriber = session.declare_subscriber(key).res_async().await?;
 
-
         let listen = Self::listening_task(
             task_running.clone(),
             &accumulating_resources,
@@ -124,7 +123,8 @@ impl AlohaSubscription {
             beacon_period * 3,
             &accumulating_resources,
             on_resource_undeclared,
-        ).fuse();
+        )
+        .fuse();
 
         join!(listen, listen_timeout);
 
@@ -144,7 +144,11 @@ impl AlohaSubscription {
     {
         while task_running.load(Relaxed) {
             match subscriber.recv_async().await {
-                Ok(val) => match accumulating_resources.lock().await.entry(val.key_expr.into()) {
+                Ok(val) => match accumulating_resources
+                    .lock()
+                    .await
+                    .entry(val.key_expr.into())
+                {
                     Occupied(mut val) => {
                         val.get_mut().update();
                     }
@@ -172,9 +176,13 @@ impl AlohaSubscription {
             + 'static,
     {
         while task_running.load(Relaxed) {
-            accumulating_resources.lock().await.iter_mut().for_each(|val| {
-                val.1.reset();
-            });
+            accumulating_resources
+                .lock()
+                .await
+                .iter_mut()
+                .for_each(|val| {
+                    val.1.reset();
+                });
 
             async_std::task::sleep(accumulate_period).await;
 

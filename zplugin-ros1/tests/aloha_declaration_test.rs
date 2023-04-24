@@ -164,7 +164,6 @@ impl DeclarationCollector {
                 let r2 = r2.clone();
                 let k_owned = OwnedKeyExpr::from(k);
                 Box::new(Box::pin(async move {
-                    let st = k_owned.to_string(); 
                     assert!(undeclared.lock().await.remove(&k_owned));
                     assert!(r2.lock().await.remove(&k_owned));
                 }))
