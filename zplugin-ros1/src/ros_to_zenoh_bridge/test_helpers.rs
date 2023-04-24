@@ -428,3 +428,35 @@ where
         (self.on_destroy)();
     }
 }
+
+pub struct TestParams;
+impl TestParams {
+    pub fn many_count() -> u32 {
+        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 10)
+    }
+
+    pub fn pps_measurements() -> u32 {
+        Self::env_var("TEST_ROS1_TO_ZENOH_PPS_ITERATIONS", 100)
+    }
+
+    pub fn pps_measure_period_ms() -> u64 {
+        Self::env_var("TEST_ROS1_TO_ZENOH_PPS_PERIOD_MS", 1)
+    }
+
+    pub fn data_size() -> u32 {
+        Self::env_var("TEST_ROS1_TO_ZENOH_DATA_SIZE", 16)
+    }
+
+    // PRIVATE
+    fn env_var<Tvar>(key: &str, default: Tvar) -> Tvar
+    where
+        Tvar: FromStr,
+    {
+        if let Ok(val) = std::env::var(key) {
+            if let Ok(val) = val.parse::<Tvar>() {
+                return val;
+            }
+        }
+        default
+    }
+}

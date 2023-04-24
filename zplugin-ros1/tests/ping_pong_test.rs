@@ -18,7 +18,6 @@ use zenoh_core::{bail, zresult::ZResult, SyncResolve};
 
 use std::{
     collections::HashSet,
-    str::FromStr,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering::*},
         Arc,
@@ -26,7 +25,7 @@ use std::{
 };
 
 use zplugin_ros1::ros_to_zenoh_bridge::test_helpers::{
-    BridgeChecker, ROSEnvironment, RunningBridge,
+    BridgeChecker, ROSEnvironment, RunningBridge, TestParams,
 };
 use zplugin_ros1::ros_to_zenoh_bridge::{
     discovery::LocalResource,
@@ -504,8 +503,8 @@ impl PingPong {
     async fn start_ping_pong(&self) {
         debug!("Starting ping-pong!");
         let mut data = Vec::new();
-        data.reserve(TestEnvironment::data_size() as usize);
-        for i in 0..TestEnvironment::data_size() {
+        data.reserve(TestParams::data_size() as usize);
+        for i in 0..TestParams::data_size() {
             data.push((i % 255) as u8);
         }
         self.pub_sub.publisher.put(data.clone());
@@ -522,7 +521,7 @@ impl PingPong {
     async fn measure_pps(&self) -> f64 {
         debug!("Starting measure PPS....");
 
-        let duration_milliseconds = TestEnvironment::pps_measure_period_ms();
+        let duration_milliseconds = TestParams::pps_measure_period_ms();
 
         let mut result = 0.0;
         let mut duration: u64 = 0;
@@ -600,39 +599,10 @@ impl TestEnvironment {
         }
     }
 
-    pub fn many_count() -> u32 {
-        Self::env_var("TEST_ROS1_TO_ZENOH_MANY_COUNT", 40)
-    }
-
-    pub fn pps_measurements() -> u32 {
-        Self::env_var("TEST_ROS1_TO_ZENOH_PPS_ITERATIONS", 100)
-    }
-
-    pub fn pps_measure_period_ms() -> u64 {
-        Self::env_var("TEST_ROS1_TO_ZENOH_PPS_PERIOD_MS", 1)
-    }
-
-    pub fn data_size() -> u32 {
-        Self::env_var("TEST_ROS1_TO_ZENOH_DATA_SIZE", 16)
-    }
-
     pub async fn assert_bridge_status_synchronized(&self) {
         self.bridge
             .assert_bridge_status(|| *self.checker.expected_bridge_status.read().unwrap())
             .await;
-    }
-
-    // PRIVATE
-    fn env_var<Tvar>(key: &str, default: Tvar) -> Tvar
-    where
-        Tvar: FromStr,
-    {
-        if let Ok(val) = std::env::var(key) {
-            if let Ok(val) = val.parse::<Tvar>() {
-                return val;
-            }
-        }
-        default
     }
 }
 
@@ -709,7 +679,7 @@ async fn ping_pong_duplex_parallel_many_(
         if mode.contains(&Mode::FastRun) {
             vec.push(ping_pong.run(1));
         } else {
-            vec.push(ping_pong.run(TestEnvironment::pps_measurements()));
+            vec.push(ping_pong.run(TestParams::pps_measurements()));
         }
     }
 
@@ -733,7 +703,7 @@ fn ping_pong_zenoh_to_ros1_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::ZenohToRos1]),
     ));
 }
@@ -752,7 +722,7 @@ fn ping_pong_ros1_to_zenoh_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::Ros1ToZenoh]),
     ));
 }
@@ -771,7 +741,7 @@ fn ping_pong_ros1_service_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::Ros1Service]),
     ));
 }
@@ -790,7 +760,7 @@ fn ping_pong_ros1_client_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::Ros1Client]),
     ));
 }
@@ -824,22 +794,22 @@ fn ping_pong_all_sequential_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::ZenohToRos1]),
     ));
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::Ros1ToZenoh]),
     ));
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::Ros1Service]),
     ));
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([Mode::Ros1Client]),
     ));
 }
@@ -864,7 +834,7 @@ fn ping_pong_all_parallel_many() {
     let env = TestEnvironment::new();
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([
             Mode::ZenohToRos1,
             Mode::Ros1ToZenoh,
@@ -878,7 +848,7 @@ async fn main_work(env: &TestEnvironment, main_work_finished: Arc<AtomicBool>) {
     assert!(!main_work_finished.load(Relaxed));
     ping_pong_duplex_parallel_many_(
         env,
-        TestEnvironment::many_count(),
+        TestParams::many_count(),
         HashSet::from([
             Mode::ZenohToRos1,
             Mode::Ros1ToZenoh,
