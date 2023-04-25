@@ -12,7 +12,7 @@
 #   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 #
 [package]
-name = "zplugin-ros1"
+name = "zenoh-plugin-ros1"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
@@ -50,11 +50,11 @@ zenoh-ext = { workspace = true }
 zenoh-core = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
 rosrust = { workspace = true }
- 
+
 [dev-dependencies]
 serial_test = "0.10.0"
 multiset = "0.0.5"
-zplugin-ros1 = { path = ".", features = ["test"]}
+zenoh-plugin-ros1 = { path = ".", features = ["test"]}
 
 [dependencies.async-std]
 version = "=1.12.0"
