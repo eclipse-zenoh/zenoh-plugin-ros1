@@ -14,7 +14,7 @@
 
 use std::future;
 
-use zplugin_ros1::ros_to_zenoh_bridge::{ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge};
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge};
 
 #[async_std::main]
 async fn main() {

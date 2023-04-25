@@ -17,7 +17,7 @@ use std::{collections::HashSet, sync::atomic::AtomicU64};
 use rosrust::{Client, Publisher, RawMessage, Service, Subscriber};
 use std::sync::atomic::Ordering::*;
 use strum_macros::Display;
-use zplugin_ros1::ros_to_zenoh_bridge::test_helpers::{
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
     BridgeChecker, IsolatedConfig, IsolatedROSMaster, RAIICounter, ROSEnvironment, RunningBridge,
     TestParams,
 };

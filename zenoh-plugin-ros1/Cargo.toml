@@ -23,7 +23,7 @@ categories = ["network-programming"]
 description = "Zenoh plugin for bidging ROS1"
 
 [lib]
-name = "zplugin_ros1"
+name = "zenoh_plugin_ros1"
 crate-type = ["cdylib", "rlib"]
 
 [features]

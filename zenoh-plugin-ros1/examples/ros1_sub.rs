@@ -14,7 +14,7 @@
 
 use zenoh_core::AsyncResolve;
 
-use zplugin_ros1::ros_to_zenoh_bridge::{
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
 
