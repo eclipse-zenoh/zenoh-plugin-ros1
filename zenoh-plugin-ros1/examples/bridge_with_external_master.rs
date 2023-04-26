@@ -13,7 +13,7 @@
 //
 
 use std::future;
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::{environment, Ros1ToZenohBridge};
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::Ros1ToZenohBridge;
 
 #[async_std::main]
 async fn main() {
