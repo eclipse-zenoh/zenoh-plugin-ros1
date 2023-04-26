@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest]
 
     steps:
       - uses: actions/checkout@v2
@@ -53,3 +53,46 @@ jobs:
           args: --all-targets -- -D warnings
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+  test:
+    name: Run tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install latest Rust toolchain
+        uses: actions-rs/toolchain@v1
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --verbose --all-targets
+        env:
+          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+      - name: Install ROS
+        run: sudo apt install -y ros-base
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --verbose
+        env:
+          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+          ASYNC_STD_THREAD_COUNT: 4
+
+      - name: Run doctests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --doc
+        env:
+          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+          ASYNC_STD_THREAD_COUNT: 4
