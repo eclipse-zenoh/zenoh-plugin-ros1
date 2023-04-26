@@ -275,7 +275,7 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
     let ppc_measurer = PPCMeasurement::new(
         &subscription_session,
         "key".to_string(),
-        Duration::from_millis(100),
+        beacon_period,
     )
     .await
     .unwrap();
