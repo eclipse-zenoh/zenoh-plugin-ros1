@@ -54,6 +54,68 @@ If you want to run examples or tests, you need to install ROS1:
 $ sudo apt install -y ros-base
 ```
 
+## A quick test with built-in examples
+
+There is a set of example utilities illustarating bridge in operation.
+Here is a description on how to configure the following schema:
+```
+_____________________________                               ________________________________
+|                           |                               |                              |
+|        rosmaster_1        |                               |         rosmaster_2          |
+|                           |                               |                              |
+| ros1_publisher -> ros_to_zenoh_bridge -> zenoh -> ros_to_zenoh_bridge -> ros1_subscriber |
+|___________________________|                               |______________________________|
+```
+
+1. Build the examples:
+```bash
+$ cargo test --no-run
+```
+Examples would be in target/debug/examples.
+There are three executables we'll need from there:
+```
+bridge_with_external_master // bridging executable
+ros1_standalone_sub         // ros1 test subscriber
+ros1_standalone_pub         // ros1 test publisher
+```
+
+2. Start rosmaster_1:
+```bash
+$ rosmaster -p 10000
+```
+
+3. Start bridge for rosmaster_1:
+```bash
+$ ROS_MASTER_URI=http://localhost:10000 ./bridge_with_external_master
+```
+
+4. Start ros1_subscriber:
+```bash
+$ ROS_MASTER_URI=http://localhost:10000 ./ros1_standalone_sub
+```
+
+
+
+5. Start rosmaster_2:
+```bash
+$ rosmaster -p 10001
+```
+
+6. Start bridge for rosmaster_2:
+```bash
+$ ROS_MASTER_URI=http://localhost:10001 ./bridge_with_external_master
+```
+
+7. Start ros1_publisher:
+```bash
+$ ROS_MASTER_URI=http://localhost:10001 ./ros1_standalone_pub
+```
+
+Once completed, you will see the following exchange between ROS1 publisher and subscriber:
+<img src="pubsub.png">
+
+
+
 ## Implementation
 Currently, ROS1 to Zenoh Bridge is based on [rosrust library fork](https://github.com/ZettaScaleLabs/rosrust). Some limitations are applied due to rosrust's implementation details, and we are targeting to re-engineer rosrust to overcome this
 
@@ -61,3 +123,4 @@ Currently, ROS1 to Zenoh Bridge is based on [rosrust library fork](https://githu
 - all topic names are bridged as-is
 - all topic datatypes and md5 sums are bridged as "*" wildcard and may not work with some ROS1 client implementations
 - there is a performance impact coming from rosrust
+
