@@ -272,13 +272,9 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
         .build()
         .await
         .unwrap();
-    let ppc_measurer = PPCMeasurement::new(
-        &subscription_session,
-        "key".to_string(),
-        beacon_period,
-    )
-    .await
-    .unwrap();
+    let ppc_measurer = PPCMeasurement::new(&subscription_session, "key".to_string(), beacon_period)
+        .await
+        .unwrap();
     for scene in scenario {
         println!("Transiting State: {}", scene.declarators_count);
         test_state_transition(
