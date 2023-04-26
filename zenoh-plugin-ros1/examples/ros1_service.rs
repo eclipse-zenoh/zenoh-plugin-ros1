@@ -39,7 +39,7 @@ async fn main() {
     // create ROS1 node and service
     print!("Creating ROS1 Node...");
     let ros1_node = rosrust::api::Ros::new(
-        Environment::ros_name().get().as_str(),
+        (Environment::ros_name().get() + "_test_service_node").as_str(),
         Environment::ros_master_uri().get().as_str(),
     )
     .unwrap();

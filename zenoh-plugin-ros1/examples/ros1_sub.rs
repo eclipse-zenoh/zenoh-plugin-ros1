@@ -38,7 +38,7 @@ async fn main() {
     // create ROS1 node and subscriber
     print!("Creating ROS1 Node...");
     let ros1_node = rosrust::api::Ros::new(
-        Environment::ros_name().get().as_str(),
+        (Environment::ros_name().get() + "_test_subscriber_node").as_str(),
         Environment::ros_master_uri().get().as_str(),
     )
     .unwrap();
@@ -46,7 +46,7 @@ async fn main() {
     print!("Creating ROS1 Subscriber...");
     #[allow(unused_variables)]
     let ros1_subscriber = ros1_node
-        .subscribe("/some/ros/topic/", 0, |msg: rosrust::RawMessage| {
+        .subscribe("/some/ros/topic", 0, |msg: rosrust::RawMessage| {
             println!("ROS Subscriber: got message!")
         })
         .unwrap();
@@ -54,7 +54,7 @@ async fn main() {
 
     // create Zenoh session and publisher
     print!("Creating Zenoh Session...");
-    let zenoh_session = zenoh::open(zenoh::config::default())
+    let zenoh_session = zenoh::open(zenoh::config::peer())
         .res_async()
         .await
         .unwrap()
