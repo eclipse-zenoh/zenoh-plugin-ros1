@@ -13,7 +13,7 @@
 #
 [workspace]
 members = [
-  "zplugin-ros1",
+  "zenoh-plugin-ros1",
 ]
 
 [workspace.package]

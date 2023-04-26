@@ -15,7 +15,7 @@
 use std::time::Duration;
 
 use serial_test::serial;
-use zplugin_ros1::ros_to_zenoh_bridge::ros1_master_ctrl::Ros1MasterCtrl;
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::ros1_master_ctrl::Ros1MasterCtrl;
 
 #[test]
 #[serial(ROS1)]

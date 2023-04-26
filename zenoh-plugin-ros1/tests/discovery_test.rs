@@ -21,7 +21,7 @@ use async_std::prelude::FutureExt;
 use multiset::HashMultiSet;
 use zenoh::{prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
-use zplugin_ros1::ros_to_zenoh_bridge::{
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery, test_helpers::IsolatedConfig, topic_utilities::make_topic,
 };
 
@@ -93,20 +93,34 @@ impl DiscoveryCollector {
         builder
             .on_discovered(move |b_type, topic| {
                 let container = match b_type {
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => &p,
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => &s,
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => &srv,
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => &cli,
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => {
+                        &p
+                    }
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => {
+                        &s
+                    }
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => {
+                        &srv
+                    }
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => &cli,
                 };
                 container.lock().unwrap().insert(topic);
                 Box::new(Box::pin(async {}))
             })
             .on_lost(move |b_type, topic| {
                 let container = match b_type {
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => &p1,
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => &s1,
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => &srv1,
-                    zplugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => &cli1,
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Publisher => {
+                        &p1
+                    }
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Subscriber => {
+                        &s1
+                    }
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Service => {
+                        &srv1
+                    }
+                    zenoh_plugin_ros1::ros_to_zenoh_bridge::bridge_type::BridgeType::Client => {
+                        &cli1
+                    }
                 };
                 container.lock().unwrap().remove(&topic);
                 Box::new(Box::pin(async {}))

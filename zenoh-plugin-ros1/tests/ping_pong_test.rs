@@ -24,10 +24,10 @@ use std::{
     },
 };
 
-use zplugin_ros1::ros_to_zenoh_bridge::test_helpers::{
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
     BridgeChecker, ROSEnvironment, RunningBridge, TestParams,
 };
-use zplugin_ros1::ros_to_zenoh_bridge::{
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::LocalResource,
     test_helpers::{IsolatedConfig, IsolatedROSMaster, RAIICounter},
 };

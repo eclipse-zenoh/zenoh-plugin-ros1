@@ -22,7 +22,7 @@ use std::{
 use async_std::{prelude::FutureExt, sync::Mutex};
 use zenoh::{plugins::ZResult, prelude::OwnedKeyExpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
-use zplugin_ros1::ros_to_zenoh_bridge::{
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
 };
 
@@ -272,13 +272,9 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
         .build()
         .await
         .unwrap();
-    let ppc_measurer = PPCMeasurement::new(
-        &subscription_session,
-        "key".to_string(),
-        Duration::from_millis(100),
-    )
-    .await
-    .unwrap();
+    let ppc_measurer = PPCMeasurement::new(&subscription_session, "key".to_string(), beacon_period)
+        .await
+        .unwrap();
     for scene in scenario {
         println!("Transiting State: {}", scene.declarators_count);
         test_state_transition(

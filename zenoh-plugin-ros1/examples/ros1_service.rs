@@ -12,8 +12,10 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use zenoh::prelude::SplitBuffer;
 use zenoh_core::AsyncResolve;
-use zplugin_ros1::ros_to_zenoh_bridge::{
+
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
 
@@ -34,21 +36,28 @@ async fn main() {
     let _bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default()).await;
     println!(" OK!");
 
-    // create ROS1 node and publisher
+    // create ROS1 node and service
     print!("Creating ROS1 Node...");
     let ros1_node = rosrust::api::Ros::new(
-        Environment::ros_name().get().as_str(),
+        (Environment::ros_name().get() + "_test_service_node").as_str(),
         Environment::ros_master_uri().get().as_str(),
     )
     .unwrap();
     println!(" OK!");
-    print!("Creating ROS1 Publisher...");
-    let ros1_publisher = ros1_node
-        .publish::<rosrust::RawMessage>("/some/ros/topic/", 0)
+    print!("Creating ROS1 Service...");
+    #[allow(unused_variables)]
+    let ros1_service = ros1_node
+        .service::<rosrust::RawMessage, _>(
+            "/some/ros/topic/",
+            |query| -> rosrust::ServiceResult<rosrust::RawMessage> {
+                println!("ROS Service: got query, sending reply...");
+                Ok(query)
+            },
+        )
         .unwrap();
     println!(" OK!");
 
-    // create Zenoh session and subscriber
+    // create Zenoh session
     print!("Creating Zenoh Session...");
     let zenoh_session = zenoh::open(zenoh::config::default())
         .res_async()
@@ -56,29 +65,30 @@ async fn main() {
         .unwrap()
         .into_arc();
     println!(" OK!");
-    print!("Creating Zenoh Subscriber...");
-    #[allow(unused_variables)]
-    let zenoh_subscriber = zenoh_session
-        .declare_subscriber("some/ros/topic")
-        .callback(|data| println!("Zenoh Subscriber: got data!"))
-        .res_async()
-        .await
-        .unwrap();
-    println!(" OK!");
 
-    // here bridge will expose our test ROS topic to Zenoh so that our subscriber will get data published within it
+    // here bridge will expose our test ROS topic to Zenoh so that our ROS1 subscriber will get data published in Zenoh
     println!("Running bridge, press Ctrl+C to exit...");
 
-    // run test loop publishing data to ROS topic...
-    let working_loop = move || {
-        let data: Vec<u8> = (0..10).collect();
-        loop {
-            println!("ROS Publisher: publishing data...");
-            ros1_publisher
-                .send(rosrust::RawMessage(data.clone()))
-                .unwrap();
-            std::thread::sleep(core::time::Duration::from_secs(1));
+    // run test loop querying Zenoh...
+    let data: Vec<u8> = (0..10).collect();
+    loop {
+        println!("Zenoh: sending query...");
+        let reply = zenoh_session
+            .get("some/ros/topic")
+            .with_value(data.clone())
+            .res_async()
+            .await
+            .unwrap();
+        let result = reply.recv_async().await;
+        match result {
+            Ok(val) => {
+                println!("Zenoh: got reply!");
+                assert!(data == val.sample.unwrap().value.payload.contiguous().to_vec());
+            }
+            Err(e) => {
+                println!("Zenoh got error: {}", e);
+            }
         }
-    };
-    async_std::task::spawn_blocking(working_loop).await;
+        async_std::task::sleep(core::time::Duration::from_secs(1)).await;
+    }
 }

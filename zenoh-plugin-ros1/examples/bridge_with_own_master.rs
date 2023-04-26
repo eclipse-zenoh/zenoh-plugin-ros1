@@ -13,15 +13,22 @@
 //
 
 use std::future;
-use zplugin_ros1::ros_to_zenoh_bridge::Ros1ToZenohBridge;
+
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge};
 
 #[async_std::main]
 async fn main() {
     // initiate logging
     env_logger::init();
 
-    // create bridge with ROS1 master
-    // In this example the bridge will connect to master specified by ROS_MASTER_URI env variable (default http://localhost:11311/)
+    // You need to have ros1 installed within your system and have "rosmaster" command available, otherwise this code will fail.
+    // start ROS1 master...
+    print!("Starting ROS1 Master...");
+    Ros1MasterCtrl::with_ros1_master()
+        .await
+        .expect("Error starting rosmaster!");
+
+    // create bridge
     print!("Starting Bridge...");
     let _bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default()).await;
     println!(" OK!");
