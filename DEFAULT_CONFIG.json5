@@ -26,11 +26,11 @@
 
       ////
       //// ros_bridging_mode: When to bridge topics:
-      //// "Automatic"(default) - bridge topics once they are declared locally
-      //// "Lazy" - bridge topics once they are declared both locally and required remotely through discovery
+      //// "auto"(default) - bridge topics once they are declared locally
+      //// "lazy" - bridge topics once they are declared both locally and required remotely through discovery
       //// Warn: this setting is ignored for local ROS1 clients, as they require a tricky discovery mechanism  
       ////
-      // ros_bridging_mode: "Automatic",
+      // ros_bridging_mode: "auto",
 
       ////
       //// ros_master_polling_interval: An interval how to poll the ROS1 master for status

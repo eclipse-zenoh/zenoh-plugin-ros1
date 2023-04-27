@@ -95,8 +95,8 @@ r#"-n, --ros_name=[String]   'A bridge node's name for ROS1, the default is "ros
         .arg(Arg::from_usage(
 r#"-b, --ros_bridging_mode=[String] \
 'Mode defining the moment to bridge topics. Accepted values:'
-  - "Automatic"(default) - bridge topics once they are declared locally
-  - "Lazy" - bridge topics once they are declared both locally and required remotely through discovery
+  - "auto"(default) - bridge topics once they are declared locally
+  - "lazy" - bridge topics once they are declared both locally and required remotely through discovery
 Warn: this setting is ignored for local ROS1 clients, as they require a tricky discovery mechanism"#
         ))
         .arg(Arg::from_usage(

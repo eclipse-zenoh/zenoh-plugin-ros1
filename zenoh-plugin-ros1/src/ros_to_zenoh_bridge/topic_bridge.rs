@@ -23,9 +23,10 @@ use std::sync::Arc;
 use strum_macros::{Display, EnumString};
 
 #[derive(PartialEq, Eq, EnumString, Clone, Display)]
+#[strum(serialize_all = "snake_case")]
 pub enum BridgingMode {
     Lazy,
-    Automatic,
+    Auto,
 }
 
 pub struct TopicBridge {
@@ -92,7 +93,7 @@ impl TopicBridge {
     pub fn is_actual(&self) -> bool {
         match self.briging_mode {
             BridgingMode::Lazy => self.required_on_ros1_side || self.required_on_zenoh_side,
-            BridgingMode::Automatic => self.required_on_ros1_side,
+            BridgingMode::Auto => self.required_on_ros1_side,
         }
     }
 
@@ -121,7 +122,7 @@ impl TopicBridge {
     async fn recalc_bridging(&mut self) {
         let is_discovered_client = self.b_type == BridgeType::Client && self.required_on_zenoh_side;
         let is_required = self.required_on_ros1_side
-            && (self.briging_mode == BridgingMode::Automatic || self.required_on_zenoh_side);
+            && (self.briging_mode == BridgingMode::Auto || self.required_on_zenoh_side);
 
         if is_required || is_discovered_client {
             self.create_bridge().await;

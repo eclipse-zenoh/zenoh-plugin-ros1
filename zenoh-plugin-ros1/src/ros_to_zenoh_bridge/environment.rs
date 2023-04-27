@@ -96,7 +96,7 @@ impl Environment {
     }
 
     pub fn bridging_mode() -> Entry<'static, BridgingMode> {
-        return Entry::new("ROS_BRIDGING_MODE", BridgingMode::Automatic);
+        return Entry::new("ROS_BRIDGING_MODE", BridgingMode::Auto);
     }
 
     pub fn master_polling_interval() -> Entry<'static, DurationString> {
