@@ -13,15 +13,23 @@
 //
 #![recursion_limit = "1024"]
 
+use git_version::git_version;
 use ros_to_zenoh_bridge::environment::Environment;
+use ros_to_zenoh_bridge::ros1_master_ctrl::Ros1MasterCtrl;
 use ros_to_zenoh_bridge::Ros1ToZenohBridge;
 use std::sync::Arc;
+use std::time::Duration;
 use zenoh::plugins::{Plugin, RunningPluginTrait, ValidationFunction, ZenohPlugin};
 use zenoh::prelude::r#async::*;
 use zenoh::runtime::Runtime;
 use zenoh_core::{bail, Result as ZResult};
 
 pub mod ros_to_zenoh_bridge;
+
+pub const GIT_VERSION: &str = git_version!(prefix = "v", cargo_prefix = "v");
+lazy_static::lazy_static! {
+    pub static ref LONG_VERSION: String = format!("{} built with {}", GIT_VERSION, env!("RUSTC_VERSION"));
+}
 
 // The struct implementing the ZenohPlugin and ZenohPlugin traits
 pub struct Ros1Plugin {}
@@ -49,8 +57,9 @@ impl Plugin for Ros1Plugin {
         // run through the bridge's config options and fill them from plugins config
         let plugin_configuration_entries = Environment::env();
         for entry in plugin_configuration_entries.iter() {
-            if let Some(v) = self_cfg.get(entry.name) {
-                entry.set(v.to_string());
+            if let Some(v) = self_cfg.get(&entry.name.to_lowercase()) {
+                let str = v.to_string();
+                entry.set(str.trim_matches('"').to_string());
             }
         }
 
@@ -84,11 +93,22 @@ impl RunningPluginTrait for RunningPlugin {
         Ok(Vec::new())
     }
 }
-
+impl Drop for RunningPlugin {
+    fn drop(&mut self) {
+        if Environment::with_rosmaster().get() {
+            async_std::task::block_on(Ros1MasterCtrl::without_ros1_master());
+        }
+    }
+}
 impl RunningPlugin {
     fn new(runtime: &Runtime) -> ZResult<Self> {
         let bridge: ZResult<Ros1ToZenohBridge> = async_std::task::block_on(async {
-            // create a zenoh Session that shares the same Runtime than zenohd
+            if Environment::with_rosmaster().get() {
+                Ros1MasterCtrl::with_ros1_master().await?;
+                async_std::task::sleep(Duration::from_secs(1)).await;
+            }
+
+            // create a zenoh Session that shares the same Runtime as zenohd
             let session = zenoh::init(runtime.clone()).res().await?.into_arc();
             let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
             Ok(bridge)

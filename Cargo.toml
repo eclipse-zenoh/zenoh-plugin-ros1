@@ -13,6 +13,7 @@
 #
 [workspace]
 members = [
+  "zenoh-bridge-ros1",
   "zenoh-plugin-ros1",
 ]
 
@@ -26,8 +27,13 @@ edition = "2021"
 repository = "https://github.com/eclipse-zenoh/zenoh-plugin-ros1"
 homepage = "http://zenoh.io"
 license = " EPL-2.0 OR Apache-2.0"
+categories = ["network-programming"]
 
 [workspace.dependencies]
+atoi = "2.0.0"
+async-std = "=1.12.0"
+clap = "3.2.23"
+ctrlc = "3.2.5"
 env_logger = "0.9.1"
 flume = "0.10.14"
 futures = "0.3.24"

@@ -16,30 +16,37 @@ use async_std::{
     process::{Child, Command},
     sync::Mutex,
 };
+use atoi::atoi;
 use log::error;
 use zenoh::plugins::ZResult;
-use zenoh_core::bail;
+use zenoh_core::{bail, zerror};
+
+use crate::ros_to_zenoh_bridge::environment::Environment;
 
 static ROSMASTER: Mutex<Option<Child>> = Mutex::new(None);
 
 pub struct Ros1MasterCtrl;
 impl Ros1MasterCtrl {
     pub async fn with_ros1_master() -> ZResult<()> {
+        let uri = Environment::ros_master_uri().get();
+        let splitted: Vec<&str> = uri.split(':').collect();
+        if splitted.len() != 3 {
+            bail!("Unable to parse port from ros_master_uri!")
+        }
+        let port_str = splitted[2].trim_matches(|v: char| !char::is_numeric(v));
+        let port =
+            atoi::<u16>(port_str.as_bytes()).ok_or("Unable to parse port from ros_master_uri!")?;
+
         let mut locked = ROSMASTER.lock().await;
         assert!(locked.is_none());
-        match Command::new("rosmaster")
+        let child = Command::new("rosmaster")
+            .arg(format!("-p {}", port).as_str())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
-        {
-            Ok(child) => {
-                let _ = locked.insert(child);
-                Ok(())
-            }
-            Err(e) => {
-                bail!("Error starting rosmaster: {}", e);
-            }
-        }
+            .map_err(|e| zerror!("Error starting rosmaster process: {}", e))?;
+        let _ = locked.insert(child);
+        Ok(())
     }
 
     pub async fn without_ros1_master() {
