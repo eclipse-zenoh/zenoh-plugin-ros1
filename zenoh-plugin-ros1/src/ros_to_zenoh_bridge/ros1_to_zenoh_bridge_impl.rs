@@ -39,7 +39,6 @@ use super::{
 #[derive(PartialEq, Clone, Copy)]
 pub enum RosStatus {
     Unknown,
-    Synchronizing,
     Ok,
     Error,
 }

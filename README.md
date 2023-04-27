@@ -1,7 +1,7 @@
 <img src="https://raw.githubusercontent.com/eclipse-zenoh/zenoh/master/zenoh-dragon.png" height="150">
 
 <!--- 
-[![CI](https://github.com/eclipse-zenoh/zenoh-plugin-dds/workflows/Rust/badge.svg)](https://github.com/eclipse-zenoh/zenoh-plugin-dds/actions?query=workflow%3ARust)
+[![CI](https://github.com/eclipse-zenoh/zenoh-plugin-ros1/workflows/Rust/badge.svg)](https://github.com/eclipse-zenoh/zenoh-plugin-ros1/actions?query=workflow%3ARust)
 --->
 [![Discussion](https://img.shields.io/badge/discussion-on%20github-blue)](https://github.com/eclipse-zenoh/roadmap/discussions)
 [![Discord](https://img.shields.io/badge/chat-on%20discord-blue)](https://discord.gg/2GJ958VuHs)
@@ -35,26 +35,40 @@ Otherwise, incompatibilities in memory mapping of shared types between `zenohd` 
 In order to build the ROS1 to Zenoh Bridge, you need first to install the following dependencies:
 
 - [Rust](https://www.rust-lang.org/tools/install)
+- On Linux, make sure the `llvm` and `clang` development packages are installed:
+   - on Debians do: `sudo apt install llvm-dev libclang-dev`
+   - on CentOS or RHEL do: `sudo yum install llvm-devel clang-devel`
+   - on Alpine do: `apk install llvm11-dev clang-dev`
 
-Once Rust is in place, you may clone the repository on your machine:
+Once these dependencies are in place, you may clone the repository on your machine:
 
 ```bash
 $ git clone https://github.com/eclipse-zenoh/zenoh-plugin-ros1.git
 $ cd zenoh-plugin-ros1
 ```
 
-Build as a plugin library that can be dynamically loaded by the zenoh router (`zenohd`):
+> :warning: **WARNING** :warning: : On Linux, don't use `cargo build` command without specifying a package with `-p`. Building both `zenoh-plugin-ros1` (plugin library) and `zenoh-bridge-ros1` (standalone executable) together will lead to a `multiple definition of `load_plugin'` error at link time. See [#117](https://github.com/eclipse-zenoh/zenoh-plugin-dds/issues/117#issuecomment-1439694331) for explanations.
+
+You can then choose between building the zenoh bridge for ROS1:
+- as a plugin library that can be dynamically loaded by the zenoh router (`zenohd`):
 ```bash
-$ cargo build --release
+$ cargo build --release -p zenoh-plugin-ros1
 ```
 The plugin shared library (`*.so` on Linux, `*.dylib` on Mac OS, `*.dll` on Windows) will be generated in the `target/release` subdirectory.
+
+- or as a standalone executable binary:
+```bash
+$ cargo build --release -p zenoh-bridge-ros1
+```
+The **`zenoh-bridge-ros1`** binary will be generated in the `target/release` sub-directory.
+
+
+## A quick test with built-in examples
 
 If you want to run examples or tests, you need to install ROS1:
 ```bash
 $ sudo apt install -y ros-base
 ```
-
-## A quick test with built-in examples
 
 There is a set of example utilities illustarating bridge in operation.
 Here is a description on how to configure the following schema:
@@ -67,49 +81,41 @@ _____________________________                               ____________________
 |___________________________|                               |______________________________|
 ```
 
-1. Build the examples:
+1. Build everything:
 ```bash
-$ cargo test --no-run
+$ cargo build --release -p zenoh-bridge-ros1
+$ cargo test --release --no-run
 ```
-Examples would be in target/debug/examples.
-There are three executables we'll need from there:
+There are three executables we'll need:
 ```
-bridge_with_external_master // bridging executable
-ros1_standalone_sub         // ros1 test subscriber
-ros1_standalone_pub         // ros1 test publisher
+target/release/zenoh-bridge-ros1             // bridge executable
+target/release/examples/ros1_standalone_sub  // ros1 test subscriber
+target/release/examples/ros1_standalone_pub  // ros1 test publisher
 ```
 
-2. Start rosmaster_1:
+2. Start first bridge together with rosmaster_1:
 ```bash
-$ rosmaster -p 10000
+$ ./target/release/zenoh-bridge-ros1 --with_rosmaster true --ros_master_uri http://localhost:10000
 ```
+At this step we start ROS1 master together with bridge isolated on port 10000 
 
-3. Start bridge for rosmaster_1:
+3. Start second bridge together with rosmaster_2:
 ```bash
-$ ROS_MASTER_URI=http://localhost:10000 ./bridge_with_external_master
+$ ./target/release/zenoh-bridge-ros1 --with_rosmaster true --ros_master_uri http://localhost:10001
 ```
+At this step we start ROS1 master together with bridge isolated on port 10001
 
 4. Start ros1_subscriber:
 ```bash
-$ ROS_MASTER_URI=http://localhost:10000 ./ros1_standalone_sub
+$ ROS_MASTER_URI=http://localhost:10000 ./target/release/examples/ros1_standalone_sub
 ```
+The subscriber will work with ROS1 isolated on port 10000
 
-
-
-5. Start rosmaster_2:
+5. Start ros1_publisher:
 ```bash
-$ rosmaster -p 10001
+$ ROS_MASTER_URI=http://localhost:10001 ./target/release/examples/ros1_standalone_pub
 ```
-
-6. Start bridge for rosmaster_2:
-```bash
-$ ROS_MASTER_URI=http://localhost:10001 ./bridge_with_external_master
-```
-
-7. Start ros1_publisher:
-```bash
-$ ROS_MASTER_URI=http://localhost:10001 ./ros1_standalone_pub
-```
+The publisher will work with ROS1 isolated on port 10001
 
 Once completed, you will see the following exchange between ROS1 publisher and subscriber:
 <img src="pubsub.png">

@@ -1,0 +1,68 @@
+#
+# Copyright (c) 2022 ZettaScale Technology
+#
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+# which is available at https://www.apache.org/licenses/LICENSE-2.0.
+#
+# SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+#
+# Contributors:
+#   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
+#
+[package]
+name = "zenoh-bridge-ros1"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+description = "Zenoh bridge for ROS1"
+
+[dependencies]
+async-std = { workspace = true, features = ["unstable", "attributes"] }
+clap = { workspace = true }
+ctrlc = { workspace = true }
+env_logger = { workspace = true }
+lazy_static = { workspace = true }
+log = { workspace = true }
+serde_json = { workspace = true }
+zenoh = { workspace = true }
+zenoh-plugin-trait = { workspace = true }
+zenoh-plugin-ros1 = { path = "../zenoh-plugin-ros1/", default-features = false }
+
+[[bin]]
+name = "zenoh-bridge-ros1"
+path = "src/main.rs"
+
+[package.metadata.deb]
+name = "zenoh-bridge-ros1"
+maintainer = "zenoh-dev@eclipse.org"
+copyright = "2017, 2022 ZettaScale Technology Inc."
+section = "net"
+license-file = ["../LICENSE", "0"]
+depends = "$auto"
+maintainer-scripts = ".deb"
+assets = [
+    # binary
+    [
+        "target/release/zenoh-bridge-ros1",
+        "/usr/bin/",
+        "755",
+    ],
+    # config file
+    [
+        "../DEFAULT_CONFIG.json5",
+        "/etc/zenoh-bridge-ros1/conf.json5",
+        "644",
+    ],
+    # service
+    [
+        ".service/zenoh-bridge-ros1.service",
+        "/lib/systemd/system/zenoh-bridge-ros1.service",
+        "644",
+    ],
+]

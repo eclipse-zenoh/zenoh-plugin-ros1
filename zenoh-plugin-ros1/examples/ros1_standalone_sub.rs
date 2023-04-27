@@ -12,12 +12,21 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::future;
+use async_std::channel::unbounded;
 
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 
 #[async_std::main]
 async fn main() {
+    let (sender, receiver) = unbounded();
+    ctrlc::set_handler(move || {
+        log::info!("Catching Ctrl+C...");
+        sender
+            .send_blocking(())
+            .expect("Error handling Ctrl+C signal")
+    })
+    .expect("Error setting Ctrl+C handler");
+
     // initiate logging
     env_logger::init();
 
@@ -39,5 +48,10 @@ async fn main() {
     println!(" OK!");
 
     println!("Running subscription, press Ctrl+C to exit...");
-    future::pending::<()>().await;
+    // wait Ctrl+C
+    receiver
+        .recv()
+        .await
+        .expect("Error receiving Ctrl+C signal");
+    log::info!("Caught Ctrl+C, stopping...");
 }

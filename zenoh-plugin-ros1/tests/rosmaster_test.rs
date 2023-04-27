@@ -23,7 +23,7 @@ fn start_and_stop_master() {
     async_std::task::block_on(async {
         Ros1MasterCtrl::with_ros1_master()
             .await
-            .expect("Error starting rosmaster!");
+            .expect("Error starting rosmaster");
 
         Ros1MasterCtrl::without_ros1_master().await;
     });
@@ -36,7 +36,7 @@ fn start_and_stop_master_and_check_connectivity() {
     async_std::task::block_on(async {
         Ros1MasterCtrl::with_ros1_master()
             .await
-            .expect("Error starting rosmaster!");
+            .expect("Error starting rosmaster");
     });
 
     // start ros1 client

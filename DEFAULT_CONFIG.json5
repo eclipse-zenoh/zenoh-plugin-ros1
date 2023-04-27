@@ -10,37 +10,42 @@
     ////
     ros1: {
       ////
-      //// ROS_MASTER_URI: A URI of the ROS1 Master to connect to, the defailt is http://localhost:11311/
+      //// ros_master_uri: A URI of the ROS1 Master to connect to, the defailt is http://localhost:11311/
       ////
-      // ROS_MASTER_URI: "http://localhost:11311/",
+      // ros_master_uri: "http://localhost:11311/",
 
       ////
-      //// ROS_HOSTNAME: A hostname to send to ROS1 Master, the default is system's hostname
+      //// ros_hostname: A hostname to send to ROS1 Master, the default is system's hostname
       ////
-      // ROS_HOSTNAME: "hostname",
+      // ros_hostname: "hostname",
 
       ////
-      //// ROS_NAME: A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge" 
+      //// ros_name: A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge" 
       ////
-      // ROS_NAME: "ros1_to_zenoh_bridge",
+      // ros_name: "ros1_to_zenoh_bridge",
 
       ////
-      //// ROS_BRIDGING_MODE: When to bridge topics:
+      //// ros_bridging_mode: When to bridge topics:
       //// "Automatic"(default) - bridge topics once they are declared locally
       //// "Lazy" - bridge topics once they are declared both locally and required remotely through discovery
       //// Warn: this setting is ignored for local ROS1 clients, as they require a tricky discovery mechanism  
       ////
-      // ROS_BRIDGING_MODE: "Automatic",
+      // ros_bridging_mode: "Automatic",
 
       ////
-      //// ROS_MASTER_POLLING_INTERVAL: An interval how to poll the ROS1 master for status
+      //// ros_master_polling_interval: An interval how to poll the ROS1 master for status
       //// Bridge polls ROS1 master to get information on local topics, as this is the only way to keep
       //// this info updated. This is the interval of this polling. The default is "100ms"
       ////
       //// Takes a string such as 100ms, 2s, 5m
       //// The string format is [0-9]+(ns|us|ms|[smhdwy])
       ////
-      // ROS_MASTER_POLLING_INTERVAL: "100ms",
+      // ros_master_polling_interval: "100ms",
+
+      ////
+      //// with_rosmaster: An option wether the bridge should run it's own rosmaster process, the default is "false" 
+      ////
+      // with_rosmaster: "false",
     },
 
     ////

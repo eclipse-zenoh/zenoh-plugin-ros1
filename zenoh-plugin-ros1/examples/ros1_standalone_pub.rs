@@ -12,10 +12,20 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use async_std::channel::unbounded;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 
 #[async_std::main]
 async fn main() {
+    let (sender, receiver) = unbounded();
+    ctrlc::set_handler(move || {
+        log::info!("Catching Ctrl+C...");
+        sender
+            .send_blocking(())
+            .expect("Error handling Ctrl+C signal")
+    })
+    .expect("Error setting Ctrl+C handler");
+
     // initiate logging
     env_logger::init();
 
@@ -38,13 +48,14 @@ async fn main() {
     // run test loop publishing data to ROS topic...
     let working_loop = move || {
         let data: Vec<u8> = (0..10).collect();
-        loop {
+        while receiver.try_recv().is_err() {
             println!("ROS Publisher: publishing data...");
             ros1_publisher
                 .send(rosrust::RawMessage(data.clone()))
                 .unwrap();
             std::thread::sleep(core::time::Duration::from_secs(1));
         }
+        log::info!("Caught Ctrl+C, stopping...");
     };
     async_std::task::spawn_blocking(working_loop).await;
 }

@@ -32,6 +32,7 @@ default = ["no_mangle"]
 test = []
 
 [dependencies]
+atoi = { workspace = true }
 env_logger = { workspace = true }
 flume = { workspace = true }
 futures = { workspace = true }
@@ -54,6 +55,7 @@ rosrust = { workspace = true }
 [dev-dependencies]
 serial_test = "0.10.0"
 multiset = "0.0.5"
+ctrlc = { workspace = true }
 zenoh-plugin-ros1 = { path = ".", features = ["test"]}
 
 [dependencies.async-std]

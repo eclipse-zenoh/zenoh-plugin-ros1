@@ -67,6 +67,12 @@ impl<'a> From<Entry<'a, DurationString>> for Entry<'a, String> {
     }
 }
 
+impl<'a> From<Entry<'a, bool>> for Entry<'a, String> {
+    fn from(item: Entry<'a, bool>) -> Entry<'a, String> {
+        Entry::new(item.name, item.default.to_string())
+    }
+}
+
 pub struct Environment;
 impl Environment {
     pub fn ros_master_uri() -> Entry<'static, String> {
@@ -83,6 +89,10 @@ impl Environment {
 
     pub fn ros_namespace() -> Entry<'static, String> {
         return Entry::new("ROS_NAMESPACE", namespace());
+    }
+
+    pub fn with_rosmaster() -> Entry<'static, bool> {
+        return Entry::new("WITH_ROSMASTER", false);
     }
 
     pub fn bridging_mode() -> Entry<'static, BridgingMode> {
@@ -104,6 +114,7 @@ impl Environment {
             Self::ros_namespace(),
             Self::bridging_mode().into(),
             Self::master_polling_interval().into(),
+            Self::with_rosmaster().into(),
         ]
         .to_vec();
     }
