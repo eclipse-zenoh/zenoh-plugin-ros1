@@ -32,6 +32,8 @@ Currently, only out-of-source build is supported.
 built with the exact same Rust version than `zenohd`, and using for `zenoh` dependency the same version (or commit number) than 'zenohd'.
 Otherwise, incompatibilities in memory mapping of shared types between `zenohd` and the library can lead to a `"SIGSEV"` crash.
 
+> :warning: **WARNING** :warning: : We failed to build the plugin's tests on the system with 2(1)GB of RAM(swap) as ld ran out of memory, please pay attention to this fact!
+
 In order to build the ROS1 to Zenoh Bridge, you need first to install the following dependencies:
 
 - [Rust](https://www.rust-lang.org/tools/install)
