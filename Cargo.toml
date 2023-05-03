@@ -47,10 +47,10 @@ rand = "0.8.5"
 strum = "0.24"
 strum_macros = "0.24"
 duration-string = "0.3.0"
-zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
-zenoh-ext = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["unstable"] }
-zenoh-core = { git = "https://github.com/eclipse-zenoh/zenoh.git" }
-zenoh-plugin-trait = { git = "https://github.com/eclipse-zenoh/zenoh.git", default-features = false }
+zenoh = "0.7.1-rc"
+zenoh-ext = "0.7.1-rc"
+zenoh-core = "0.7.1-rc"
+zenoh-plugin-trait = "0.7.1-rc"
 rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "feature/fix_bugs" }
 rustc_version = "0.4"
 
