@@ -17,6 +17,7 @@ use std::{collections::HashSet, sync::atomic::AtomicU64};
 use rosrust::{Client, Publisher, RawMessage, Service, Subscriber};
 use std::sync::atomic::Ordering::*;
 use strum_macros::Display;
+use zenoh::prelude::KeyExpr;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
     BridgeChecker, IsolatedConfig, IsolatedROSMaster, RAIICounter, ROSEnvironment, RunningBridge,
     TestParams,
@@ -189,13 +190,15 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
     let mut dst_system = env.add_system();
     dst_system.with_ros().with_bridge();
 
-    let make_keyexpr = |i: u32, mode: Mode| -> String {
+    let make_keyexpr = |i: u32, mode: Mode| -> KeyExpr {
         format!(
-            "/some/key/expr{}_{}_{}",
+            "some/key/expr{}_{}_{}",
             i,
             mode,
             UNIQUE_NUMBER.fetch_add(1, SeqCst)
         )
+        .try_into()
+        .unwrap()
     };
 
     // wait for systems to become ready

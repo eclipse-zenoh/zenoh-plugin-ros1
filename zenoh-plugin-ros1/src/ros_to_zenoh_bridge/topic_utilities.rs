@@ -18,11 +18,11 @@ pub fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {
     topic.name.trim_start_matches('/').trim_end_matches('/')
 }
 
-pub fn make_topic(datatype: &keyexpr, topic_name: &keyexpr) -> Result<rosrust::api::Topic, String> {
+pub fn make_topic(datatype: &str, topic_name: &keyexpr) -> rosrust::api::Topic {
     let mut name = topic_name.to_string();
     name.insert(0, '/');
-    Ok(rosrust::api::Topic {
+    rosrust::api::Topic {
         name,
         datatype: datatype.to_string(),
-    })
+    }
 }

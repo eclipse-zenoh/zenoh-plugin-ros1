@@ -623,13 +623,15 @@ async fn ping_pong_duplex_parallel_many_(
 ) {
     zenoh_core::zasync_executor_init!();
 
-    let make_keyexpr = |i: u32, mode: Mode| -> String {
+    let make_keyexpr = |i: u32, mode: Mode| -> KeyExpr {
         format!(
-            "/some/key/expr{}_{}_{}",
+            "some/key/expr{}_{}_{}",
             i,
             mode,
             UNIQUE_NUMBER.fetch_add(1, SeqCst)
         )
+        .try_into()
+        .unwrap()
     };
 
     // create scenarios

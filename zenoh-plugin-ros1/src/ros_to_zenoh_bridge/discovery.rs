@@ -15,6 +15,7 @@
 use futures::Future;
 use log::error;
 use rosrust;
+use zenoh_core::bail;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -27,6 +28,8 @@ use super::aloha_declaration::AlohaDeclaration;
 use super::aloha_subscription::{AlohaSubscription, AlohaSubscriptionBuilder};
 use super::bridge_type::BridgeType;
 use super::topic_utilities::{make_topic, make_zenoh_key};
+
+use crate::ZResult;
 
 zenoh::kedefine!(
     pub discovery_format: "ros1_discovery_info/${discovery_namespace:*}/${resource_class:*}/${data_type:*}/${bridge_namespace:*}/${topic:**}",
@@ -129,7 +132,7 @@ impl RemoteResources {
         }
     }
 
-    async fn parse_format<F>(data: &KeyExpr<'_>, callback: &Arc<F>) -> Result<(), String>
+    async fn parse_format<F>(data: &KeyExpr<'_>, callback: &Arc<F>) -> ZResult<()>
     where
         F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
@@ -140,12 +143,18 @@ impl RemoteResources {
     async fn handle_format<F>(
         discovery: discovery_format::Parsed<'_>,
         callback: &Arc<F>,
-    ) -> Result<(), String>
+    ) -> ZResult<()>
     where
         F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         //let discovery_namespace = discovery.discovery_namespace().ok_or("No discovery_namespace present!")?;
-        let datatype = discovery.data_type().ok_or("No data_type present!")?;
+        let datatype_bytes = hex::decode(
+            discovery
+                .data_type()
+                .ok_or("No data_type present!")?
+                .as_str(),
+        )?;
+        let datatype = std::str::from_utf8(&datatype_bytes)?;
         let resource_class = discovery
             .resource_class()
             .ok_or("No resource_class present!")?
@@ -153,7 +162,7 @@ impl RemoteResources {
         //let bridge_namespace = discovery.bridge_namespace().ok_or("No bridge_namespace present!")?.to_string();
         let topic = discovery.topic().ok_or("No topic present!")?;
 
-        let ros1_topic = make_topic(datatype, topic)?;
+        let ros1_topic = make_topic(datatype, topic);
 
         let b_type = match resource_class.as_str() {
             ROS1_DISCOVERY_INFO_PUBLISHERS_CLASS => BridgeType::Publisher,
@@ -161,7 +170,7 @@ impl RemoteResources {
             ROS1_DISCOVERY_INFO_SERVICES_CLASS => BridgeType::Service,
             ROS1_DISCOVERY_INFO_CLIENTS_CLASS => BridgeType::Client,
             _ => {
-                return Err("unexpected resource class!".to_string());
+                bail!("unexpected resource class!");
             }
         };
 
@@ -187,7 +196,7 @@ impl LocalResource {
             formatter,
             discovery_namespace = discovery_namespace,
             resource_class = resource_class,
-            data_type = topic.datatype.clone(),
+            data_type = hex::encode(topic.datatype.as_bytes()),
             bridge_namespace = bridge_namespace,
             topic = make_zenoh_key(topic)
         )
