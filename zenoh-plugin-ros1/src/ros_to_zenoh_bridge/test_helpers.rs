@@ -24,6 +24,7 @@ use zenoh_core::{AsyncResolve, SyncResolve};
 
 use super::discovery::LocalResources;
 use super::ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus};
+use super::topic_utilities;
 use super::{ros1_client, zenoh_client};
 
 pub struct IsolatedPort {
@@ -386,10 +387,7 @@ impl BridgeChecker {
     }
 
     pub fn make_topic(name: &str) -> rosrust::api::Topic {
-        rosrust::api::Topic {
-            name: name.to_string(),
-            datatype: "bool".to_string(),
-        }
+        topic_utilities::make_topic("some/very.complicated/datatype//", name.try_into().unwrap())
     }
 
     pub fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {

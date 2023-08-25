@@ -22,7 +22,8 @@ use multiset::HashMultiSet;
 use zenoh::{prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
-    discovery, test_helpers::IsolatedConfig, topic_utilities::make_topic,
+    discovery,
+    test_helpers::{BridgeChecker, IsolatedConfig},
 };
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -163,12 +164,9 @@ async fn generate_topics(
     for number in 0..count {
         for _dup in 0..duplication {
             unsafe {
-                let topic = make_topic(
-                    keyexpr::from_str_unchecked("some"),
-                    keyexpr::from_str_unchecked(format!("name_{}_{}", number, stage).as_str()),
-                )
-                .unwrap();
-
+                let topic = BridgeChecker::make_topic(keyexpr::from_str_unchecked(
+                    format!("name_{}_{}", number, stage).as_str(),
+                ));
                 result.insert(topic);
             }
         }
