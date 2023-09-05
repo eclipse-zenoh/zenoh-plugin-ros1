@@ -384,7 +384,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_client(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
         let zenoh_query = ZenohQuery::new(backend, key.to_string(), cycles.clone());
 
         PingPong {
@@ -406,7 +407,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_service(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
         let zenoh_queryable = backend
             .make_zenoh_queryable(key, |q| {
                 async_std::task::spawn(async move {
@@ -437,7 +439,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_subscriber(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
 
         let c = cycles.clone();
         let rpub = ros1_pub.clone();
@@ -471,7 +474,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_publisher(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
 
         let c = cycles.clone();
         let zpub = zenoh_pub.clone();

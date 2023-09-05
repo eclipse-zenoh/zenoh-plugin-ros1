@@ -14,8 +14,9 @@
 
 use async_std::task::JoinHandle;
 
+use log::error;
 use zenoh;
-use zenoh_core::AsyncResolve;
+use zenoh_core::{zresult::ZResult, AsyncResolve};
 
 use std::sync::{
     atomic::{AtomicBool, Ordering::Relaxed},
@@ -73,9 +74,9 @@ pub struct Ros1ToZenohBridge {
     task_handle: Box<JoinHandle<()>>,
 }
 impl Ros1ToZenohBridge {
-    pub async fn new_with_own_session(config: zenoh::config::Config) -> Self {
-        let session = zenoh::open(config).res_async().await.unwrap().into_arc();
-        Self::new_with_external_session(session)
+    pub async fn new_with_own_session(config: zenoh::config::Config) -> ZResult<Self> {
+        let session = zenoh::open(config).res_async().await?.into_arc();
+        Ok(Self::new_with_external_session(session))
     }
 
     pub fn new_with_external_session(session: Arc<zenoh::Session>) -> Self {
@@ -93,14 +94,17 @@ impl Ros1ToZenohBridge {
 
     //PRIVATE:
     async fn run(session: Arc<zenoh::Session>, flag: Arc<AtomicBool>) {
-        work_cycle(
+        if let Err(e) = work_cycle(
             Environment::ros_master_uri().get().as_str(),
             session,
             flag,
             |_v| {},
             |_status| {},
         )
-        .await;
+        .await
+        {
+            error!("Error occured while running the bridge: {e}")
+        }
     }
 
     async fn async_await(&mut self) {

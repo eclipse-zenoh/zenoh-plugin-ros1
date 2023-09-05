@@ -15,6 +15,7 @@
 use async_std::sync::Mutex;
 
 use zenoh;
+use zenoh_core::zresult::ZResult;
 
 use std::{
     sync::{
@@ -57,14 +58,15 @@ pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
     flag: Arc<AtomicBool>,
     ros_status_callback: RosStatusCallback,
     statistics_callback: BridgeStatisticsCallback,
-) where
+) -> ZResult<()>
+where
     RosStatusCallback: Fn(RosStatus),
     BridgeStatisticsCallback: Fn(BridgeStatus),
 {
     let ros1_client = Arc::new(ros1_client::Ros1Client::new(
         Environment::ros_name().get().as_str(),
         ros_master_uri,
-    ));
+    )?);
     let zenoh_client = Arc::new(zenoh_client::ZenohClient::new(session.clone()));
 
     let local_resources = Arc::new(LocalResources::new(
@@ -83,6 +85,7 @@ pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
 
     let mut bridge = RosToZenohBridge::new(ros_status_callback, statistics_callback);
     bridge.run(ros1_client, bridges, flag).await;
+    Ok(())
 }
 
 async fn make_discovery<'a>(

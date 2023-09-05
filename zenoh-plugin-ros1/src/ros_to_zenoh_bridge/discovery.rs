@@ -62,8 +62,6 @@ impl RemoteResources {
             + Sync
             + 'static,
     {
-        let subscriber: Option<AlohaSubscription>;
-
         // make proper discovery keyexpr
         let mut formatter = discovery_format::formatter();
         let discovery_keyexpr = zenoh::keformat!(
@@ -96,15 +94,13 @@ impl RemoteResources {
         .build()
         .await;
 
-        match subscription {
-            Ok(s) => {
-                subscriber = Some(s);
-            }
+        let subscriber = match subscription {
+            Ok(s) => Some(s),
             Err(e) => {
                 error!("ROS1 Discovery: error creating querying subscriber: {}", e);
-                subscriber = None;
+                None
             }
-        }
+        };
 
         Self {
             _subscriber: subscriber,
@@ -148,13 +144,23 @@ impl RemoteResources {
         F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         //let discovery_namespace = discovery.discovery_namespace().ok_or("No discovery_namespace present!")?;
-        let datatype_bytes = hex::decode(
-            discovery
-                .data_type()
-                .ok_or("No data_type present!")?
-                .as_str(),
-        )?;
-        let datatype = std::str::from_utf8(&datatype_bytes)?;
+        let datatype;
+        #[cfg(feature = "preserve_topic_metadata")]
+        {
+            let datatype_bytes = hex::decode(
+                discovery
+                    .data_type()
+                    .ok_or("No data_type present!")?
+                    .as_str(),
+            )?;
+            datatype = std::str::from_utf8(&datatype_bytes)?;
+        }
+
+        #[cfg(not(feature = "preserve_topic_metadata"))]
+        {
+            datatype = "*";
+        }
+
         let resource_class = discovery
             .resource_class()
             .ok_or("No resource_class present!")?
@@ -189,7 +195,7 @@ impl LocalResource {
         resource_class: &str,
         topic: &rosrust::api::Topic,
         session: Arc<zenoh::Session>,
-    ) -> LocalResource {
+    ) -> ZResult<LocalResource> {
         // make proper discovery keyexpr
         let mut formatter = discovery_format::formatter();
         let discovery_keyexpr = zenoh::keformat!(
@@ -199,13 +205,12 @@ impl LocalResource {
             data_type = hex::encode(topic.datatype.as_bytes()),
             bridge_namespace = bridge_namespace,
             topic = make_zenoh_key(topic)
-        )
-        .unwrap();
+        )?;
 
         let _declaration =
             AlohaDeclaration::new(session, discovery_keyexpr, Duration::from_secs(1));
 
-        Self { _declaration }
+        Ok(Self { _declaration })
     }
 }
 
@@ -231,7 +236,7 @@ impl LocalResources {
         &self,
         topic: &rosrust::api::Topic,
         b_type: BridgeType,
-    ) -> LocalResource {
+    ) -> ZResult<LocalResource> {
         match b_type {
             BridgeType::Publisher => self.declare_publisher(topic).await,
             BridgeType::Subscriber => self.declare_subscriber(topic).await,
@@ -240,22 +245,22 @@ impl LocalResources {
         }
     }
 
-    pub async fn declare_publisher(&self, topic: &rosrust::api::Topic) -> LocalResource {
+    pub async fn declare_publisher(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_PUBLISHERS_CLASS)
             .await
     }
 
-    pub async fn declare_subscriber(&self, topic: &rosrust::api::Topic) -> LocalResource {
+    pub async fn declare_subscriber(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_SUBSCRIBERS_CLASS)
             .await
     }
 
-    pub async fn declare_service(&self, topic: &rosrust::api::Topic) -> LocalResource {
+    pub async fn declare_service(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_SERVICES_CLASS)
             .await
     }
 
-    pub async fn declare_client(&self, topic: &rosrust::api::Topic) -> LocalResource {
+    pub async fn declare_client(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_CLIENTS_CLASS).await
     }
 
@@ -264,7 +269,7 @@ impl LocalResources {
         &self,
         topic: &rosrust::api::Topic,
         resource_class: &str,
-    ) -> LocalResource {
+    ) -> ZResult<LocalResource> {
         LocalResource::new(
             &self.discovery_namespace,
             &self.bridge_namespace,

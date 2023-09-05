@@ -19,6 +19,7 @@ use std::{
 
 use async_std::prelude::FutureExt;
 use multiset::HashMultiSet;
+use rosrust::api::Topic;
 use zenoh::{prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
@@ -149,8 +150,31 @@ impl DiscoveryCollector {
         container: &Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
         expected: HashMultiSet<rosrust::api::Topic>,
     ) {
+        #[cfg(feature = "preserve_topic_metadata")]
         while expected != *container.lock().unwrap() {
-            async_std::task::sleep(core::time::Duration::from_millis(1)).await;
+            async_std::task::sleep(core::time::Duration::from_millis(10)).await;
+        }
+        #[cfg(not(feature = "preserve_topic_metadata"))]
+        {
+            let comparator = || {
+                let locked = container.lock().unwrap();
+                if locked.len() != expected.len() {
+                    return false;
+                }
+                for e in expected.iter() {
+                    if !locked.contains(&Topic {
+                        name: e.name.clone(),
+                        datatype: "*".to_string(),
+                    }) {
+                        return false;
+                    }
+                }
+
+                true
+            };
+            while !comparator() {
+                async_std::task::sleep(core::time::Duration::from_millis(10)).await;
+            }
         }
     }
 }

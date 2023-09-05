@@ -183,7 +183,9 @@ async fn main() {
     let config = parse_args();
 
     // create a zenoh Runtime (to share with plugins)
-    let runtime = zenoh::runtime::Runtime::new(config).await.unwrap();
+    let runtime = zenoh::runtime::Runtime::new(config)
+        .await
+        .expect("Error creating runtime");
 
     // start ros1 plugin
     use zenoh_plugin_trait::Plugin;

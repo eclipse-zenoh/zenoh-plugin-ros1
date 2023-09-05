@@ -14,6 +14,7 @@
 
 use log::debug;
 use rosrust;
+use zenoh_core::{zerror, zresult::ZResult};
 
 pub struct Ros1Client {
     ros: rosrust::api::Ros,
@@ -21,10 +22,16 @@ pub struct Ros1Client {
 
 impl Ros1Client {
     // PUBLIC
-    pub fn new(name: &str, master_uri: &str) -> Ros1Client {
-        Ros1Client {
-            ros: rosrust::api::Ros::new(name, master_uri).unwrap(),
-        }
+    pub fn new(name: &str, master_uri: &str) -> ZResult<Ros1Client> {
+        Ok(Ros1Client {
+            ros: rosrust::api::Ros::new_raw(
+                master_uri,
+                &rosrust::api::resolve::hostname(),
+                &rosrust::api::resolve::namespace(),
+                name,
+            )
+            .map_err(|e| zerror!("{e}"))?,
+        })
     }
 
     pub fn subscribe<T, F>(

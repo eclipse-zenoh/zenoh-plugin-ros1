@@ -135,7 +135,8 @@ impl RunningBridge {
                 *my_status = status;
             },
         )
-        .await;
+        .await
+        .unwrap();
     }
 
     pub async fn assert_ros_error(&self) {
@@ -177,8 +178,9 @@ impl RunningBridge {
     ) -> bool {
         wait(
             move || {
-                let val = self.bridge_status.lock().unwrap();
-                *val == (status)()
+                let expected = (status)();
+                let real = self.bridge_status.lock().unwrap();
+                *real == expected
             },
             timeout,
         )
@@ -255,7 +257,7 @@ impl BridgeChecker {
     pub fn new(config: zenoh::config::Config, ros_master_uri: &str) -> BridgeChecker {
         let session = zenoh::open(config).res_sync().unwrap().into_arc();
         BridgeChecker {
-            ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri),
+            ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri).unwrap(),
             zenoh_client: zenoh_client::ZenohClient::new(session.clone()),
             local_resources: LocalResources::new("*".to_string(), "*".to_string(), session),
             expected_bridge_status: Arc::new(RwLock::new(BridgeStatus::default())),

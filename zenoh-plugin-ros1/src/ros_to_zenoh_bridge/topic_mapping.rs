@@ -54,6 +54,7 @@ impl Ros1TopicMapping {
         result
     }
 
+    #[cfg(feature = "preserve_topic_metadata")]
     fn fill(
         dst: &mut HashSet<rosrust::api::Topic>,
         data: &[rosrust::api::TopicData],
@@ -73,6 +74,20 @@ impl Ros1TopicMapping {
                     dst.insert(val.clone());
                 }
             }
+        }
+    }
+
+    #[cfg(not(feature = "preserve_topic_metadata"))]
+    fn fill(
+        dst: &mut HashSet<rosrust::api::Topic>,
+        data: &[rosrust::api::TopicData],
+        _topics: &[rosrust::api::Topic],
+    ) {
+        for item in data.iter() {
+            dst.insert(rosrust::api::Topic {
+                name: item.name.clone(),
+                datatype: "*".to_string(),
+            });
         }
     }
 }

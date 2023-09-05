@@ -146,16 +146,16 @@ impl<'a> ComplementaryElementAccessor<'a> {
             }
             Entry::Vacant(val) => {
                 let key = val.key().clone();
-                val.insert(TopicBridge::new(
+                let inserted = val.insert(TopicBridge::new(
                     key,
                     self.access.b_type,
                     self.access.declaration_interface.clone(),
                     self.access.ros1_client.clone(),
                     self.access.zenoh_client.clone(),
-                    Environment::bridging_mode().get(),
-                ))
-                .set_has_complementary_in_zenoh(true)
-                .await;
+                    Environment::remote_bridging_mode().get(),
+                    Environment::local_bridging_mode().get(),
+                ));
+                inserted.set_has_complementary_in_zenoh(true).await;
             }
         }
     }
@@ -219,7 +219,8 @@ impl<'a> ElementAccessor<'a> {
                         self.access.declaration_interface.clone(),
                         self.access.ros1_client.clone(),
                         self.access.zenoh_client.clone(),
-                        Environment::bridging_mode().get(),
+                        Environment::remote_bridging_mode().get(),
+                        Environment::local_bridging_mode().get(),
                     ));
                     inserted.set_present_in_ros1(true).await;
                     smth_changed = true;

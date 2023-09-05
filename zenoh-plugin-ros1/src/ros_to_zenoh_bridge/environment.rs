@@ -95,8 +95,12 @@ impl Environment {
         return Entry::new("WITH_ROSMASTER", false);
     }
 
-    pub fn bridging_mode() -> Entry<'static, BridgingMode> {
-        return Entry::new("ROS_BRIDGING_MODE", BridgingMode::Auto);
+    pub fn remote_bridging_mode() -> Entry<'static, BridgingMode> {
+        return Entry::new("ROS_REMOTE_BRIDGING_MODE", BridgingMode::Auto);
+    }
+
+    pub fn local_bridging_mode() -> Entry<'static, BridgingMode> {
+        return Entry::new("ROS_LOCAL_BRIDGING_MODE", BridgingMode::Auto);
     }
 
     pub fn master_polling_interval() -> Entry<'static, DurationString> {
@@ -112,7 +116,8 @@ impl Environment {
             Self::ros_hostname(),
             Self::ros_name(),
             Self::ros_namespace(),
-            Self::bridging_mode().into(),
+            Self::remote_bridging_mode().into(),
+            Self::local_bridging_mode().into(),
             Self::master_polling_interval().into(),
             Self::with_rosmaster().into(),
         ]
