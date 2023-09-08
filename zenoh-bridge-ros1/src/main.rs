@@ -16,6 +16,7 @@ use clap::{App, Arg};
 use std::str::FromStr;
 use zenoh::config::Config;
 use zenoh::prelude::*;
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 
 macro_rules! insert_json5 {
     ($config: expr, $args: expr, $key: expr, if $name: expr) => {
@@ -83,34 +84,62 @@ r#"--rest-http-port=[PORT | IP:PORT] \
         // ros1 related arguments:
         //
         .arg(Arg::from_usage(
-r#"-u, --ros_master_uri=[ENDPOINT] \
+r#"--ros_master_uri=[ENDPOINT] \
 'A URI of the ROS1 Master to connect to, the defailt is http://localhost:11311/'"#
         ))
         .arg(Arg::from_usage(
-r#"-h, --ros_hostname=[String]   'A hostname to send to ROS1 Master, the default is system's hostname'"#
+r#"--ros_hostname=[String]   'A hostname to send to ROS1 Master, the default is system's hostname'"#
         ))
         .arg(Arg::from_usage(
-r#"-n, --ros_name=[String]   'A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge"'"#
+r#"--ros_name=[String]   'A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge"'"#
         ))
         .arg(Arg::from_usage(
-r#"-b, --ros_bridging_mode=[String] \
-'Mode defining the moment to bridge topics. Accepted values:'
-  - "auto"(default) - bridge topics once they are declared locally
-  - "lazy" - bridge topics once they are declared both locally and required remotely through discovery
-Warn: this setting is ignored for local ROS1 clients, as they require a tricky discovery mechanism"#
+r#"--subscriber_bridging_mode=[String] \
+'Mode of subscriber's topic bridging. Accepted values:'
+  - "auto"(default) - bridge topics once they are declared locally or discovered remotely
+  - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
+  - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
         ))
         .arg(Arg::from_usage(
-r#"-p, --ros_master_polling_interval=[String] \
-'An interval how to poll the ROS1 master for status
-Bridge polls ROS1 master to get information on local topics, as this is the only way to keep
-this info updated. This is the interval of this polling. The default is "100ms".
-Accepted value:'
+r#"--publisher_bridging_mode=[String] \
+'Mode of publisher's topic bridging. Accepted values:'
+  - "auto"(default) - bridge topics once they are declared locally or discovered remotely
+  - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
+  - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
+        ))
+        .arg(Arg::from_usage(
+r#"--service_bridging_mode=[String] \
+'Mode of service's topic bridging. Accepted values:'
+  - "auto"(default) - bridge topics once they are declared locally or discovered remotely
+  - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
+  - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
+        ))
+        .arg(Arg::from_usage(
+r#"--client_bridging_mode=[String] \
+'Mode of client's topic bridging. Accepted values:'
+  - "auto" - bridge topics once they are discovered remotely
+  - "disabled"(default) - never bridge topics. This setting will also suppress the topic discovery.
+  NOTE: there are some pecularities on how ROS1 handles clients:
+  - ROS1 doesn't provide any client discovery mechanism
+  - ROS1 doesn't allow multiple services on the same topic
+  Due to this, client's bridging works differently compared to pub\sub bridging:
+  - lazy bridging mode is not available as there is no way to discover local ROS1 clients
+  - client bridging is disabled by default, as it may brake the local ROS1 system if it intends to have client and service interacting on the same topic  
+  In order to use client bridging, you have two options:
+  - globally select auto bridging mode (with caution!) with this option
+  - bridge specific topics using 'client_topic_custom_bridging_mode' option (with a little bit less caution!)"#
+        ))
 
+        .arg(Arg::from_usage(
+r#"--ros_master_polling_interval=[String] \
+'An interval to poll the ROS1 master for status
+Bridge polls ROS1 master to get information on local topics. This option is the interval of this polling. The default is "100ms".
+Accepted value:'
 A string such as 100ms, 2s, 5m
 The string format is [0-9]+(ns|us|ms|[smhdwy])"#
         ))
         .arg(Arg::from_usage(
-r#"-r, --with_rosmaster=[bool]   'An option wether the bridge should run it's own rosmaster process, the default is "false"'"#
+r#"--with_rosmaster=[bool]   'An option wether the bridge should run it's own rosmaster process, the default is "false"'"#
         ));
     let args = app.get_matches();
 
@@ -158,12 +187,14 @@ r#"-r, --with_rosmaster=[bool]   'An option wether the bridge should run it's ow
     }
 
     // apply ros1 related arguments over config
-    insert_json5!(config, args, "plugins/ros1/ros_master_uri", if "ros_master_uri",);
-    insert_json5!(config, args, "plugins/ros1/ros_hostname", if "ros_hostname",);
-    insert_json5!(config, args, "plugins/ros1/ros_name", if "ros_name", );
-    insert_json5!(config, args, "plugins/ros1/ros_bridging_mode", if "ros_bridging_mode", );
-    insert_json5!(config, args, "plugins/ros1/ros_master_polling_interval", if "ros_master_polling_interval", );
-    insert_json5!(config, args, "plugins/ros1/with_rosmaster", if "with_rosmaster", );
+    // run through the bridge's supported config options and fill them from command line options
+    let plugin_configuration_entries = Environment::env();
+    for entry in plugin_configuration_entries.iter() {
+        let lowercase_name = entry.name.to_lowercase();
+        let lowercase_path = format!("plugins/ros1/{}", lowercase_name);
+        insert_json5!(config, args, lowercase_path.as_str(), if lowercase_name.as_str(),);
+    }
+
     config
 }
 

@@ -20,6 +20,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
 use zenoh::config::ModeDependentValue;
 use zenoh::sample::Sample;
+use zenoh_core::zlock;
 use zenoh_core::{AsyncResolve, SyncResolve};
 
 use super::discovery::LocalResources;
@@ -127,11 +128,11 @@ impl RunningBridge {
             session,
             flag,
             move |v| {
-                let mut val = ros_status.lock().unwrap();
+                let mut val = zlock!(ros_status);
                 *val = v;
             },
             move |status| {
-                let mut my_status = bridge_status.lock().unwrap();
+                let mut my_status = zlock!(bridge_status);
                 *my_status = status;
             },
         )

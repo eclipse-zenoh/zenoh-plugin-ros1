@@ -13,12 +13,15 @@
 //
 
 use duration_string::DurationString;
+use log::error;
 use rosrust::api::resolve::*;
+use serde_json::Value;
+use std::collections::HashMap;
 use std::convert::From;
 use std::time::Duration;
 use std::{marker::PhantomData, str::FromStr};
 
-use super::topic_bridge::BridgingMode;
+use super::bridging_mode::BridgingMode;
 
 #[derive(Clone)]
 pub struct Entry<'a, Tvar>
@@ -73,6 +76,56 @@ impl<'a> From<Entry<'a, bool>> for Entry<'a, String> {
     }
 }
 
+impl<'a> From<Entry<'a, CustomBridgingModes>> for Entry<'a, String> {
+    fn from(item: Entry<'a, CustomBridgingModes>) -> Entry<'a, String> {
+        Entry::new(item.name, item.default.to_string())
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct CustomBridgingModes {
+    pub modes: HashMap<String, BridgingMode>,
+}
+
+impl ToString for CustomBridgingModes {
+    fn to_string(&self) -> String {
+        todo!()
+    }
+}
+
+impl FromStr for CustomBridgingModes {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut result = CustomBridgingModes::default();
+        let parsed: Value = serde_json::from_str(s)?;
+        match parsed.as_object() {
+            Some(v) => {
+                for (topic, mode) in v {
+                    match mode.as_str() {
+                        Some(v) => match BridgingMode::from_str(v) {
+                            Ok(mode) => {
+                                result.modes.insert(topic.clone(), mode);
+                            }
+                            Err(e) => {
+                                error!("Error reading value {v} as Bridging Mode: {e}");
+                            }
+                        },
+                        None => {
+                            error!("Error reading non-string as Bridging Mode");
+                        }
+                    }
+                }
+            }
+            None => {
+                error!("Error reading custom Bridging Mode map: the value provided is not a map!");
+            }
+        }
+
+        Ok(result)
+    }
+}
+
 pub struct Environment;
 impl Environment {
     pub fn ros_master_uri() -> Entry<'static, String> {
@@ -95,12 +148,44 @@ impl Environment {
         return Entry::new("WITH_ROSMASTER", false);
     }
 
-    pub fn remote_bridging_mode() -> Entry<'static, BridgingMode> {
-        return Entry::new("ROS_REMOTE_BRIDGING_MODE", BridgingMode::Auto);
+    pub fn subscriber_bridging_mode() -> Entry<'static, BridgingMode> {
+        return Entry::new("SUBSCRIBER_BRIDGING_MODE", BridgingMode::Auto);
+    }
+    pub fn subscriber_topic_custom_bridging_mode() -> Entry<'static, CustomBridgingModes> {
+        return Entry::new(
+            "SUBSCRIBER_TOPIC_CUSTOM_BRIDGING_MODE",
+            CustomBridgingModes::default(),
+        );
     }
 
-    pub fn local_bridging_mode() -> Entry<'static, BridgingMode> {
-        return Entry::new("ROS_LOCAL_BRIDGING_MODE", BridgingMode::Auto);
+    pub fn publisher_bridging_mode() -> Entry<'static, BridgingMode> {
+        return Entry::new("PUBLISHER_BRIDGING_MODE", BridgingMode::Auto);
+    }
+    pub fn publisher_topic_custom_bridging_mode() -> Entry<'static, CustomBridgingModes> {
+        return Entry::new(
+            "PUBLISHER_TOPIC_CUSTOM_BRIDGING_MODE",
+            CustomBridgingModes::default(),
+        );
+    }
+
+    pub fn service_bridging_mode() -> Entry<'static, BridgingMode> {
+        return Entry::new("SERVICE_BRIDGING_MODE", BridgingMode::Auto);
+    }
+    pub fn service_topic_custom_bridging_mode() -> Entry<'static, CustomBridgingModes> {
+        return Entry::new(
+            "SERVICE_TOPIC_CUSTOM_BRIDGING_MODE",
+            CustomBridgingModes::default(),
+        );
+    }
+
+    pub fn client_bridging_mode() -> Entry<'static, BridgingMode> {
+        return Entry::new("CLIENT_BRIDGING_MODE", BridgingMode::Disabled);
+    }
+    pub fn client_topic_custom_bridging_mode() -> Entry<'static, CustomBridgingModes> {
+        return Entry::new(
+            "CLIENT_TOPIC_CUSTOM_BRIDGING_MODE",
+            CustomBridgingModes::default(),
+        );
     }
 
     pub fn master_polling_interval() -> Entry<'static, DurationString> {
@@ -116,8 +201,14 @@ impl Environment {
             Self::ros_hostname(),
             Self::ros_name(),
             Self::ros_namespace(),
-            Self::remote_bridging_mode().into(),
-            Self::local_bridging_mode().into(),
+            Self::subscriber_bridging_mode().into(),
+            Self::publisher_bridging_mode().into(),
+            Self::service_bridging_mode().into(),
+            Self::client_bridging_mode().into(),
+            Self::subscriber_topic_custom_bridging_mode().into(),
+            Self::publisher_topic_custom_bridging_mode().into(),
+            Self::service_topic_custom_bridging_mode().into(),
+            Self::client_topic_custom_bridging_mode().into(),
             Self::master_polling_interval().into(),
             Self::with_rosmaster().into(),
         ]

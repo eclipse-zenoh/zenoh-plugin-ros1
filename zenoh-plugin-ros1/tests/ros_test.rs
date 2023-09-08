@@ -69,6 +69,94 @@ fn check_rosclient_connectivity_client_then_ros() {
 }
 
 #[test]
+fn check_rosclient_many_pub_single_sub_operation() {
+    // init and start isolated ros
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
+
+    // start rosclients
+    let rosclient_pub1 = Ros1Client::new("test_client_pub1", &roscfg.master_uri())
+        .expect("error creating rosclient_pub1!");
+    let rosclient_pub2 = Ros1Client::new("test_client_pub2", &roscfg.master_uri())
+        .expect("error creating rosclient_pub2!");
+    let rosclient_sub = Ros1Client::new("test_client_sub", &roscfg.master_uri())
+        .expect("error creating rosclient_sub!");
+
+    assert!(wait_for_rosclient_to_connect(&rosclient_pub1));
+    assert!(wait_for_rosclient_to_connect(&rosclient_pub2));
+    assert!(wait_for_rosclient_to_connect(&rosclient_sub));
+
+    // create shared topic
+    let shared_topic = BridgeChecker::make_topic("check_rosclient_many_pub_single_sub_operation");
+
+    // create two publishers and one subscriber
+    let publisher1 = rosclient_pub1
+        .publish(&shared_topic)
+        .expect("error creating publisher1!");
+    let publisher2 = rosclient_pub2
+        .publish(&shared_topic)
+        .expect("error creating publisher2!");
+    let subscriber = rosclient_sub
+        .subscribe(&shared_topic, |_: RawMessage| {})
+        .expect("error creating subscriber!");
+
+    // check that they are connected
+    assert!(wait_for_subscribers(&publisher1, 1));
+    assert!(wait_for_subscribers(&publisher2, 1));
+    assert!(wait_for_publishers(&subscriber, 2));
+
+    // wait and check that they are still connected
+    std::thread::sleep(Duration::from_secs(5));
+    assert!(wait_for_subscribers(&publisher1, 1));
+    assert!(wait_for_subscribers(&publisher2, 1));
+    assert!(wait_for_publishers(&subscriber, 2));
+}
+
+#[test]
+fn check_rosclient_single_pub_many_sub_operation() {
+    // init and start isolated ros
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
+
+    // start rosclients
+    let rosclient_pub = Ros1Client::new("test_client_pub", &roscfg.master_uri())
+        .expect("error creating rosclient_pub!");
+    let rosclient_sub1 = Ros1Client::new("test_client_sub1", &roscfg.master_uri())
+        .expect("error creating rosclient_sub1!");
+    let rosclient_sub2 = Ros1Client::new("test_client_sub2", &roscfg.master_uri())
+        .expect("error creating rosclient_sub2!");
+
+    assert!(wait_for_rosclient_to_connect(&rosclient_pub));
+    assert!(wait_for_rosclient_to_connect(&rosclient_sub1));
+    assert!(wait_for_rosclient_to_connect(&rosclient_sub2));
+
+    // create shared topic
+    let shared_topic = BridgeChecker::make_topic("check_rosclient_single_pub_many_sub_operation");
+
+    // create two publishers and one subscriber
+    let publisher = rosclient_pub
+        .publish(&shared_topic)
+        .expect("error creating publisher!");
+    let subscriber1 = rosclient_sub1
+        .subscribe(&shared_topic, |_: RawMessage| {})
+        .expect("error creating subscriber1!");
+    let subscriber2 = rosclient_sub2
+        .subscribe(&shared_topic, |_: RawMessage| {})
+        .expect("error creating subscriber2!");
+
+    // check that they are connected
+    assert!(wait_for_publishers(&subscriber1, 1));
+    assert!(wait_for_publishers(&subscriber2, 1));
+    assert!(wait_for_subscribers(&publisher, 2));
+
+    // wait and check that they are still connected
+    std::thread::sleep(Duration::from_secs(5));
+    assert!(wait_for_publishers(&subscriber1, 1));
+    assert!(wait_for_publishers(&subscriber2, 1));
+    assert!(wait_for_subscribers(&publisher, 2));
+}
+
+#[test]
 fn check_rosclient_pub_sub_connection_pub_then_sub() {
     // init and start isolated ros
     let roscfg = IsolatedROSMaster::default();

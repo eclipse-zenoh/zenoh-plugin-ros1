@@ -15,19 +15,12 @@
 use super::{
     abstract_bridge::AbstractBridge,
     bridge_type::BridgeType,
+    bridging_mode::BridgingMode,
     discovery::{LocalResource, LocalResources},
     ros1_client, zenoh_client,
 };
 use log::error;
 use std::{fmt::Display, sync::Arc};
-use strum_macros::{Display, EnumString};
-
-#[derive(PartialEq, Eq, EnumString, Clone, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum BridgingMode {
-    Lazy,
-    Auto,
-}
 
 pub struct TopicBridge {
     topic: rosrust::api::Topic,
@@ -35,8 +28,7 @@ pub struct TopicBridge {
     ros1_client: Arc<ros1_client::Ros1Client>,
     zenoh_client: Arc<zenoh_client::ZenohClient>,
 
-    remote_bridging_mode: BridgingMode,
-    local_bridging_mode: BridgingMode,
+    bridging_mode: BridgingMode,
     required_on_ros1_side: bool,
     required_on_zenoh_side: bool,
 
@@ -59,16 +51,14 @@ impl TopicBridge {
         declaration_interface: Arc<LocalResources>,
         ros1_client: Arc<ros1_client::Ros1Client>,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
-        remote_bridging_mode: BridgingMode,
-        local_bridging_mode: BridgingMode,
+        bridging_mode: BridgingMode,
     ) -> Self {
         Self {
             topic,
             b_type,
             ros1_client,
             zenoh_client,
-            remote_bridging_mode,
-            local_bridging_mode,
+            bridging_mode,
             required_on_ros1_side: false,
             required_on_zenoh_side: false,
             declaration_interface,
@@ -134,9 +124,8 @@ impl TopicBridge {
         let is_required = is_discovered_client
             || match (self.required_on_zenoh_side, self.required_on_ros1_side) {
                 (true, true) => true,
-                (true, false) => self.remote_bridging_mode == BridgingMode::Auto,
-                (false, true) => self.local_bridging_mode == BridgingMode::Auto,
                 (false, false) => false,
+                (_, _) => self.bridging_mode == BridgingMode::Auto,
             };
 
         match (is_required, self.bridge.as_ref()) {

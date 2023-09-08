@@ -32,6 +32,8 @@ pub mod aloha_subscription;
 #[cfg(feature = "test")]
 pub mod bridge_type;
 #[cfg(feature = "test")]
+pub mod bridging_mode;
+#[cfg(feature = "test")]
 pub mod discovery;
 #[cfg(feature = "test")]
 pub mod ros1_client;
@@ -50,6 +52,8 @@ mod aloha_declaration;
 mod aloha_subscription;
 #[cfg(not(feature = "test"))]
 mod bridge_type;
+#[cfg(not(feature = "test"))]
+mod bridging_mode;
 #[cfg(not(feature = "test"))]
 mod discovery;
 #[cfg(not(feature = "test"))]

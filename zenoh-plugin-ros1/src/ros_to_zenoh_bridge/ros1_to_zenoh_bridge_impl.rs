@@ -15,7 +15,7 @@
 use async_std::sync::Mutex;
 
 use zenoh;
-use zenoh_core::zresult::ZResult;
+use zenoh_core::{zasynclock, zresult::ZResult};
 
 use std::{
     sync::{
@@ -99,9 +99,7 @@ async fn make_discovery<'a>(
         .on_discovered(move |b_type, topic| {
             let bridges = bridges.clone();
             Box::new(Box::pin(async move {
-                bridges
-                    .lock()
-                    .await
+                zasynclock!(bridges)
                     .bridges()
                     .complementary_for(b_type)
                     .complementary_entity_discovered(topic)
@@ -111,9 +109,7 @@ async fn make_discovery<'a>(
         .on_lost(move |b_type, topic| {
             let bridges = bridges2.clone();
             Box::new(Box::pin(async move {
-                bridges
-                    .lock()
-                    .await
+                zasynclock!(bridges)
                     .bridges()
                     .complementary_for(b_type)
                     .complementary_entity_lost(topic)
@@ -177,7 +173,7 @@ where
 
                     let smth_changed;
                     {
-                        let mut locked = bridges.lock().await;
+                        let mut locked = zasynclock!(bridges);
                         smth_changed = locked.receive_ros1_state(&mut ros1_state_val).await;
                         self.report_bridge_statistics(&locked);
                     }
@@ -196,7 +192,7 @@ where
 
                     self.transit_ros_status(RosStatus::Error);
                     {
-                        let mut locked = bridges.lock().await;
+                        let mut locked = zasynclock!(bridges);
                         Self::cleanup(&mut locked);
                         self.report_bridge_statistics(&locked);
                     }
