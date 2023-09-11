@@ -89,7 +89,11 @@ pub struct CustomBridgingModes {
 
 impl ToString for CustomBridgingModes {
     fn to_string(&self) -> String {
-        todo!()
+        let mut json_map = serde_json::Map::new();
+        for (k, v) in &self.modes {
+            json_map.insert(k.clone(), Value::String(v.to_string()));
+        }
+        serde_json::Value::Object(json_map).to_string()
     }
 }
 

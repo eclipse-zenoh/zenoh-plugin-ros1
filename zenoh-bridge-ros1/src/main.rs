@@ -94,22 +94,28 @@ r#"--ros_hostname=[String]   'A hostname to send to ROS1 Master, the default is 
 r#"--ros_name=[String]   'A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge"'"#
         ))
         .arg(Arg::from_usage(
+r#"--ros_namespace=[String]   'A bridge's namespace in terms of ROS1, the default is empty'"#
+        ))
+        .arg(Arg::from_usage(
+r#"--with_rosmaster=[bool]   'Start rosmaster with the bridge, the default is "false"'"#
+        ))
+        .arg(Arg::from_usage(
 r#"--subscriber_bridging_mode=[String] \
-'Mode of subscriber's topic bridging. Accepted values:'
+'Global subscriber's topic bridging mode. Accepted values:'
   - "auto"(default) - bridge topics once they are declared locally or discovered remotely
   - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
   - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
         ))
         .arg(Arg::from_usage(
 r#"--publisher_bridging_mode=[String] \
-'Mode of publisher's topic bridging. Accepted values:'
+'Global publisher's topic bridging mode. Accepted values:'
   - "auto"(default) - bridge topics once they are declared locally or discovered remotely
   - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
   - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
         ))
         .arg(Arg::from_usage(
 r#"--service_bridging_mode=[String] \
-'Mode of service's topic bridging. Accepted values:'
+'Global service's topic bridging mode. Accepted values:'
   - "auto"(default) - bridge topics once they are declared locally or discovered remotely
   - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
   - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
@@ -129,7 +135,42 @@ r#"--client_bridging_mode=[String] \
   - globally select auto bridging mode (with caution!) with this option
   - bridge specific topics using 'client_topic_custom_bridging_mode' option (with a little bit less caution!)"#
         ))
-
+        .arg(Arg::from_usage(
+r#"--subscriber_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
+Custom bridging mode overrides the global one.
+Format: {[topic, mode]}
+where
+- topic: ROS1 topic name
+- mode (auto/lazy_auto/disabled) as described above
+The default is empty'"#
+        ))
+        .arg(Arg::from_usage(
+r#"--publisher_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
+Custom bridging mode overrides the global one.
+Format: {[topic, mode]}
+where
+- topic: ROS1 topic name
+- mode (auto/lazy_auto/disabled) as described above
+The default is empty'"#
+        ))
+        .arg(Arg::from_usage(
+r#"--service_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
+Custom bridging mode overrides the global one.
+Format: {[topic, mode]}
+where
+- topic: ROS1 topic name
+- mode (auto/lazy_auto/disabled) as described above
+The default is empty'"#
+        ))
+        .arg(Arg::from_usage(
+r#"--client_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
+Custom bridging mode overrides the global one.
+Format: {[topic, mode]}
+where
+- topic: ROS1 topic name
+- mode (auto/lazy_auto/disabled) as described above
+The default is empty'"#
+        ))
         .arg(Arg::from_usage(
 r#"--ros_master_polling_interval=[String] \
 'An interval to poll the ROS1 master for status
@@ -137,9 +178,6 @@ Bridge polls ROS1 master to get information on local topics. This option is the 
 Accepted value:'
 A string such as 100ms, 2s, 5m
 The string format is [0-9]+(ns|us|ms|[smhdwy])"#
-        ))
-        .arg(Arg::from_usage(
-r#"--with_rosmaster=[bool]   'An option wether the bridge should run it's own rosmaster process, the default is "false"'"#
         ));
     let args = app.get_matches();
 
