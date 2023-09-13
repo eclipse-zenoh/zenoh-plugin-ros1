@@ -390,7 +390,7 @@ impl BridgeChecker {
     }
 
     pub fn make_topic(name: &str) -> rosrust::api::Topic {
-        topic_utilities::make_topic("some/very.complicated/datatype//", name.try_into().unwrap())
+        topic_utilities::make_topic("some/testdatatype", name.try_into().unwrap())
     }
 
     pub fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {

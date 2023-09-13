@@ -35,6 +35,7 @@ use crate::ros_to_zenoh_bridge::{
 use super::{
     discovery::{Discovery, DiscoveryBuilder},
     ros1_client::Ros1Client,
+    service_cache::Ros1ServiceCache,
 };
 
 #[derive(PartialEq, Clone, Copy)]
@@ -63,6 +64,14 @@ where
     RosStatusCallback: Fn(RosStatus),
     BridgeStatisticsCallback: Fn(BridgeStatus),
 {
+    let ros1_service_cache = Ros1ServiceCache::new(
+        format!(
+            "{}_service_cache_node",
+            Environment::ros_name().get().as_str()
+        )
+        .as_str(),
+        ros_master_uri,
+    )?;
     let ros1_client = Arc::new(ros1_client::Ros1Client::new(
         Environment::ros_name().get().as_str(),
         ros_master_uri,
@@ -84,7 +93,9 @@ where
     let _discovery = make_discovery(session.clone(), bridges.clone()).await;
 
     let mut bridge = RosToZenohBridge::new(ros_status_callback, statistics_callback);
-    bridge.run(ros1_client, bridges, flag).await;
+    bridge
+        .run(ros1_client, ros1_service_cache, bridges, flag)
+        .await;
     Ok(())
 }
 
@@ -153,6 +164,7 @@ where
     pub async fn run(
         &mut self,
         ros1_client: Arc<Ros1Client>,
+        mut ros1_service_cache: Ros1ServiceCache,
         bridges: Arc<Mutex<BridgesStorage>>,
         flag: Arc<AtomicBool>,
     ) {
@@ -160,10 +172,17 @@ where
 
         while flag.load(Relaxed) {
             let cl = ros1_client.clone();
-            let ros1_state = async_std::task::spawn_blocking(move || {
-                topic_mapping::Ros1TopicMapping::topic_mapping(cl.as_ref())
+            let (ros1_state, returned_cache) = async_std::task::spawn_blocking(move || {
+                (
+                    topic_mapping::Ros1TopicMapping::topic_mapping(
+                        cl.as_ref(),
+                        &mut ros1_service_cache,
+                    ),
+                    ros1_service_cache,
+                )
             })
             .await;
+            ros1_service_cache = returned_cache;
 
             debug!("ros state: {:#?}", ros1_state);
 

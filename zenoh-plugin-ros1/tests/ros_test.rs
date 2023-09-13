@@ -14,32 +14,14 @@
 
 use std::time::Duration;
 
-use rosrust::{Publisher, RawMessage, Subscriber};
+use rosrust::{RawMessage, RawMessageDescription};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     ros1_client::Ros1Client,
-    test_helpers::{wait, BridgeChecker, IsolatedROSMaster, ROSEnvironment},
+    rosclient_test_helpers::{
+        wait_for_publishers, wait_for_rosclient_to_connect, wait_for_subscribers,
+    },
+    test_helpers::{BridgeChecker, IsolatedROSMaster, ROSEnvironment},
 };
-
-fn wait_for_rosclient_to_connect(rosclient: &Ros1Client) -> bool {
-    async_std::task::block_on(wait(
-        || rosclient.topic_types().is_ok(),
-        Duration::from_secs(10),
-    ))
-}
-
-fn wait_for_publishers(subscriber: &Subscriber, count: usize) -> bool {
-    async_std::task::block_on(wait(
-        || subscriber.publisher_count() == count,
-        Duration::from_secs(10),
-    ))
-}
-
-fn wait_for_subscribers(publisher: &Publisher<RawMessage>, count: usize) -> bool {
-    async_std::task::block_on(wait(
-        || publisher.subscriber_count() == count,
-        Duration::from_secs(10),
-    ))
-}
 
 #[test]
 fn check_rosclient_connectivity_ros_then_client() {
@@ -312,14 +294,29 @@ fn prove_rosclient_service_non_isolation_service_then_client() {
         .client(&shared_topic)
         .expect("error creating client!");
 
-    // check that they are isolated
-    assert!(client.probe(Duration::from_secs(1)).is_ok());
-    assert!(client.req(&RawMessage::default()).is_ok());
+    // datatype extended description
+    let description = RawMessageDescription {
+        msg_definition: "*".to_string(),
+        md5sum: "*".to_string(),
+        msg_type: shared_topic.datatype.clone(),
+    };
 
-    // wait and check that they are still isolated
+    // check that they are not isolated
+    assert!(client
+        .probe_with_description(Duration::from_secs(1), description.clone())
+        .is_ok());
+    assert!(client
+        .req_with_description(&RawMessage::default(), description.clone())
+        .is_ok());
+
+    // wait and check that they are still not isolated
     std::thread::sleep(Duration::from_secs(5));
-    assert!(client.probe(Duration::from_secs(1)).is_ok());
-    assert!(client.req(&RawMessage::default()).is_ok());
+    assert!(client
+        .probe_with_description(Duration::from_secs(1), description.clone())
+        .is_ok());
+    assert!(client
+        .req_with_description(&RawMessage::default(), description.clone())
+        .is_ok());
 }
 
 #[test]
@@ -344,12 +341,62 @@ fn prove_rosclient_service_non_isolation_client_then_service() {
         .service::<rosrust::RawMessage, _>(&shared_topic, Ok)
         .expect("error creating service!");
 
-    // check that they are isolated
-    assert!(client.probe(Duration::from_secs(1)).is_ok());
-    assert!(client.req(&RawMessage::default()).is_ok());
+    // datatype extended description
+    let description = RawMessageDescription {
+        msg_definition: "*".to_string(),
+        md5sum: "*".to_string(),
+        msg_type: shared_topic.datatype.clone(),
+    };
 
-    // wait and check that they are still isolated
+    // check that they are not isolated
+    assert!(client
+        .probe_with_description(Duration::from_secs(1), description.clone())
+        .is_ok());
+    assert!(client
+        .req_with_description(&RawMessage::default(), description.clone())
+        .is_ok());
+
+    // wait and check that they are still not isolated
     std::thread::sleep(Duration::from_secs(5));
-    assert!(client.probe(Duration::from_secs(1)).is_ok());
-    assert!(client.req(&RawMessage::default()).is_ok());
+    assert!(client
+        .probe_with_description(Duration::from_secs(1), description.clone())
+        .is_ok());
+    assert!(client
+        .req_with_description(&RawMessage::default(), description.clone())
+        .is_ok());
+}
+
+#[test]
+fn service_preserve_datatype_incorrect_datatype() {
+    // init and start isolated ros
+    let roscfg = IsolatedROSMaster::default();
+    let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
+
+    // start rosclient
+    let rosclient =
+        Ros1Client::new("test_client", &roscfg.master_uri()).expect("error creating Ros1Client!");
+    assert!(wait_for_rosclient_to_connect(&rosclient));
+
+    // create shared topic
+    let shared_topic = BridgeChecker::make_topic("prove_rosclient_service_non_isolation");
+
+    // create client and service
+    let client = rosclient
+        .client(&shared_topic)
+        .expect("error creating client!");
+    let _service = rosclient
+        .service::<rosrust::RawMessage, _>(&shared_topic, Ok)
+        .expect("error creating service!");
+
+    // datatype extended description
+    let description = RawMessageDescription {
+        msg_definition: "*".to_string(),
+        md5sum: "deadbeeef".to_string(), // only this makes the request to fail
+        msg_type: "incorrect/datatype".to_string(),
+    };
+
+    // check that datatype is preserved
+    assert!(client
+        .req_with_description(&RawMessage::default(), description)
+        .is_err());
 }

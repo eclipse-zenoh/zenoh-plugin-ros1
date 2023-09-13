@@ -144,22 +144,13 @@ impl RemoteResources {
         F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         //let discovery_namespace = discovery.discovery_namespace().ok_or("No discovery_namespace present!")?;
-        let datatype;
-        #[cfg(feature = "preserve_topic_metadata")]
-        {
-            let datatype_bytes = hex::decode(
-                discovery
-                    .data_type()
-                    .ok_or("No data_type present!")?
-                    .as_str(),
-            )?;
-            datatype = std::str::from_utf8(&datatype_bytes)?;
-        }
-
-        #[cfg(not(feature = "preserve_topic_metadata"))]
-        {
-            datatype = "*";
-        }
+        let datatype_bytes = hex::decode(
+            discovery
+                .data_type()
+                .ok_or("No data_type present!")?
+                .as_str(),
+        )?;
+        let datatype = std::str::from_utf8(&datatype_bytes)?;
 
         let resource_class = discovery
             .resource_class()

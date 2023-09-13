@@ -40,6 +40,10 @@ pub mod ros1_client;
 #[cfg(feature = "test")]
 pub mod ros1_to_zenoh_bridge_impl;
 #[cfg(feature = "test")]
+pub mod rosclient_test_helpers;
+#[cfg(feature = "test")]
+pub mod service_cache;
+#[cfg(feature = "test")]
 pub mod test_helpers;
 #[cfg(feature = "test")]
 pub mod topic_utilities;
@@ -60,6 +64,8 @@ mod discovery;
 mod ros1_client;
 #[cfg(not(feature = "test"))]
 mod ros1_to_zenoh_bridge_impl;
+#[cfg(not(feature = "test"))]
+mod service_cache;
 #[cfg(not(feature = "test"))]
 mod topic_utilities;
 #[cfg(not(feature = "test"))]

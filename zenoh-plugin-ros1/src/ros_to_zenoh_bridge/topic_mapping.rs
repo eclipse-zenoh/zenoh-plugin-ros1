@@ -17,6 +17,8 @@ use std::collections::HashSet;
 use crate::ros_to_zenoh_bridge::ros1_client;
 use log::debug;
 
+use super::service_cache::Ros1ServiceCache;
+
 #[derive(Debug)]
 pub struct Ros1TopicMapping {
     pub published: HashSet<rosrust::api::Topic>,
@@ -26,12 +28,17 @@ pub struct Ros1TopicMapping {
 impl Ros1TopicMapping {
     pub fn topic_mapping(
         ros1_client: &ros1_client::Ros1Client,
+        ros1_service_cache: &mut Ros1ServiceCache,
     ) -> rosrust::api::error::Response<Ros1TopicMapping> {
         match ros1_client.state() {
             Ok(state_val) => match ros1_client.topic_types() {
                 Ok(topics_val) => {
                     debug!("topics: {:#?}", topics_val);
-                    Ok(Ros1TopicMapping::new(&state_val, &topics_val))
+                    Ok(Ros1TopicMapping::new(
+                        state_val,
+                        &topics_val,
+                        ros1_service_cache,
+                    ))
                 }
                 Err(e) => Err(e),
             },
@@ -40,7 +47,11 @@ impl Ros1TopicMapping {
     }
 
     // PRIVATE:
-    fn new(state: &rosrust::api::SystemState, topics: &[rosrust::api::Topic]) -> Ros1TopicMapping {
+    fn new(
+        state: rosrust::api::SystemState,
+        topics: &[rosrust::api::Topic],
+        ros1_service_cache: &mut Ros1ServiceCache,
+    ) -> Ros1TopicMapping {
         let mut result = Ros1TopicMapping {
             published: HashSet::new(),
             subscribed: HashSet::new(),
@@ -49,12 +60,11 @@ impl Ros1TopicMapping {
 
         Ros1TopicMapping::fill(&mut result.subscribed, &state.subscribers, topics);
         Ros1TopicMapping::fill(&mut result.published, &state.publishers, topics);
-        Ros1TopicMapping::fill(&mut result.serviced, &state.services, topics);
+        Ros1TopicMapping::fill_services(&mut result.serviced, state.services, ros1_service_cache);
 
         result
     }
 
-    #[cfg(feature = "preserve_topic_metadata")]
     fn fill(
         dst: &mut HashSet<rosrust::api::Topic>,
         data: &[rosrust::api::TopicData],
@@ -77,17 +87,28 @@ impl Ros1TopicMapping {
         }
     }
 
-    #[cfg(not(feature = "preserve_topic_metadata"))]
-    fn fill(
+    fn fill_services(
         dst: &mut HashSet<rosrust::api::Topic>,
-        data: &[rosrust::api::TopicData],
-        _topics: &[rosrust::api::Topic],
+        data: Vec<rosrust::api::TopicData>,
+        ros1_service_cache: &mut Ros1ServiceCache,
     ) {
-        for item in data.iter() {
-            dst.insert(rosrust::api::Topic {
-                name: item.name.clone(),
-                datatype: "*".to_string(),
-            });
+        for service in data {
+            for node in service.connections {
+                match ros1_service_cache.resolve_datatype(service.name.clone(), node) {
+                    Ok(datatype) => {
+                        dst.insert(rosrust::api::Topic {
+                            name: service.name.clone(),
+                            datatype,
+                        });
+                    }
+                    Err(e) => {
+                        debug!(
+                            "Error finding datatype for service topic {}: {e}",
+                            service.name.clone()
+                        );
+                    }
+                }
+            }
         }
     }
 }
