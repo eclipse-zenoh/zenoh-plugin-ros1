@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use log::{debug, error, info};
 
+use rosrust::RawMessageDescription;
 use zenoh::{plugins::ZResult, prelude::SplitBuffer};
 use zenoh_core::{AsyncResolve, SyncResolve};
 
@@ -156,9 +157,14 @@ impl Ros1ToZenohService {
         match ros1_client.client(topic) {
             Ok(client) => {
                 let client_in_arc = Arc::new(client);
+                let topic_in_arc = Arc::new(topic.clone());
                 let queryable = zenoh_client
                     .make_queryable(make_zenoh_key(topic), move |query| {
-                        async_std::task::spawn(Self::on_query(client_in_arc.clone(), query));
+                        async_std::task::spawn(Self::on_query(
+                            client_in_arc.clone(),
+                            query,
+                            topic_in_arc.clone(),
+                        ));
                     })
                     .await?;
                 Ok(Ros1ToZenohService {
@@ -175,6 +181,7 @@ impl Ros1ToZenohService {
     async fn on_query(
         ros1_client: Arc<rosrust::Client<rosrust::RawMessage>>,
         query: zenoh::queryable::Query,
+        topic: Arc<rosrust::api::Topic>,
     ) {
         match query.value() {
             Some(val) => {
@@ -183,7 +190,7 @@ impl Ros1ToZenohService {
                     "ROS1 -> Zenoh Service: got query of {} bytes!",
                     payload.len()
                 );
-                Self::process_query(ros1_client, query, payload).await;
+                Self::process_query(ros1_client, query, payload, topic).await;
             }
             None => {
                 error!("ROS1 -> Zenoh Service: got query without value!");
@@ -195,12 +202,19 @@ impl Ros1ToZenohService {
         ros1_client: Arc<rosrust::Client<rosrust::RawMessage>>,
         query: zenoh::queryable::Query,
         payload: Vec<u8>,
+        topic: Arc<rosrust::api::Topic>,
     ) {
         // rosrust is synchronous, so we will use spawn_blocking. If there will be an async mode some day for the rosrust,
         // than reply_to_query can be refactored to async very easily
-        let res =
-            async_std::task::spawn_blocking(move || ros1_client.req(&rosrust::RawMessage(payload)))
-                .await;
+        let res = async_std::task::spawn_blocking(move || {
+            let description = RawMessageDescription {
+                msg_definition: String::from("*"),
+                md5sum: String::from("*"),
+                msg_type: topic.datatype.clone(),
+            };
+            ros1_client.req_with_description(&rosrust::RawMessage(payload), description)
+        })
+        .await;
         match Self::reply_to_query(res, &query).await {
             Ok(_) => {}
             Err(e) => {

@@ -31,9 +31,11 @@ async fn main() {
 
     // create ROS1 node and publisher
     print!("Creating ROS1 Node...");
-    let ros1_node = rosrust::api::Ros::new(
-        (Environment::ros_name().get() + "_test_source_node").as_str(),
+    let ros1_node = rosrust::api::Ros::new_raw(
         Environment::ros_master_uri().get().as_str(),
+        &rosrust::api::resolve::hostname(),
+        &rosrust::api::resolve::namespace(),
+        (Environment::ros_name().get() + "_test_source_node").as_str(),
     )
     .expect("Error creating ROS1 Node!");
     println!(" OK!");

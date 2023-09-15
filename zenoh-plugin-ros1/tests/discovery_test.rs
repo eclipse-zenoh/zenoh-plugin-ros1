@@ -150,7 +150,7 @@ impl DiscoveryCollector {
         expected: HashMultiSet<rosrust::api::Topic>,
     ) {
         while expected != *container.lock().unwrap() {
-            async_std::task::sleep(core::time::Duration::from_millis(1)).await;
+            async_std::task::sleep(core::time::Duration::from_millis(10)).await;
         }
     }
 }

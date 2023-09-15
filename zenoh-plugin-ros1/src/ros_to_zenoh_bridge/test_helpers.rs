@@ -20,6 +20,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
 use zenoh::config::ModeDependentValue;
 use zenoh::sample::Sample;
+use zenoh_core::zlock;
 use zenoh_core::{AsyncResolve, SyncResolve};
 
 use super::discovery::LocalResources;
@@ -127,15 +128,16 @@ impl RunningBridge {
             session,
             flag,
             move |v| {
-                let mut val = ros_status.lock().unwrap();
+                let mut val = zlock!(ros_status);
                 *val = v;
             },
             move |status| {
-                let mut my_status = bridge_status.lock().unwrap();
+                let mut my_status = zlock!(bridge_status);
                 *my_status = status;
             },
         )
-        .await;
+        .await
+        .unwrap();
     }
 
     pub async fn assert_ros_error(&self) {
@@ -177,8 +179,9 @@ impl RunningBridge {
     ) -> bool {
         wait(
             move || {
-                let val = self.bridge_status.lock().unwrap();
-                *val == (status)()
+                let expected = (status)();
+                let real = self.bridge_status.lock().unwrap();
+                *real == expected
             },
             timeout,
         )
@@ -255,7 +258,7 @@ impl BridgeChecker {
     pub fn new(config: zenoh::config::Config, ros_master_uri: &str) -> BridgeChecker {
         let session = zenoh::open(config).res_sync().unwrap().into_arc();
         BridgeChecker {
-            ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri),
+            ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri).unwrap(),
             zenoh_client: zenoh_client::ZenohClient::new(session.clone()),
             local_resources: LocalResources::new("*".to_string(), "*".to_string(), session),
             expected_bridge_status: Arc::new(RwLock::new(BridgeStatus::default())),
@@ -387,7 +390,7 @@ impl BridgeChecker {
     }
 
     pub fn make_topic(name: &str) -> rosrust::api::Topic {
-        topic_utilities::make_topic("some/very.complicated/datatype//", name.try_into().unwrap())
+        topic_utilities::make_topic("some/testdatatype", name.try_into().unwrap())
     }
 
     pub fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {

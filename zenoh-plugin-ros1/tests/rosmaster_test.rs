@@ -40,9 +40,11 @@ fn start_and_stop_master_and_check_connectivity() {
     });
 
     // start ros1 client
-    let ros1_client = rosrust::api::Ros::new(
-        "start_and_stop_master_and_check_connectivity_client",
+    let ros1_client = rosrust::api::Ros::new_raw(
         "http://localhost:11311/",
+        &rosrust::api::resolve::hostname(),
+        &rosrust::api::resolve::namespace(),
+        "start_and_stop_master_and_check_connectivity_client",
     )
     .unwrap();
 

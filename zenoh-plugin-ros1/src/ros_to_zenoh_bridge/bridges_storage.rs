@@ -18,9 +18,14 @@ use std::{
 };
 
 use super::{
-    bridge_type::BridgeType, discovery::LocalResources, environment::Environment, ros1_client,
-    ros1_to_zenoh_bridge_impl::BridgeStatus, topic_bridge::TopicBridge,
-    topic_mapping::Ros1TopicMapping, zenoh_client,
+    bridge_type::BridgeType,
+    bridging_mode::{bridging_mode, BridgingMode},
+    discovery::LocalResources,
+    ros1_client,
+    ros1_to_zenoh_bridge_impl::BridgeStatus,
+    topic_bridge::TopicBridge,
+    topic_mapping::Ros1TopicMapping,
+    zenoh_client,
 };
 
 struct Bridges {
@@ -140,22 +145,24 @@ impl<'a> ComplementaryElementAccessor<'a> {
     }
 
     pub async fn complementary_entity_discovered(&mut self, topic: rosrust::api::Topic) {
-        match self.access.container.entry(topic) {
-            Entry::Occupied(mut val) => {
-                val.get_mut().set_has_complementary_in_zenoh(true).await;
-            }
-            Entry::Vacant(val) => {
-                let key = val.key().clone();
-                val.insert(TopicBridge::new(
-                    key,
-                    self.access.b_type,
-                    self.access.declaration_interface.clone(),
-                    self.access.ros1_client.clone(),
-                    self.access.zenoh_client.clone(),
-                    Environment::bridging_mode().get(),
-                ))
-                .set_has_complementary_in_zenoh(true)
-                .await;
+        let b_mode = bridging_mode(self.access.b_type, topic.name.as_str());
+        if b_mode != BridgingMode::Disabled {
+            match self.access.container.entry(topic) {
+                Entry::Occupied(mut val) => {
+                    val.get_mut().set_has_complementary_in_zenoh(true).await;
+                }
+                Entry::Vacant(val) => {
+                    let key = val.key().clone();
+                    let inserted = val.insert(TopicBridge::new(
+                        key,
+                        self.access.b_type,
+                        self.access.declaration_interface.clone(),
+                        self.access.ros1_client.clone(),
+                        self.access.zenoh_client.clone(),
+                        b_mode,
+                    ));
+                    inserted.set_has_complementary_in_zenoh(true).await;
+                }
             }
         }
     }
@@ -208,21 +215,24 @@ impl<'a> ElementAccessor<'a> {
 
         // run through the topics and create corresponding bridges
         for ros_topic in part_of_ros_state.iter() {
-            match self.access.container.entry(ros_topic.clone()) {
-                Entry::Occupied(_val) => {
-                    debug_assert!(false); // that shouldn't happen
-                }
-                Entry::Vacant(val) => {
-                    let inserted = val.insert(TopicBridge::new(
-                        ros_topic.clone(),
-                        self.access.b_type,
-                        self.access.declaration_interface.clone(),
-                        self.access.ros1_client.clone(),
-                        self.access.zenoh_client.clone(),
-                        Environment::bridging_mode().get(),
-                    ));
-                    inserted.set_present_in_ros1(true).await;
-                    smth_changed = true;
+            let b_mode = bridging_mode(self.access.b_type, ros_topic.name.as_str());
+            if b_mode != BridgingMode::Disabled {
+                match self.access.container.entry(ros_topic.clone()) {
+                    Entry::Occupied(_val) => {
+                        debug_assert!(false); // that shouldn't happen
+                    }
+                    Entry::Vacant(val) => {
+                        let inserted = val.insert(TopicBridge::new(
+                            ros_topic.clone(),
+                            self.access.b_type,
+                            self.access.declaration_interface.clone(),
+                            self.access.ros1_client.clone(),
+                            self.access.zenoh_client.clone(),
+                            b_mode,
+                        ));
+                        inserted.set_present_in_ros1(true).await;
+                        smth_changed = true;
+                    }
                 }
             }
         }

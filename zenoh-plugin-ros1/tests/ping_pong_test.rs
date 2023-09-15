@@ -24,8 +24,10 @@ use std::{
     },
 };
 
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
-    BridgeChecker, ROSEnvironment, RunningBridge, TestParams,
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
+    bridging_mode::BridgingMode,
+    environment::Environment,
+    test_helpers::{BridgeChecker, ROSEnvironment, RunningBridge, TestParams},
 };
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::LocalResource,
@@ -384,7 +386,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_client(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
         let zenoh_query = ZenohQuery::new(backend, key.to_string(), cycles.clone());
 
         PingPong {
@@ -406,7 +409,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_service(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
         let zenoh_queryable = backend
             .make_zenoh_queryable(key, |q| {
                 async_std::task::spawn(async move {
@@ -437,7 +441,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_subscriber(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
 
         let c = cycles.clone();
         let rpub = ros1_pub.clone();
@@ -471,7 +476,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_publisher(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
 
         let c = cycles.clone();
         let zpub = zenoh_pub.clone();
@@ -665,6 +671,9 @@ async fn ping_pong_duplex_parallel_many_(
             );
         }
         if mode.contains(&Mode::Ros1Client) {
+            // allow automatical client bridging because it is disabled by default
+            Environment::client_bridging_mode().set(BridgingMode::Auto);
+
             ping_pongs.push(
                 PingPong::new_ros1_to_zenoh_client(
                     make_keyexpr(i, Mode::Ros1Client).as_str(),

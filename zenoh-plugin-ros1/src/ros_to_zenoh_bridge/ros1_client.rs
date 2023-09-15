@@ -13,7 +13,8 @@
 //
 
 use log::debug;
-use rosrust;
+use rosrust::{self, RawMessageDescription};
+use zenoh_core::{zerror, zresult::ZResult};
 
 pub struct Ros1Client {
     ros: rosrust::api::Ros,
@@ -21,10 +22,16 @@ pub struct Ros1Client {
 
 impl Ros1Client {
     // PUBLIC
-    pub fn new(name: &str, master_uri: &str) -> Ros1Client {
-        Ros1Client {
-            ros: rosrust::api::Ros::new(name, master_uri).unwrap(),
-        }
+    pub fn new(name: &str, master_uri: &str) -> ZResult<Ros1Client> {
+        Ok(Ros1Client {
+            ros: rosrust::api::Ros::new_raw(
+                master_uri,
+                &rosrust::api::resolve::hostname(),
+                &rosrust::api::resolve::namespace(),
+                name,
+            )
+            .map_err(|e| zerror!("{e}"))?,
+        })
     }
 
     pub fn subscribe<T, F>(
@@ -36,14 +43,31 @@ impl Ros1Client {
         T: rosrust::Message,
         F: Fn(T) + Send + 'static,
     {
-        self.ros.subscribe(&topic.name, 0, callback)
+        let description = RawMessageDescription {
+            msg_definition: "*".to_string(),
+            md5sum: "*".to_string(),
+            msg_type: topic.datatype.clone(),
+        };
+        self.ros.subscribe_with_ids_and_headers(
+            &topic.name,
+            0,
+            move |data, _| callback(data),
+            |_| (),
+            Some(description),
+        )
     }
 
     pub fn publish(
         &self,
         topic: &rosrust::api::Topic,
     ) -> rosrust::api::error::Result<rosrust::Publisher<rosrust::RawMessage>> {
-        self.ros.publish(&topic.name, 0)
+        let description = RawMessageDescription {
+            msg_definition: "*".to_string(),
+            md5sum: "*".to_string(),
+            msg_type: topic.datatype.clone(),
+        };
+        self.ros
+            .publish_with_description(&topic.name, 0, description)
     }
 
     pub fn client(
@@ -62,7 +86,13 @@ impl Ros1Client {
         T: rosrust::ServicePair,
         F: Fn(T::Request) -> rosrust::ServiceResult<T::Response> + Send + Sync + 'static,
     {
-        self.ros.service::<T, F>(&topic.name, handler)
+        let description = RawMessageDescription {
+            msg_definition: "*".to_string(),
+            md5sum: "*".to_string(),
+            msg_type: topic.datatype.clone(),
+        };
+        self.ros
+            .service_with_description::<T, F>(&topic.name, handler, description)
     }
 
     pub fn state(&self) -> rosrust::api::error::Response<rosrust::api::SystemState> {

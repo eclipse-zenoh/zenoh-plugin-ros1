@@ -18,9 +18,13 @@ use rosrust::{Client, Publisher, RawMessage, Service, Subscriber};
 use std::sync::atomic::Ordering::*;
 use strum_macros::Display;
 use zenoh::prelude::KeyExpr;
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
-    BridgeChecker, IsolatedConfig, IsolatedROSMaster, RAIICounter, ROSEnvironment, RunningBridge,
-    TestParams,
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
+    bridging_mode::BridgingMode,
+    environment::Environment,
+    test_helpers::{
+        BridgeChecker, IsolatedConfig, IsolatedROSMaster, RAIICounter, ROSEnvironment,
+        RunningBridge, TestParams,
+    },
 };
 
 struct ROSWithChecker {
@@ -233,6 +237,9 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
             entities.push(Entity::Pub(dst_checker.make_ros_publisher(topic.as_str())));
         }
         if mode.contains(&Mode::Ros1Service) {
+            // allow automatical client bridging because it is disabled by default
+            Environment::client_bridging_mode().set(BridgingMode::Auto);
+
             let topic = make_keyexpr(i, Mode::Ros1Service);
             entities.push(Entity::Service(
                 src_checker.make_ros_service(topic.as_str(), Ok),
@@ -240,6 +247,9 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
             entities.push(Entity::Client(dst_checker.make_ros_client(topic.as_str())));
         }
         if mode.contains(&Mode::Ros1Client) {
+            // allow automatical client bridging because it is disabled by default
+            Environment::client_bridging_mode().set(BridgingMode::Auto);
+
             let topic = make_keyexpr(i, Mode::Ros1Client);
             entities.push(Entity::Client(src_checker.make_ros_client(topic.as_str())));
             entities.push(Entity::Service(

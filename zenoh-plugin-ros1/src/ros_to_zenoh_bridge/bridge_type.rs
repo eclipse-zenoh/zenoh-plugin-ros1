@@ -12,7 +12,9 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+use strum_macros::Display;
+
+#[derive(Clone, Copy, PartialEq, Eq, Display)]
 pub enum BridgeType {
     Publisher,
     Subscriber,
