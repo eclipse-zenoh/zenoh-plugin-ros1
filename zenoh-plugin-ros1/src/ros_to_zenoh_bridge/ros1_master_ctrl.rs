@@ -19,7 +19,7 @@ use async_std::{
 use atoi::atoi;
 use log::error;
 use zenoh::plugins::ZResult;
-use zenoh_core::{bail, zerror};
+use zenoh_core::{bail, zasynclock, zerror};
 
 use crate::ros_to_zenoh_bridge::environment::Environment;
 
@@ -37,7 +37,7 @@ impl Ros1MasterCtrl {
         let port =
             atoi::<u16>(port_str.as_bytes()).ok_or("Unable to parse port from ros_master_uri!")?;
 
-        let mut locked = ROSMASTER.lock().await;
+        let mut locked = zasynclock!(ROSMASTER);
         assert!(locked.is_none());
         let child = Command::new("rosmaster")
             .arg(format!("-p {}", port).as_str())
@@ -50,7 +50,7 @@ impl Ros1MasterCtrl {
     }
 
     pub async fn without_ros1_master() {
-        let mut locked = ROSMASTER.lock().await;
+        let mut locked = zasynclock!(ROSMASTER);
         assert!(locked.is_some());
         match locked.take() {
             Some(mut child) => match child.kill() {
