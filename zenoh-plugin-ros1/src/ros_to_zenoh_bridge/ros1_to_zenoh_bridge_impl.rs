@@ -34,8 +34,8 @@ use crate::ros_to_zenoh_bridge::{
 
 use super::{
     discovery::{Discovery, DiscoveryBuilder},
+    resource_cache::Ros1ResourceCache,
     ros1_client::Ros1Client,
-    service_cache::Ros1ServiceCache,
 };
 
 #[derive(PartialEq, Clone, Copy)]
@@ -64,18 +64,21 @@ where
     RosStatusCallback: Fn(RosStatus),
     BridgeStatisticsCallback: Fn(BridgeStatus),
 {
-    let ros1_service_cache = Ros1ServiceCache::new(
-        format!(
-            "{}_service_cache_node",
-            Environment::ros_name().get().as_str()
-        )
-        .as_str(),
-        ros_master_uri,
-    )?;
+    let bridge_ros_node_name = Environment::ros_name().get();
+
     let ros1_client = Arc::new(ros1_client::Ros1Client::new(
-        Environment::ros_name().get().as_str(),
+        &bridge_ros_node_name,
         ros_master_uri,
     )?);
+
+    let aux_ros_node_name = format!("{}_service_cache_node", bridge_ros_node_name);
+
+    let ros1_resource_cache = Ros1ResourceCache::new(
+        &aux_ros_node_name,
+        ros1_client.ros.name().to_owned(),
+        ros_master_uri,
+    )?;
+
     let zenoh_client = Arc::new(zenoh_client::ZenohClient::new(session.clone()));
 
     let local_resources = Arc::new(LocalResources::new(
@@ -94,7 +97,7 @@ where
 
     let mut bridge = RosToZenohBridge::new(ros_status_callback, statistics_callback);
     bridge
-        .run(ros1_client, ros1_service_cache, bridges, flag)
+        .run(ros1_client, ros1_resource_cache, bridges, flag)
         .await;
     Ok(())
 }
@@ -164,7 +167,7 @@ where
     pub async fn run(
         &mut self,
         ros1_client: Arc<Ros1Client>,
-        mut ros1_service_cache: Ros1ServiceCache,
+        mut ros1_resource_cache: Ros1ResourceCache,
         bridges: Arc<Mutex<BridgesStorage>>,
         flag: Arc<AtomicBool>,
     ) {
@@ -176,13 +179,13 @@ where
                 (
                     topic_mapping::Ros1TopicMapping::topic_mapping(
                         cl.as_ref(),
-                        &mut ros1_service_cache,
+                        &mut ros1_resource_cache,
                     ),
-                    ros1_service_cache,
+                    ros1_resource_cache,
                 )
             })
             .await;
-            ros1_service_cache = returned_cache;
+            ros1_resource_cache = returned_cache;
 
             debug!("ros state: {:#?}", ros1_state);
 

@@ -52,8 +52,10 @@ zenoh-ext = { git = "https://github.com/eclipse-zenoh/zenoh.git", features = ["u
 zenoh-core = { git = "https://github.com/eclipse-zenoh/zenoh.git" }
 zenoh-plugin-trait = { git = "https://github.com/eclipse-zenoh/zenoh.git", default-features = false }
 rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "feature/fix_bugs" }
+# rosrust = { path = "../rosrust/rosrust/rosrust" }
 rustc_version = "0.4"
 hex = "0.4.3"
+xml-rpc = "0.0.12"
 
 [profile.release]
 debug = false

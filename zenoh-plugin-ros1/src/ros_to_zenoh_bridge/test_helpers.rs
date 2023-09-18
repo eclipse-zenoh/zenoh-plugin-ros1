@@ -25,6 +25,7 @@ use zenoh_core::{AsyncResolve, SyncResolve};
 
 use super::discovery::LocalResources;
 use super::ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus};
+use super::topic_descriptor::TopicDescriptor;
 use super::topic_utilities;
 use super::{ros1_client, zenoh_client};
 
@@ -389,12 +390,12 @@ impl BridgeChecker {
         )
     }
 
-    pub fn make_topic(name: &str) -> rosrust::api::Topic {
+    pub fn make_topic(name: &str) -> TopicDescriptor {
         topic_utilities::make_topic("some/testdatatype", name.try_into().unwrap())
     }
 
-    pub fn make_zenoh_key(topic: &rosrust::api::Topic) -> &str {
-        return topic.name.trim_start_matches('/').trim_end_matches('/');
+    pub fn make_zenoh_key(topic: &TopicDescriptor) -> &str {
+        topic_utilities::make_zenoh_key(topic)
     }
 }
 

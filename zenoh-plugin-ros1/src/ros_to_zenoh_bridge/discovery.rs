@@ -27,6 +27,7 @@ use std::str;
 use super::aloha_declaration::AlohaDeclaration;
 use super::aloha_subscription::{AlohaSubscription, AlohaSubscriptionBuilder};
 use super::bridge_type::BridgeType;
+use super::topic_descriptor::TopicDescriptor;
 use super::topic_utilities::{make_topic, make_zenoh_key};
 
 use crate::ZResult;
@@ -57,7 +58,7 @@ impl RemoteResources {
         on_lost: F,
     ) -> Self
     where
-        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
+        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -110,7 +111,7 @@ impl RemoteResources {
     // PRIVATE:
     async fn process<F>(data: KeyExpr<'_>, callback: Arc<F>)
     where
-        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
+        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -130,7 +131,7 @@ impl RemoteResources {
 
     async fn parse_format<F>(data: &KeyExpr<'_>, callback: &Arc<F>) -> ZResult<()>
     where
-        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
+        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         let discovery = discovery_format::parse(data).map_err(|err| err.to_string())?;
         Self::handle_format(discovery, callback).await
@@ -141,7 +142,7 @@ impl RemoteResources {
         callback: &Arc<F>,
     ) -> ZResult<()>
     where
-        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>,
+        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         //let discovery_namespace = discovery.discovery_namespace().ok_or("No discovery_namespace present!")?;
         let datatype_bytes = hex::decode(
@@ -184,7 +185,7 @@ impl LocalResource {
         discovery_namespace: &str,
         bridge_namespace: &str,
         resource_class: &str,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         session: Arc<zenoh::Session>,
     ) -> ZResult<LocalResource> {
         // make proper discovery keyexpr
@@ -225,7 +226,7 @@ impl LocalResources {
 
     pub async fn declare_with_type(
         &self,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         b_type: BridgeType,
     ) -> ZResult<LocalResource> {
         match b_type {
@@ -236,29 +237,29 @@ impl LocalResources {
         }
     }
 
-    pub async fn declare_publisher(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
+    pub async fn declare_publisher(&self, topic: &TopicDescriptor) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_PUBLISHERS_CLASS)
             .await
     }
 
-    pub async fn declare_subscriber(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
+    pub async fn declare_subscriber(&self, topic: &TopicDescriptor) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_SUBSCRIBERS_CLASS)
             .await
     }
 
-    pub async fn declare_service(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
+    pub async fn declare_service(&self, topic: &TopicDescriptor) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_SERVICES_CLASS)
             .await
     }
 
-    pub async fn declare_client(&self, topic: &rosrust::api::Topic) -> ZResult<LocalResource> {
+    pub async fn declare_client(&self, topic: &TopicDescriptor) -> ZResult<LocalResource> {
         self.declare(topic, ROS1_DISCOVERY_INFO_CLIENTS_CLASS).await
     }
 
     //PRIVATE:
     pub async fn declare(
         &self,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         resource_class: &str,
     ) -> ZResult<LocalResource> {
         LocalResource::new(
@@ -285,7 +286,7 @@ impl Discovery {
         on_lost: F,
     ) -> Self
     where
-        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
+        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -307,7 +308,7 @@ impl Discovery {
     }
 }
 
-pub type TCallback = dyn Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
+pub type TCallback = dyn Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
     + Send
     + Sync
     + 'static;
@@ -338,7 +339,7 @@ impl DiscoveryBuilder {
 
     pub fn on_discovered<F>(mut self, on_discovered: F) -> Self
     where
-        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
+        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,
@@ -348,7 +349,7 @@ impl DiscoveryBuilder {
     }
     pub fn on_lost<F>(mut self, on_lost: F) -> Self
     where
-        F: Fn(BridgeType, rosrust::api::Topic) -> Box<dyn Future<Output = ()> + Unpin + Send>
+        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
             + Send
             + Sync
             + 'static,

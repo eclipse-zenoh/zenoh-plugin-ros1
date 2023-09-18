@@ -12,20 +12,11 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::prelude::keyexpr;
+use super::resource_cache::{TopicName, DataType, Md5};
 
-use super::topic_descriptor::TopicDescriptor;
-
-pub fn make_zenoh_key(topic: &TopicDescriptor) -> &str {
-    topic.name.trim_start_matches('/').trim_end_matches('/')
-}
-
-pub fn make_topic(datatype: &str, topic_name: &keyexpr) -> TopicDescriptor {
-    let mut name = topic_name.to_string();
-    name.insert(0, '/');
-    TopicDescriptor {
-        name,
-        datatype: datatype.to_string(),
-        md5: String::from("*")
-    }
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub struct TopicDescriptor {
+    pub name: TopicName,
+    pub datatype: DataType,
+    pub md5: Md5
 }

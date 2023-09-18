@@ -20,7 +20,7 @@ use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     rosclient_test_helpers::{
         wait_for_publishers, wait_for_rosclient_to_connect, wait_for_subscribers,
     },
-    test_helpers::{BridgeChecker, IsolatedROSMaster, ROSEnvironment},
+    test_helpers::{BridgeChecker, IsolatedROSMaster, ROSEnvironment}, topic_descriptor::TopicDescriptor,
 };
 
 #[test]
@@ -400,3 +400,31 @@ fn service_preserve_datatype_incorrect_datatype() {
         .req_with_description(&RawMessage::default(), description)
         .is_err());
 }
+
+/*
+#[test]
+fn echo_test() {
+    // start rosclient
+    let rosclient = Ros1Client::new("test_client", "http://localhost:11311/")
+        .expect("error creating Ros1Client!");
+    assert!(wait_for_rosclient_to_connect(&rosclient));
+
+    // create topic
+    let topic = TopicDescriptor {
+        name: "/mytopic".to_string(),
+        datatype: "std_msgs/String".to_string(),
+        md5: "*".to_string()
+    };
+
+    let publisher = rosclient
+        .publish(&topic)
+        .expect("error creating publisher!");
+
+    loop {
+        if let Err(e) = publisher.send(RawMessage("test".to_string().into_bytes())) {
+            println!("Error: {e}");
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    }
+}
+*/

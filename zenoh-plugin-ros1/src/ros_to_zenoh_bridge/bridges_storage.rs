@@ -25,14 +25,14 @@ use super::{
     ros1_to_zenoh_bridge_impl::BridgeStatus,
     topic_bridge::TopicBridge,
     topic_mapping::Ros1TopicMapping,
-    zenoh_client,
+    zenoh_client, resource_cache::{TopicName, DataType, Md5}, topic_descriptor::TopicDescriptor,
 };
 
 struct Bridges {
-    publisher_bridges: HashMap<rosrust::api::Topic, TopicBridge>,
-    subscriber_bridges: HashMap<rosrust::api::Topic, TopicBridge>,
-    service_bridges: HashMap<rosrust::api::Topic, TopicBridge>,
-    client_bridges: HashMap<rosrust::api::Topic, TopicBridge>,
+    publisher_bridges: HashMap<TopicDescriptor, TopicBridge>,
+    subscriber_bridges: HashMap<TopicDescriptor, TopicBridge>,
+    service_bridges: HashMap<TopicDescriptor, TopicBridge>,
+    client_bridges: HashMap<TopicDescriptor, TopicBridge>,
 }
 impl Bridges {
     fn new() -> Self {
@@ -47,7 +47,7 @@ impl Bridges {
     fn container_mut(
         &mut self,
         b_type: BridgeType,
-    ) -> &mut HashMap<rosrust::api::Topic, TopicBridge> {
+    ) -> &mut HashMap<TopicDescriptor, TopicBridge> {
         match b_type {
             BridgeType::Publisher => &mut self.publisher_bridges,
             BridgeType::Subscriber => &mut self.subscriber_bridges,
@@ -58,7 +58,7 @@ impl Bridges {
 
     fn status(&self) -> BridgeStatus {
         let fill = |status: &mut (usize, usize),
-                    bridges: &HashMap<rosrust::api::Topic, TopicBridge>| {
+                    bridges: &HashMap<TopicDescriptor, TopicBridge>| {
             for (_topic, bridge) in bridges.iter() {
                 status.0 += 1;
                 if bridge.is_bridging() {
@@ -84,7 +84,7 @@ impl Bridges {
 }
 
 struct Access<'a> {
-    container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>,
+    container: &'a mut HashMap<TopicDescriptor, TopicBridge>,
     b_type: BridgeType,
     ros1_client: Arc<ros1_client::Ros1Client>,
     zenoh_client: Arc<zenoh_client::ZenohClient>,
@@ -94,7 +94,7 @@ struct Access<'a> {
 impl<'a> Access<'a> {
     fn new(
         b_type: BridgeType,
-        container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>,
+        container: &'a mut HashMap<TopicDescriptor, TopicBridge>,
         ros1_client: Arc<ros1_client::Ros1Client>,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
         declaration_interface: Arc<LocalResources>,
@@ -116,7 +116,7 @@ pub struct ComplementaryElementAccessor<'a> {
 impl<'a> ComplementaryElementAccessor<'a> {
     fn new(
         b_type: BridgeType,
-        container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>,
+        container: &'a mut HashMap<TopicDescriptor, TopicBridge>,
         ros1_client: Arc<ros1_client::Ros1Client>,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
         declaration_interface: Arc<LocalResources>,
@@ -132,7 +132,7 @@ impl<'a> ComplementaryElementAccessor<'a> {
         }
     }
 
-    pub async fn complementary_entity_lost(&mut self, topic: rosrust::api::Topic) {
+    pub async fn complementary_entity_lost(&mut self, topic: TopicDescriptor) {
         match self.access.container.entry(topic) {
             Entry::Occupied(mut val) => {
                 let bridge = val.get_mut();
@@ -144,7 +144,7 @@ impl<'a> ComplementaryElementAccessor<'a> {
         }
     }
 
-    pub async fn complementary_entity_discovered(&mut self, topic: rosrust::api::Topic) {
+    pub async fn complementary_entity_discovered(&mut self, topic: TopicDescriptor) {
         let b_mode = bridging_mode(self.access.b_type, topic.name.as_str());
         if b_mode != BridgingMode::Disabled {
             match self.access.container.entry(topic) {
@@ -175,7 +175,7 @@ pub struct ElementAccessor<'a> {
 impl<'a> ElementAccessor<'a> {
     fn new(
         b_type: BridgeType,
-        container: &'a mut HashMap<rosrust::api::Topic, TopicBridge>,
+        container: &'a mut HashMap<TopicDescriptor, TopicBridge>,
         ros1_client: Arc<ros1_client::Ros1Client>,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
         declaration_interface: Arc<LocalResources>,
@@ -193,7 +193,7 @@ impl<'a> ElementAccessor<'a> {
 
     async fn receive_ros1_state(
         &mut self,
-        part_of_ros_state: &mut HashSet<rosrust::api::Topic>,
+        part_of_ros_state: &mut HashSet<TopicDescriptor>,
     ) -> bool {
         let mut smth_changed = false;
         // Run through bridges and actualize their state based on ROS1 state, removing corresponding entries from ROS1 state.
@@ -214,16 +214,16 @@ impl<'a> ElementAccessor<'a> {
         }
 
         // run through the topics and create corresponding bridges
-        for ros_topic in part_of_ros_state.iter() {
-            let b_mode = bridging_mode(self.access.b_type, ros_topic.name.as_str());
+        for topic in part_of_ros_state.iter() {
+            let b_mode = bridging_mode(self.access.b_type, &topic.name);
             if b_mode != BridgingMode::Disabled {
-                match self.access.container.entry(ros_topic.clone()) {
+                match self.access.container.entry(topic.clone()) {
                     Entry::Occupied(_val) => {
                         debug_assert!(false); // that shouldn't happen
                     }
                     Entry::Vacant(val) => {
                         let inserted = val.insert(TopicBridge::new(
-                            ros_topic.clone(),
+                            topic.clone(),
                             self.access.b_type,
                             self.access.declaration_interface.clone(),
                             self.access.ros1_client.clone(),

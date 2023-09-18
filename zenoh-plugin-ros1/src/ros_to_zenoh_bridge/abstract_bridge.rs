@@ -20,7 +20,7 @@ use rosrust::RawMessageDescription;
 use zenoh::{plugins::ZResult, prelude::SplitBuffer};
 use zenoh_core::{AsyncResolve, SyncResolve};
 
-use super::{bridge_type::BridgeType, ros1_client, topic_utilities::make_zenoh_key, zenoh_client};
+use super::{bridge_type::BridgeType, ros1_client, topic_utilities::make_zenoh_key, zenoh_client, topic_descriptor::TopicDescriptor};
 
 pub struct AbstractBridge {
     _impl: BridgeIml,
@@ -29,7 +29,7 @@ pub struct AbstractBridge {
 impl AbstractBridge {
     pub async fn new(
         b_type: BridgeType,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &Arc<zenoh_client::ZenohClient>,
     ) -> ZResult<Self> {
@@ -65,13 +65,13 @@ struct Ros1ToZenohClient {
 }
 impl Ros1ToZenohClient {
     async fn new(
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
     ) -> ZResult<Ros1ToZenohClient> {
         info!(
-            "Creating ROS1 -> Zenoh Client bridge for topic {}, datatype {}",
-            topic.name, topic.datatype
+            "Creating ROS1 -> Zenoh Client bridge for {:?}",
+            topic
         );
 
         let zenoh_key = make_zenoh_key(topic).to_string();
@@ -145,7 +145,7 @@ struct Ros1ToZenohService {
 }
 impl Ros1ToZenohService {
     async fn new<'b>(
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &'b zenoh_client::ZenohClient,
     ) -> ZResult<Ros1ToZenohService> {
@@ -181,7 +181,7 @@ impl Ros1ToZenohService {
     async fn on_query(
         ros1_client: Arc<rosrust::Client<rosrust::RawMessage>>,
         query: zenoh::queryable::Query,
-        topic: Arc<rosrust::api::Topic>,
+        topic: Arc<TopicDescriptor>,
     ) {
         match query.value() {
             Some(val) => {
@@ -202,14 +202,14 @@ impl Ros1ToZenohService {
         ros1_client: Arc<rosrust::Client<rosrust::RawMessage>>,
         query: zenoh::queryable::Query,
         payload: Vec<u8>,
-        topic: Arc<rosrust::api::Topic>,
+        topic: Arc<TopicDescriptor>,
     ) {
         // rosrust is synchronous, so we will use spawn_blocking. If there will be an async mode some day for the rosrust,
         // than reply_to_query can be refactored to async very easily
         let res = async_std::task::spawn_blocking(move || {
             let description = RawMessageDescription {
                 msg_definition: String::from("*"),
-                md5sum: String::from("*"),
+                md5sum: topic.md5.clone(),
                 msg_type: topic.datatype.clone(),
             };
             ros1_client.req_with_description(&rosrust::RawMessage(payload), description)
@@ -278,7 +278,7 @@ struct Ros1ToZenoh {
 }
 impl Ros1ToZenoh {
     async fn new<'b>(
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &'b zenoh_client::ZenohClient,
     ) -> ZResult<Ros1ToZenoh> {
@@ -312,7 +312,7 @@ struct ZenohToRos1 {
 }
 impl ZenohToRos1 {
     async fn new(
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &Arc<zenoh_client::ZenohClient>,
     ) -> ZResult<Self> {

@@ -23,7 +23,7 @@ use zenoh::{prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery,
-    test_helpers::{BridgeChecker, IsolatedConfig},
+    test_helpers::{BridgeChecker, IsolatedConfig}, topic_descriptor::TopicDescriptor,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -65,10 +65,10 @@ fn discovery_instantination_many_instances() {
 }
 
 struct DiscoveryCollector {
-    publishers: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
-    subscribers: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
-    services: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
-    clients: Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
+    publishers: Arc<Mutex<HashMultiSet<TopicDescriptor>>>,
+    subscribers: Arc<Mutex<HashMultiSet<TopicDescriptor>>>,
+    services: Arc<Mutex<HashMultiSet<TopicDescriptor>>>,
+    clients: Arc<Mutex<HashMultiSet<TopicDescriptor>>>,
 }
 impl DiscoveryCollector {
     fn new() -> Self {
@@ -128,26 +128,26 @@ impl DiscoveryCollector {
             })
     }
 
-    pub async fn wait_publishers(&self, expected: HashMultiSet<rosrust::api::Topic>) {
+    pub async fn wait_publishers(&self, expected: HashMultiSet<TopicDescriptor>) {
         Self::wait(&self.publishers, expected).await;
     }
 
-    pub async fn wait_subscribers(&self, expected: HashMultiSet<rosrust::api::Topic>) {
+    pub async fn wait_subscribers(&self, expected: HashMultiSet<TopicDescriptor>) {
         Self::wait(&self.subscribers, expected).await;
     }
 
-    pub async fn wait_services(&self, expected: HashMultiSet<rosrust::api::Topic>) {
+    pub async fn wait_services(&self, expected: HashMultiSet<TopicDescriptor>) {
         Self::wait(&self.services, expected).await;
     }
 
-    pub async fn wait_clients(&self, expected: HashMultiSet<rosrust::api::Topic>) {
+    pub async fn wait_clients(&self, expected: HashMultiSet<TopicDescriptor>) {
         Self::wait(&self.clients, expected).await;
     }
 
     // PRIVATE:
     async fn wait(
-        container: &Arc<Mutex<HashMultiSet<rosrust::api::Topic>>>,
-        expected: HashMultiSet<rosrust::api::Topic>,
+        container: &Arc<Mutex<HashMultiSet<TopicDescriptor>>>,
+        expected: HashMultiSet<TopicDescriptor>,
     ) {
         while expected != *container.lock().unwrap() {
             async_std::task::sleep(core::time::Duration::from_millis(10)).await;
@@ -159,7 +159,7 @@ async fn generate_topics(
     count: usize,
     duplication: usize,
     stage: usize,
-) -> HashMultiSet<rosrust::api::Topic> {
+) -> HashMultiSet<TopicDescriptor> {
     let mut result = HashMultiSet::new();
     for number in 0..count {
         for _dup in 0..duplication {
@@ -211,10 +211,10 @@ impl State {
     async fn summarize(
         &self,
     ) -> (
-        HashMultiSet<rosrust::api::Topic>,
-        HashMultiSet<rosrust::api::Topic>,
-        HashMultiSet<rosrust::api::Topic>,
-        HashMultiSet<rosrust::api::Topic>,
+        HashMultiSet<TopicDescriptor>,
+        HashMultiSet<TopicDescriptor>,
+        HashMultiSet<TopicDescriptor>,
+        HashMultiSet<TopicDescriptor>,
     ) {
         (
             generate_topics(
