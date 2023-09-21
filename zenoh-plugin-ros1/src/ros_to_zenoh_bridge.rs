@@ -36,21 +36,21 @@ pub mod bridging_mode;
 #[cfg(feature = "test")]
 pub mod discovery;
 #[cfg(feature = "test")]
+pub mod resource_cache;
+#[cfg(feature = "test")]
 pub mod ros1_client;
 #[cfg(feature = "test")]
 pub mod ros1_to_zenoh_bridge_impl;
 #[cfg(feature = "test")]
 pub mod rosclient_test_helpers;
 #[cfg(feature = "test")]
-pub mod resource_cache;
-#[cfg(feature = "test")]
 pub mod test_helpers;
+#[cfg(feature = "test")]
+pub mod topic_descriptor;
 #[cfg(feature = "test")]
 pub mod topic_utilities;
 #[cfg(feature = "test")]
 pub mod zenoh_client;
-#[cfg(feature = "test")]
-pub mod topic_descriptor;
 
 #[cfg(not(feature = "test"))]
 mod aloha_declaration;
@@ -63,17 +63,17 @@ mod bridging_mode;
 #[cfg(not(feature = "test"))]
 mod discovery;
 #[cfg(not(feature = "test"))]
+mod resource_cache;
+#[cfg(not(feature = "test"))]
 mod ros1_client;
 #[cfg(not(feature = "test"))]
 mod ros1_to_zenoh_bridge_impl;
 #[cfg(not(feature = "test"))]
-mod service_cache;
+mod topic_descriptor;
 #[cfg(not(feature = "test"))]
 mod topic_utilities;
 #[cfg(not(feature = "test"))]
 mod zenoh_client;
-#[cfg(not(feature = "test"))]
-mod topic_descriptor;
 
 mod abstract_bridge;
 mod bridges_storage;

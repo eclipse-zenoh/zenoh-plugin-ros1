@@ -12,11 +12,11 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use super::resource_cache::{TopicName, DataType, Md5};
+use super::resource_cache::{DataType, Md5, TopicName};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct TopicDescriptor {
     pub name: TopicName,
     pub datatype: DataType,
-    pub md5: Md5
+    pub md5: Md5,
 }

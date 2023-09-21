@@ -23,7 +23,8 @@ use zenoh::{prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery,
-    test_helpers::{BridgeChecker, IsolatedConfig}, topic_descriptor::TopicDescriptor,
+    test_helpers::{BridgeChecker, IsolatedConfig},
+    topic_descriptor::TopicDescriptor,
 };
 
 const TIMEOUT: Duration = Duration::from_secs(10);

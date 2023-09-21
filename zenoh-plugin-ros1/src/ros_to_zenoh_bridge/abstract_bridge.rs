@@ -17,10 +17,16 @@ use std::sync::Arc;
 use log::{debug, error, info};
 
 use rosrust::RawMessageDescription;
-use zenoh::{plugins::ZResult, prelude::SplitBuffer};
+use zenoh::{
+    plugins::ZResult,
+    prelude::{keyexpr, SplitBuffer},
+};
 use zenoh_core::{AsyncResolve, SyncResolve};
 
-use super::{bridge_type::BridgeType, ros1_client, topic_utilities::make_zenoh_key, zenoh_client, topic_descriptor::TopicDescriptor};
+use super::{
+    bridge_type::BridgeType, ros1_client, topic_descriptor::TopicDescriptor,
+    topic_utilities::make_zenoh_key, zenoh_client,
+};
 
 pub struct AbstractBridge {
     _impl: BridgeIml,
@@ -69,12 +75,9 @@ impl Ros1ToZenohClient {
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
     ) -> ZResult<Ros1ToZenohClient> {
-        info!(
-            "Creating ROS1 -> Zenoh Client bridge for {:?}",
-            topic
-        );
+        info!("Creating ROS1 -> Zenoh Client bridge for {:?}", topic);
 
-        let zenoh_key = make_zenoh_key(topic).to_string();
+        let zenoh_key = make_zenoh_key(topic);
         match ros1_client.service::<rosrust::RawMessage, _>(
             topic,
             move |q| -> rosrust::ServiceResult<rosrust::RawMessage> {
@@ -83,14 +86,14 @@ impl Ros1ToZenohClient {
         ) {
             Ok(service) => Ok(Ros1ToZenohClient { _service: service }),
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e.to_string())
+                zenoh_core::bail!("Ros error: {}", e)
             }
         }
     }
 
     //PRIVATE:
     fn on_query(
-        key: &str,
+        key: &keyexpr,
         query: rosrust::RawMessage,
         zenoh_client: &zenoh_client::ZenohClient,
     ) -> rosrust::ServiceResult<rosrust::RawMessage> {
@@ -98,7 +101,7 @@ impl Ros1ToZenohClient {
     }
 
     async fn do_zenoh_query(
-        key: &str,
+        key: &keyexpr,
         query: rosrust::RawMessage,
         zenoh_client: &zenoh_client::ZenohClient,
     ) -> rosrust::ServiceResult<rosrust::RawMessage> {

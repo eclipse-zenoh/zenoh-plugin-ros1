@@ -14,7 +14,6 @@
 
 use futures::Future;
 use log::error;
-use rosrust;
 use zenoh_core::bail;
 
 use std::sync::Arc;
@@ -28,15 +27,15 @@ use super::aloha_declaration::AlohaDeclaration;
 use super::aloha_subscription::{AlohaSubscription, AlohaSubscriptionBuilder};
 use super::bridge_type::BridgeType;
 use super::topic_descriptor::TopicDescriptor;
-use super::topic_utilities::{make_topic, make_zenoh_key};
+use super::topic_utilities::{make_topic, make_topic_key};
 
 use crate::ZResult;
 
 zenoh::kedefine!(
-    pub discovery_format: "ros1_discovery_info/${discovery_namespace:*}/${resource_class:*}/${data_type:*}/${bridge_namespace:*}/${topic:**}",
+    pub discovery_format: "ros1_discovery_info/${discovery_namespace:*}/${resource_class:*}/${data_type:*}/${md5:*}/${bridge_namespace:*}/${topic:**}",
 );
 // example:
-// ros1_discovery_info/discovery_namespace/publishers|subscribers|services|clients/data_type/bridge_namespace/some/ros/topic
+// ros1_discovery_info/discovery_namespace/publishers|subscribers|services|clients/data_type/md5/bridge_namespace/some/ros/topic
 // where
 // discovery_namespace - namespace to isolate different discovery pools. Would be * by default ( == global namespace)
 // bridge_namespace - namespace to prefix bridge's resources. Would be * by default ( == global namespace)
@@ -70,6 +69,7 @@ impl RemoteResources {
             discovery_namespace = discovery_namespace,
             resource_class = "*",
             data_type = "*",
+            md5 = "*",
             bridge_namespace = "*",
             topic = "*/**"
         )
@@ -153,6 +153,8 @@ impl RemoteResources {
         )?;
         let datatype = std::str::from_utf8(&datatype_bytes)?;
 
+        let md5 = discovery.md5().ok_or("No md5 present!")?.to_string();
+
         let resource_class = discovery
             .resource_class()
             .ok_or("No resource_class present!")?
@@ -160,7 +162,7 @@ impl RemoteResources {
         //let bridge_namespace = discovery.bridge_namespace().ok_or("No bridge_namespace present!")?.to_string();
         let topic = discovery.topic().ok_or("No topic present!")?;
 
-        let ros1_topic = make_topic(datatype, topic);
+        let ros1_topic = make_topic(datatype, &md5, topic);
 
         let b_type = match resource_class.as_str() {
             ROS1_DISCOVERY_INFO_PUBLISHERS_CLASS => BridgeType::Publisher,
@@ -195,8 +197,9 @@ impl LocalResource {
             discovery_namespace = discovery_namespace,
             resource_class = resource_class,
             data_type = hex::encode(topic.datatype.as_bytes()),
+            md5 = topic.md5.clone(),
             bridge_namespace = bridge_namespace,
-            topic = make_zenoh_key(topic)
+            topic = make_topic_key(topic)
         )?;
 
         let _declaration =

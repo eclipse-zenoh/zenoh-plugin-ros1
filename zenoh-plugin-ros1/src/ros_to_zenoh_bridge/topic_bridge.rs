@@ -17,7 +17,9 @@ use super::{
     bridge_type::BridgeType,
     bridging_mode::BridgingMode,
     discovery::{LocalResource, LocalResources},
-    ros1_client, zenoh_client, topic_descriptor::TopicDescriptor,
+    ros1_client,
+    topic_descriptor::TopicDescriptor,
+    zenoh_client,
 };
 use log::error;
 use std::{fmt::Display, sync::Arc};

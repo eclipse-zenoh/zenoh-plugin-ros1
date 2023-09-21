@@ -24,8 +24,9 @@ use super::{
     ros1_client,
     ros1_to_zenoh_bridge_impl::BridgeStatus,
     topic_bridge::TopicBridge,
+    topic_descriptor::TopicDescriptor,
     topic_mapping::Ros1TopicMapping,
-    zenoh_client, resource_cache::{TopicName, DataType, Md5}, topic_descriptor::TopicDescriptor,
+    zenoh_client,
 };
 
 struct Bridges {
@@ -44,10 +45,7 @@ impl Bridges {
         }
     }
 
-    fn container_mut(
-        &mut self,
-        b_type: BridgeType,
-    ) -> &mut HashMap<TopicDescriptor, TopicBridge> {
+    fn container_mut(&mut self, b_type: BridgeType) -> &mut HashMap<TopicDescriptor, TopicBridge> {
         match b_type {
             BridgeType::Publisher => &mut self.publisher_bridges,
             BridgeType::Subscriber => &mut self.subscriber_bridges,
