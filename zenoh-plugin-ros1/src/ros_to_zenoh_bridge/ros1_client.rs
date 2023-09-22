@@ -16,8 +16,10 @@ use log::debug;
 use rosrust::{self, RawMessageDescription};
 use zenoh_core::{zerror, zresult::ZResult};
 
+use super::topic_descriptor::TopicDescriptor;
+
 pub struct Ros1Client {
-    ros: rosrust::api::Ros,
+    pub ros: rosrust::api::Ros,
 }
 
 impl Ros1Client {
@@ -36,7 +38,7 @@ impl Ros1Client {
 
     pub fn subscribe<T, F>(
         &self,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         callback: F,
     ) -> rosrust::api::error::Result<rosrust::Subscriber>
     where
@@ -45,7 +47,7 @@ impl Ros1Client {
     {
         let description = RawMessageDescription {
             msg_definition: "*".to_string(),
-            md5sum: "*".to_string(),
+            md5sum: topic.md5.clone(),
             msg_type: topic.datatype.clone(),
         };
         self.ros.subscribe_with_ids_and_headers(
@@ -59,11 +61,11 @@ impl Ros1Client {
 
     pub fn publish(
         &self,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
     ) -> rosrust::api::error::Result<rosrust::Publisher<rosrust::RawMessage>> {
         let description = RawMessageDescription {
             msg_definition: "*".to_string(),
-            md5sum: "*".to_string(),
+            md5sum: topic.md5.clone(),
             msg_type: topic.datatype.clone(),
         };
         self.ros
@@ -72,14 +74,14 @@ impl Ros1Client {
 
     pub fn client(
         &self,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
     ) -> rosrust::api::error::Result<rosrust::Client<rosrust::RawMessage>> {
         self.ros.client::<rosrust::RawMessage>(&topic.name)
     }
 
     pub fn service<T, F>(
         &self,
-        topic: &rosrust::api::Topic,
+        topic: &TopicDescriptor,
         handler: F,
     ) -> rosrust::api::error::Result<rosrust::Service>
     where
@@ -88,7 +90,7 @@ impl Ros1Client {
     {
         let description = RawMessageDescription {
             msg_definition: "*".to_string(),
-            md5sum: "*".to_string(),
+            md5sum: topic.md5.clone(),
             msg_type: topic.datatype.clone(),
         };
         self.ros

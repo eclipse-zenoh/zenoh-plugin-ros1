@@ -297,7 +297,7 @@ fn prove_rosclient_service_non_isolation_service_then_client() {
     // datatype extended description
     let description = RawMessageDescription {
         msg_definition: "*".to_string(),
-        md5sum: "*".to_string(),
+        md5sum: shared_topic.md5.clone(),
         msg_type: shared_topic.datatype.clone(),
     };
 
@@ -344,7 +344,7 @@ fn prove_rosclient_service_non_isolation_client_then_service() {
     // datatype extended description
     let description = RawMessageDescription {
         msg_definition: "*".to_string(),
-        md5sum: "*".to_string(),
+        md5sum: shared_topic.md5.clone(),
         msg_type: shared_topic.datatype.clone(),
     };
 

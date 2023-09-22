@@ -15,33 +15,22 @@
 use std::collections::HashSet;
 
 use crate::ros_to_zenoh_bridge::ros1_client;
-use log::debug;
 
-use super::service_cache::Ros1ServiceCache;
+use super::{resource_cache::Ros1ResourceCache, topic_descriptor::TopicDescriptor};
 
 #[derive(Debug)]
 pub struct Ros1TopicMapping {
-    pub published: HashSet<rosrust::api::Topic>,
-    pub subscribed: HashSet<rosrust::api::Topic>,
-    pub serviced: HashSet<rosrust::api::Topic>,
+    pub published: HashSet<TopicDescriptor>,
+    pub subscribed: HashSet<TopicDescriptor>,
+    pub serviced: HashSet<TopicDescriptor>,
 }
 impl Ros1TopicMapping {
     pub fn topic_mapping(
         ros1_client: &ros1_client::Ros1Client,
-        ros1_service_cache: &mut Ros1ServiceCache,
+        ros1_service_cache: &mut Ros1ResourceCache,
     ) -> rosrust::api::error::Response<Ros1TopicMapping> {
         match ros1_client.state() {
-            Ok(state_val) => match ros1_client.topic_types() {
-                Ok(topics_val) => {
-                    debug!("topics: {:#?}", topics_val);
-                    Ok(Ros1TopicMapping::new(
-                        state_val,
-                        &topics_val,
-                        ros1_service_cache,
-                    ))
-                }
-                Err(e) => Err(e),
-            },
+            Ok(state_val) => Ok(Ros1TopicMapping::new(state_val, ros1_service_cache)),
             Err(e) => Err(e),
         }
     }
@@ -49,66 +38,61 @@ impl Ros1TopicMapping {
     // PRIVATE:
     fn new(
         state: rosrust::api::SystemState,
-        topics: &[rosrust::api::Topic],
-        ros1_service_cache: &mut Ros1ServiceCache,
+        ros1_service_cache: &mut Ros1ResourceCache,
     ) -> Ros1TopicMapping {
         let mut result = Ros1TopicMapping {
             published: HashSet::new(),
-            subscribed: HashSet::new(),
+            subscribed: HashSet::default(),
             serviced: HashSet::new(),
         };
 
-        Ros1TopicMapping::fill(&mut result.subscribed, &state.subscribers, topics);
-        Ros1TopicMapping::fill(&mut result.published, &state.publishers, topics);
-        Ros1TopicMapping::fill_services(&mut result.serviced, state.services, ros1_service_cache);
-
-        result
-    }
-
-    fn fill(
-        dst: &mut HashSet<rosrust::api::Topic>,
-        data: &[rosrust::api::TopicData],
-        topics: &[rosrust::api::Topic],
-    ) {
-        for item in data.iter() {
-            let topic = topics.iter().find(|x| x.name == item.name);
-            match topic {
-                None => {
-                    debug!("Unable to find datatype for topic {}", item.name);
-                    dst.insert(rosrust::api::Topic {
-                        name: item.name.clone(),
-                        datatype: "*".to_string(),
+        // run through subscriber topics, resolve all available data formats
+        // and fill 'result.subscribed' with unique combinations of topic_name + format descriptions
+        for subscriber_topic in state.subscribers {
+            for node in subscriber_topic.connections {
+                if let Ok((datatype, md5)) = ros1_service_cache
+                    .resolve_subscriber_parameters(subscriber_topic.name.clone(), node)
+                {
+                    result.subscribed.insert(TopicDescriptor {
+                        name: subscriber_topic.name.clone(),
+                        datatype,
+                        md5,
                     });
                 }
-                Some(val) => {
-                    dst.insert(val.clone());
-                }
             }
         }
-    }
 
-    fn fill_services(
-        dst: &mut HashSet<rosrust::api::Topic>,
-        data: Vec<rosrust::api::TopicData>,
-        ros1_service_cache: &mut Ros1ServiceCache,
-    ) {
-        for service in data {
-            for node in service.connections {
-                match ros1_service_cache.resolve_datatype(service.name.clone(), node) {
-                    Ok(datatype) => {
-                        dst.insert(rosrust::api::Topic {
-                            name: service.name.clone(),
-                            datatype,
-                        });
-                    }
-                    Err(e) => {
-                        debug!(
-                            "Error finding datatype for service topic {}: {e}",
-                            service.name.clone()
-                        );
-                    }
+        // run through publisher topics, resolve all available data formats
+        // and fill 'result.published' with unique combinations of topic_name + format descriptions
+        for publisher_topic in state.publishers {
+            for node in publisher_topic.connections {
+                if let Ok((datatype, md5)) = ros1_service_cache
+                    .resolve_publisher_parameters(publisher_topic.name.clone(), node)
+                {
+                    result.published.insert(TopicDescriptor {
+                        name: publisher_topic.name.clone(),
+                        datatype,
+                        md5,
+                    });
                 }
             }
         }
+
+        // run through service topics, resolve all available data formats
+        // and fill 'result.serviced' with unique combinations of topic_name + format descriptions
+        for service_topic in state.services {
+            for node in service_topic.connections {
+                if let Ok((datatype, md5)) =
+                    ros1_service_cache.resolve_service_parameters(service_topic.name.clone(), node)
+                {
+                    result.serviced.insert(TopicDescriptor {
+                        name: service_topic.name.clone(),
+                        datatype,
+                        md5,
+                    });
+                }
+            }
+        }
+        result
     }
 }
