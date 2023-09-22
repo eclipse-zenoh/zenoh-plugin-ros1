@@ -15,27 +15,22 @@
 use super::{
     abstract_bridge::AbstractBridge,
     bridge_type::BridgeType,
+    bridging_mode::BridgingMode,
     discovery::{LocalResource, LocalResources},
-    ros1_client, zenoh_client,
+    ros1_client,
+    topic_descriptor::TopicDescriptor,
+    zenoh_client,
 };
 use log::error;
-use std::sync::Arc;
-use strum_macros::{Display, EnumString};
-
-#[derive(PartialEq, Eq, EnumString, Clone, Display)]
-#[strum(serialize_all = "snake_case")]
-pub enum BridgingMode {
-    Lazy,
-    Auto,
-}
+use std::{fmt::Display, sync::Arc};
 
 pub struct TopicBridge {
-    topic: rosrust::api::Topic,
+    topic: TopicDescriptor,
     b_type: BridgeType,
     ros1_client: Arc<ros1_client::Ros1Client>,
     zenoh_client: Arc<zenoh_client::ZenohClient>,
 
-    briging_mode: BridgingMode,
+    bridging_mode: BridgingMode,
     required_on_ros1_side: bool,
     required_on_zenoh_side: bool,
 
@@ -45,21 +40,27 @@ pub struct TopicBridge {
     bridge: Option<AbstractBridge>,
 }
 
+impl Display for TopicBridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{:?}", self.b_type, self.topic)
+    }
+}
+
 impl TopicBridge {
     pub fn new(
-        topic: rosrust::api::Topic,
+        topic: TopicDescriptor,
         b_type: BridgeType,
         declaration_interface: Arc<LocalResources>,
         ros1_client: Arc<ros1_client::Ros1Client>,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
-        briging_mode: BridgingMode,
+        bridging_mode: BridgingMode,
     ) -> Self {
         Self {
             topic,
             b_type,
             ros1_client,
             zenoh_client,
-            briging_mode,
+            bridging_mode,
             required_on_ros1_side: false,
             required_on_zenoh_side: false,
             declaration_interface,
@@ -91,10 +92,7 @@ impl TopicBridge {
     }
 
     pub fn is_actual(&self) -> bool {
-        match self.briging_mode {
-            BridgingMode::Lazy => self.required_on_ros1_side || self.required_on_zenoh_side,
-            BridgingMode::Auto => self.required_on_ros1_side,
-        }
+        self.required_on_ros1_side || self.required_on_zenoh_side
     }
 
     //PRIVATE:
@@ -106,11 +104,14 @@ impl TopicBridge {
     async fn recalc_declaration(&mut self) {
         match (self.required_on_ros1_side, &self.declaration) {
             (true, None) => {
-                self.declaration = Some(
-                    self.declaration_interface
-                        .declare_with_type(&self.topic, self.b_type)
-                        .await,
-                );
+                match self
+                    .declaration_interface
+                    .declare_with_type(&self.topic, self.b_type)
+                    .await
+                {
+                    Ok(decl) => self.declaration = Some(decl),
+                    Err(e) => error!("{self}: error declaring discovery: {e}"),
+                }
             }
             (false, Some(_)) => {
                 self.declaration = None;
@@ -121,13 +122,18 @@ impl TopicBridge {
 
     async fn recalc_bridging(&mut self) {
         let is_discovered_client = self.b_type == BridgeType::Client && self.required_on_zenoh_side;
-        let is_required = self.required_on_ros1_side
-            && (self.briging_mode == BridgingMode::Auto || self.required_on_zenoh_side);
 
-        if is_required || is_discovered_client {
-            self.create_bridge().await;
-        } else {
-            self.bridge = None;
+        let is_required = is_discovered_client
+            || match (self.required_on_zenoh_side, self.required_on_ros1_side) {
+                (true, true) => true,
+                (false, false) => false,
+                (_, _) => self.bridging_mode == BridgingMode::Auto,
+            };
+
+        match (is_required, self.bridge.as_ref()) {
+            (true, Some(_)) => {}
+            (true, None) => self.create_bridge().await,
+            (false, _) => self.bridge = None,
         }
     }
 
@@ -145,7 +151,7 @@ impl TopicBridge {
             }
             Err(e) => {
                 self.bridge = None;
-                error!("Error creating bridge: {}", e);
+                error!("{self}: error creating bridge: {e}");
             }
         }
     }

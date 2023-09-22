@@ -14,7 +14,7 @@
 
 use strum_macros::Display;
 use zenoh::prelude::SplitBuffer;
-use zenoh_core::{bail, zresult::ZResult, SyncResolve};
+use zenoh_core::SyncResolve;
 
 use std::{
     collections::HashSet,
@@ -24,16 +24,21 @@ use std::{
     },
 };
 
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
-    BridgeChecker, ROSEnvironment, RunningBridge, TestParams,
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
+    bridging_mode::BridgingMode,
+    environment::Environment,
+    test_helpers::{
+        BridgeChecker, Publisher, ROS1Client, ROS1Publisher, ROS1Service, ROS1Subscriber,
+        ROSEnvironment, RunningBridge, Subscriber, TestParams, ZenohPublisher, ZenohQuery,
+        ZenohQueryable, ZenohSubscriber,
+    },
 };
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::LocalResource,
-    test_helpers::{IsolatedConfig, IsolatedROSMaster, RAIICounter},
+    test_helpers::{IsolatedConfig, IsolatedROSMaster},
 };
 
-use log::{debug, error, trace};
-use rosrust::{Client, RawMessage};
+use log::{debug, trace};
 use std::sync::atomic::AtomicUsize;
 use zenoh::prelude::r#async::*;
 
@@ -133,224 +138,6 @@ fn env_checks_with_master_init_and_reconnect_many_times_to_master() {
     }
 }
 
-struct ZenohPublisher {
-    inner: Arc<zenoh::publication::Publisher<'static>>,
-}
-struct ROS1Publisher {
-    inner: Arc<RAIICounter<rosrust::Publisher<rosrust::RawMessage>>>,
-}
-struct ZenohQuery {
-    inner: Arc<BridgeChecker>,
-    key: String,
-    running: Arc<AtomicBool>,
-    cycles: Arc<AtomicUsize>,
-}
-impl ZenohQuery {
-    fn new(inner: Arc<BridgeChecker>, key: String, cycles: Arc<AtomicUsize>) -> Self {
-        let running = Arc::new(AtomicBool::new(true));
-        Self {
-            inner,
-            key,
-            running,
-            cycles,
-        }
-    }
-
-    async fn make_query(inner: &Arc<BridgeChecker>, key: &str, data: &Vec<u8>) -> ZResult<()> {
-        let query = inner.make_zenoh_query_sync(key, data.clone()).await;
-        match query.recv_async().await {
-            Ok(reply) => match reply.sample {
-                Ok(value) => {
-                    let returned_data = value.payload.contiguous().to_vec();
-                    if data.eq(&returned_data) {
-                        Ok(())
-                    } else {
-                        bail!("ZenohQuery: data is not equal! \n Sent data: {:?} \nReturned data: {:?}", data, returned_data);
-                    }
-                }
-                Err(e) => {
-                    bail!("ZenohQuery: got reply with error: {}", e);
-                }
-            },
-            Err(e) => {
-                bail!("ZenohQuery: failed to get reply with error: {}", e);
-            }
-        }
-    }
-
-    async fn query_loop(
-        inner: Arc<BridgeChecker>,
-        key: String,
-        running: Arc<AtomicBool>,
-        data: Vec<u8>,
-        cycles: Arc<AtomicUsize>,
-    ) {
-        while running.load(Relaxed) {
-            match Self::make_query(&inner, &key, &data).await {
-                Ok(_) => {
-                    cycles.fetch_add(1, SeqCst);
-                }
-                Err(e) => {
-                    error!("{}", e);
-                }
-            }
-        }
-    }
-}
-impl Drop for ZenohQuery {
-    fn drop(&mut self) {
-        self.running.store(false, Relaxed);
-    }
-}
-
-struct ROS1Client {
-    running: Arc<AtomicBool>,
-    cycles: Arc<AtomicUsize>,
-    ros1_client: Arc<RAIICounter<Client<RawMessage>>>,
-}
-impl ROS1Client {
-    fn new(inner: Arc<BridgeChecker>, key: String, cycles: Arc<AtomicUsize>) -> Self {
-        let running = Arc::new(AtomicBool::new(true));
-        let ros1_client = Arc::new(inner.make_ros_client(&key));
-        Self {
-            running,
-            cycles,
-            ros1_client,
-        }
-    }
-
-    fn query_loop(
-        running: Arc<AtomicBool>,
-        data: Vec<u8>,
-        cycles: Arc<AtomicUsize>,
-        ros1_client: Arc<RAIICounter<Client<RawMessage>>>,
-    ) {
-        while running.load(Relaxed) {
-            match Self::make_query(&data, &ros1_client) {
-                Ok(_) => {
-                    cycles.fetch_add(1, SeqCst);
-                }
-                Err(e) => {
-                    error!("{}", e);
-                }
-            }
-        }
-    }
-
-    fn make_query(
-        data: &Vec<u8>,
-        ros1_client: &Arc<RAIICounter<Client<RawMessage>>>,
-    ) -> ZResult<()> {
-        match ros1_client.data.req(&RawMessage(data.clone())) {
-            Ok(reply) => match reply {
-                Ok(msg) => {
-                    if data.eq(&msg.0) {
-                        Ok(())
-                    } else {
-                        bail!("ROS1Client: data is not equal! \n Sent data: {:?} \nReturned data: {:?}", data, msg.0);
-                    }
-                }
-                Err(e) => {
-                    bail!("ROS1Client: got reply with error: {}", e);
-                }
-            },
-            Err(e) => {
-                bail!("ROS1Client: failed to send request with error: {}", e);
-            }
-        }
-    }
-}
-impl Drop for ROS1Client {
-    fn drop(&mut self) {
-        self.running.store(false, Relaxed);
-    }
-}
-
-trait Publisher {
-    fn put(&self, data: Vec<u8>);
-    fn ready(&self) -> bool {
-        true
-    }
-}
-impl Publisher for ZenohPublisher {
-    fn put(&self, data: Vec<u8>) {
-        let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || inner.put(data).res_sync().unwrap());
-    }
-}
-impl Publisher for ROS1Publisher {
-    fn put(&self, data: Vec<u8>) {
-        let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || {
-            inner.data.send(rosrust::RawMessage(data)).unwrap()
-        });
-    }
-
-    fn ready(&self) -> bool {
-        self.inner.data.subscriber_count() != 0
-    }
-}
-impl Publisher for ZenohQuery {
-    fn put(&self, data: Vec<u8>) {
-        async_std::task::spawn(Self::query_loop(
-            self.inner.clone(),
-            self.key.clone(),
-            self.running.clone(),
-            data,
-            self.cycles.clone(),
-        ));
-    }
-
-    fn ready(&self) -> bool {
-        let data = (0..10).collect();
-        async_std::task::block_on(
-            async move { Self::make_query(&self.inner, &self.key, &data).await },
-        )
-        .is_ok()
-    }
-}
-impl Publisher for ROS1Client {
-    fn put(&self, data: Vec<u8>) {
-        let running = self.running.clone();
-        let cycles = self.cycles.clone();
-        let ros1_client = self.ros1_client.clone();
-
-        async_std::task::spawn_blocking(|| Self::query_loop(running, data, cycles, ros1_client));
-    }
-
-    fn ready(&self) -> bool {
-        let data = (0..10).collect();
-        Self::make_query(&data, &self.ros1_client).is_ok()
-    }
-}
-
-struct ZenohSubscriber {
-    _inner: zenoh::subscriber::Subscriber<'static, ()>,
-}
-struct ZenohQueryable {
-    _inner: zenoh::queryable::Queryable<'static, ()>,
-}
-struct ROS1Subscriber {
-    inner: RAIICounter<rosrust::Subscriber>,
-}
-struct ROS1Service {
-    _inner: RAIICounter<rosrust::Service>,
-}
-
-trait Subscriber {
-    fn ready(&self) -> bool {
-        true
-    }
-}
-impl Subscriber for ZenohSubscriber {}
-impl Subscriber for ZenohQueryable {}
-impl Subscriber for ROS1Subscriber {
-    fn ready(&self) -> bool {
-        self.inner.data.publisher_count() > 0 && !self.inner.data.publisher_uris().is_empty()
-    }
-}
-impl Subscriber for ROS1Service {}
-
 struct PubSub {
     key: String,
     publisher: Box<dyn Publisher>,
@@ -360,7 +147,6 @@ struct PubSub {
 
 struct PingPong {
     pub_sub: PubSub,
-
     cycles: Arc<AtomicUsize>,
 }
 impl PingPong {
@@ -384,7 +170,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_client(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
         let zenoh_query = ZenohQuery::new(backend, key.to_string(), cycles.clone());
 
         PingPong {
@@ -403,10 +190,13 @@ impl PingPong {
     async fn new_ros1_to_zenoh_client(key: &str, backend: Arc<BridgeChecker>) -> PingPong {
         let cycles = Arc::new(AtomicUsize::new(0));
 
+        let topic = BridgeChecker::make_topic(key);
+
         let discovery_resource = backend
             .local_resources
-            .declare_service(&BridgeChecker::make_topic(key))
-            .await;
+            .declare_service(&topic)
+            .await
+            .unwrap();
         let zenoh_queryable = backend
             .make_zenoh_queryable(key, |q| {
                 async_std::task::spawn(async move {
@@ -420,7 +210,7 @@ impl PingPong {
         PingPong {
             pub_sub: PubSub {
                 key: key.to_string(),
-                publisher: Box::new(ROS1Client::new(backend, key.to_string(), cycles.clone())),
+                publisher: Box::new(ROS1Client::new(&backend, topic, cycles.clone())),
                 subscriber: Box::new(ZenohQueryable {
                     _inner: zenoh_queryable,
                 }),
@@ -437,7 +227,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_subscriber(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
 
         let c = cycles.clone();
         let rpub = ros1_pub.clone();
@@ -471,7 +262,8 @@ impl PingPong {
         let discovery_resource = backend
             .local_resources
             .declare_publisher(&BridgeChecker::make_topic(key))
-            .await;
+            .await
+            .unwrap();
 
         let c = cycles.clone();
         let zpub = zenoh_pub.clone();
@@ -623,13 +415,15 @@ async fn ping_pong_duplex_parallel_many_(
 ) {
     zenoh_core::zasync_executor_init!();
 
-    let make_keyexpr = |i: u32, mode: Mode| -> String {
+    let make_keyexpr = |i: u32, mode: Mode| -> KeyExpr {
         format!(
-            "/some/key/expr{}_{}_{}",
+            "some/key/expr{}_{}_{}",
             i,
             mode,
             UNIQUE_NUMBER.fetch_add(1, SeqCst)
         )
+        .try_into()
+        .unwrap()
     };
 
     // create scenarios
@@ -663,6 +457,9 @@ async fn ping_pong_duplex_parallel_many_(
             );
         }
         if mode.contains(&Mode::Ros1Client) {
+            // allow automatical client bridging because it is disabled by default
+            Environment::client_bridging_mode().set(BridgingMode::Auto);
+
             ping_pongs.push(
                 PingPong::new_ros1_to_zenoh_client(
                     make_keyexpr(i, Mode::Ros1Client).as_str(),

@@ -15,6 +15,7 @@
 use async_std::sync::Mutex;
 
 use zenoh;
+use zenoh_core::{zasynclock, zresult::ZResult};
 
 use std::{
     sync::{
@@ -33,6 +34,7 @@ use crate::ros_to_zenoh_bridge::{
 
 use super::{
     discovery::{Discovery, DiscoveryBuilder},
+    resource_cache::Ros1ResourceCache,
     ros1_client::Ros1Client,
 };
 
@@ -57,14 +59,26 @@ pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
     flag: Arc<AtomicBool>,
     ros_status_callback: RosStatusCallback,
     statistics_callback: BridgeStatisticsCallback,
-) where
+) -> ZResult<()>
+where
     RosStatusCallback: Fn(RosStatus),
     BridgeStatisticsCallback: Fn(BridgeStatus),
 {
+    let bridge_ros_node_name = Environment::ros_name().get();
+
     let ros1_client = Arc::new(ros1_client::Ros1Client::new(
-        Environment::ros_name().get().as_str(),
+        &bridge_ros_node_name,
         ros_master_uri,
-    ));
+    )?);
+
+    let aux_ros_node_name = format!("{}_service_cache_node", bridge_ros_node_name);
+
+    let ros1_resource_cache = Ros1ResourceCache::new(
+        &aux_ros_node_name,
+        ros1_client.ros.name().to_owned(),
+        ros_master_uri,
+    )?;
+
     let zenoh_client = Arc::new(zenoh_client::ZenohClient::new(session.clone()));
 
     let local_resources = Arc::new(LocalResources::new(
@@ -82,7 +96,10 @@ pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
     let _discovery = make_discovery(session.clone(), bridges.clone()).await;
 
     let mut bridge = RosToZenohBridge::new(ros_status_callback, statistics_callback);
-    bridge.run(ros1_client, bridges, flag).await;
+    bridge
+        .run(ros1_client, ros1_resource_cache, bridges, flag)
+        .await;
+    Ok(())
 }
 
 async fn make_discovery<'a>(
@@ -96,9 +113,7 @@ async fn make_discovery<'a>(
         .on_discovered(move |b_type, topic| {
             let bridges = bridges.clone();
             Box::new(Box::pin(async move {
-                bridges
-                    .lock()
-                    .await
+                zasynclock!(bridges)
                     .bridges()
                     .complementary_for(b_type)
                     .complementary_entity_discovered(topic)
@@ -108,9 +123,7 @@ async fn make_discovery<'a>(
         .on_lost(move |b_type, topic| {
             let bridges = bridges2.clone();
             Box::new(Box::pin(async move {
-                bridges
-                    .lock()
-                    .await
+                zasynclock!(bridges)
                     .bridges()
                     .complementary_for(b_type)
                     .complementary_entity_lost(topic)
@@ -154,6 +167,7 @@ where
     pub async fn run(
         &mut self,
         ros1_client: Arc<Ros1Client>,
+        mut ros1_resource_cache: Ros1ResourceCache,
         bridges: Arc<Mutex<BridgesStorage>>,
         flag: Arc<AtomicBool>,
     ) {
@@ -161,10 +175,17 @@ where
 
         while flag.load(Relaxed) {
             let cl = ros1_client.clone();
-            let ros1_state = async_std::task::spawn_blocking(move || {
-                topic_mapping::Ros1TopicMapping::topic_mapping(cl.as_ref())
+            let (ros1_state, returned_cache) = async_std::task::spawn_blocking(move || {
+                (
+                    topic_mapping::Ros1TopicMapping::topic_mapping(
+                        cl.as_ref(),
+                        &mut ros1_resource_cache,
+                    ),
+                    ros1_resource_cache,
+                )
             })
             .await;
+            ros1_resource_cache = returned_cache;
 
             debug!("ros state: {:#?}", ros1_state);
 
@@ -174,7 +195,7 @@ where
 
                     let smth_changed;
                     {
-                        let mut locked = bridges.lock().await;
+                        let mut locked = zasynclock!(bridges);
                         smth_changed = locked.receive_ros1_state(&mut ros1_state_val).await;
                         self.report_bridge_statistics(&locked);
                     }
@@ -193,7 +214,7 @@ where
 
                     self.transit_ros_status(RosStatus::Error);
                     {
-                        let mut locked = bridges.lock().await;
+                        let mut locked = zasynclock!(bridges);
                         Self::cleanup(&mut locked);
                         self.report_bridge_statistics(&locked);
                     }

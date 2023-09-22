@@ -12,9 +12,10 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::fmt::Display;
 use std::sync::Arc;
 
-use log::{debug, info};
+use log::debug;
 
 use zenoh::prelude::r#async::*;
 use zenoh::Session;
@@ -30,13 +31,15 @@ impl ZenohClient {
         ZenohClient { session }
     }
 
-    pub async fn subscribe<C>(
+    pub async fn subscribe<'b, C, TryIntoKeyExpr>(
         &self,
-        key_expr: &str,
+        key_expr: TryIntoKeyExpr,
         callback: C,
     ) -> ZResult<zenoh::subscriber::Subscriber<'static, ()>>
     where
         C: Fn(Sample) + Send + Sync + 'static,
+        TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,
+        <TryIntoKeyExpr as TryInto<KeyExpr<'b>>>::Error: Into<zenoh::Error>,
     {
         debug!("Creating Subscriber on {}", key_expr);
 
@@ -49,26 +52,35 @@ impl ZenohClient {
             .await
     }
 
-    pub async fn publish(&self, key_expr: &str) -> ZResult<zenoh::publication::Publisher<'static>> {
+    pub async fn publish<'b: 'static, TryIntoKeyExpr>(
+        &self,
+        key_expr: TryIntoKeyExpr,
+    ) -> ZResult<zenoh::publication::Publisher<'static>>
+    where
+        TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,
+        <TryIntoKeyExpr as TryInto<KeyExpr<'b>>>::Error: Into<zenoh::Error>,
+    {
         debug!("Creating Publisher on {}", key_expr);
 
         self.session
-            .declare_publisher(key_expr.to_owned())
+            .declare_publisher(key_expr)
             .allowed_destination(Locality::Remote)
             .congestion_control(CongestionControl::Block)
             .res_async()
             .await
     }
 
-    pub async fn make_queryable<Callback>(
+    pub async fn make_queryable<'b, Callback, TryIntoKeyExpr>(
         &self,
-        key_expr: &str,
+        key_expr: TryIntoKeyExpr,
         callback: Callback,
     ) -> ZResult<zenoh::queryable::Queryable<'static, ()>>
     where
         Callback: Fn(zenoh::queryable::Query) + Send + Sync + 'static,
+        TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,
+        <TryIntoKeyExpr as TryInto<KeyExpr<'b>>>::Error: Into<zenoh::Error>,
     {
-        info!("Creating Queryable on {}", key_expr);
+        debug!("Creating Queryable on {}", key_expr);
 
         self.session
             .declare_queryable(key_expr)
@@ -78,19 +90,21 @@ impl ZenohClient {
             .await
     }
 
-    pub async fn make_query<Callback>(
+    pub async fn make_query<'b, Callback, IntoSelector>(
         &self,
-        key_expr: &str,
+        selector: IntoSelector,
         callback: Callback,
         data: Vec<u8>,
     ) -> ZResult<()>
     where
         Callback: Fn(zenoh::query::Reply) + Send + Sync + 'static,
+        IntoSelector: TryInto<Selector<'b>> + Display,
+        <IntoSelector as TryInto<Selector<'b>>>::Error: Into<zenoh::Error>,
     {
-        debug!("Creating Query on {}", key_expr);
+        debug!("Creating Query on {}", selector);
 
         self.session
-            .get(key_expr)
+            .get(selector)
             .with_value(data)
             .callback(callback)
             .allowed_destination(Locality::Remote)
@@ -98,15 +112,19 @@ impl ZenohClient {
             .await
     }
 
-    pub async fn make_query_sync(
+    pub async fn make_query_sync<'b, IntoSelector>(
         &self,
-        key_expr: &str,
+        selector: IntoSelector,
         data: Vec<u8>,
-    ) -> ZResult<flume::Receiver<zenoh::query::Reply>> {
-        debug!("Creating Query on {}", key_expr);
+    ) -> ZResult<flume::Receiver<zenoh::query::Reply>>
+    where
+        IntoSelector: TryInto<Selector<'b>> + Display,
+        <IntoSelector as TryInto<Selector<'b>>>::Error: Into<zenoh::Error>,
+    {
+        debug!("Creating Query on {}", selector);
 
         self.session
-            .get(key_expr)
+            .get(selector)
             .with_value(data)
             .allowed_destination(Locality::Remote)
             .res_async()

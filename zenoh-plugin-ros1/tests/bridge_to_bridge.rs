@@ -12,14 +12,21 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::sync::Arc;
 use std::{collections::HashSet, sync::atomic::AtomicU64};
 
-use rosrust::{Client, Publisher, RawMessage, Service, Subscriber};
-use std::sync::atomic::Ordering::*;
+use log::{debug, trace};
+use rosrust::RawMessage;
+use std::sync::atomic::{AtomicUsize, Ordering::*};
 use strum_macros::Display;
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
-    BridgeChecker, IsolatedConfig, IsolatedROSMaster, RAIICounter, ROSEnvironment, RunningBridge,
-    TestParams,
+use zenoh::prelude::{KeyExpr, OwnedKeyExpr};
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{self, wait, Publisher, Subscriber};
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
+    bridging_mode::BridgingMode,
+    environment::Environment,
+    test_helpers::{
+        BridgeChecker, IsolatedConfig, IsolatedROSMaster, ROSEnvironment, RunningBridge, TestParams,
+    },
 };
 
 struct ROSWithChecker {
@@ -171,6 +178,71 @@ fn create_bridge_and_reinit_bridge() {
     async_std::task::block_on(async_create_bridge_and_reinit_bridge());
 }
 
+struct SrcDstPair {
+    key: OwnedKeyExpr,
+    counter: Arc<AtomicUsize>,
+    src: Box<dyn Publisher>,
+    dst: Box<dyn Subscriber>,
+}
+
+impl SrcDstPair {
+    pub async fn run(self, pps_measurements: u32) {
+        self.start().await;
+        self.check_pps(pps_measurements).await;
+    }
+
+    async fn start(&self) {
+        self.wait_for_ready().await;
+        self.start_ping_pong().await;
+    }
+
+    async fn wait_for_ready(&self) {
+        assert!(
+            wait(
+                move || { self.src.ready() && self.dst.ready() },
+                core::time::Duration::from_secs(30)
+            )
+            .await
+        );
+    }
+
+    async fn start_ping_pong(&self) {
+        debug!("Starting ping-pong!");
+        let mut data = Vec::new();
+        data.reserve(TestParams::data_size() as usize);
+        for i in 0..TestParams::data_size() {
+            data.push((i % 255) as u8);
+        }
+        self.src.put(data.clone());
+    }
+
+    async fn check_pps(&self, pps_measurements: u32) {
+        for i in 0..pps_measurements {
+            let pps = self.measure_pps().await;
+            trace!("PPS #{}: {} \t Key: {}", i, pps, self.key);
+            assert!(pps > 0.0);
+        }
+    }
+
+    async fn measure_pps(&self) -> f64 {
+        debug!("Starting measure PPS....");
+
+        let duration_milliseconds = TestParams::pps_measure_period_ms();
+
+        let mut result = 0.0;
+        let mut duration: u64 = 0;
+
+        self.counter.store(0, Relaxed);
+        while !(result > 0.0 || duration >= 10000) {
+            async_std::task::sleep(core::time::Duration::from_millis(duration_milliseconds)).await;
+            duration += duration_milliseconds;
+            result += self.counter.load(Relaxed) as f64;
+        }
+        debug!("...finished measure PPS!");
+        result * 1000.0 / (duration as f64)
+    }
+}
+
 #[derive(PartialEq, Eq, Hash, Display)]
 enum Mode {
     Ros1ToZenoh,
@@ -180,6 +252,52 @@ enum Mode {
 }
 static UNIQUE_NUMBER: AtomicU64 = AtomicU64::new(0);
 async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<Mode>) {
+    let create_pubsub = |topic: KeyExpr,
+                         pub_checker: &BridgeChecker,
+                         sub_checker: &BridgeChecker| {
+        let counter = Arc::new(AtomicUsize::new(0));
+        let publisher = Arc::new(pub_checker.make_ros_publisher(topic.as_str()));
+
+        let c_counter = counter.clone();
+        let c_publisger = publisher.clone();
+        let subscriber = sub_checker.make_ros_subscriber(topic.as_str(), move |msg: RawMessage| {
+            c_counter.fetch_add(1, SeqCst);
+            c_publisger.data.send(msg).unwrap();
+        });
+
+        let src = Box::new(test_helpers::ROS1Publisher { inner: publisher });
+        let dst = Box::new(test_helpers::ROS1Subscriber { inner: subscriber });
+
+        SrcDstPair {
+            key: topic.into(),
+            counter,
+            src,
+            dst,
+        }
+    };
+
+    let create_srv_client =
+        |topic: KeyExpr, srv_checker: &BridgeChecker, client_checker: &BridgeChecker| {
+            let counter = Arc::new(AtomicUsize::new(0));
+
+            let service = srv_checker.make_ros_service(topic.as_str(), Ok);
+
+            let topic_descriptor = BridgeChecker::make_topic(&topic);
+            let src = Box::new(test_helpers::ROS1Client::new(
+                client_checker,
+                topic_descriptor,
+                counter.clone(),
+            ));
+            let dst = Box::new(test_helpers::ROS1Service { _inner: service });
+
+            SrcDstPair {
+                key: topic.into(),
+                counter,
+                src,
+                dst,
+            }
+        };
+
     zenoh_core::zasync_executor_init!();
 
     let env = TestEnvironment::default();
@@ -189,13 +307,15 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
     let mut dst_system = env.add_system();
     dst_system.with_ros().with_bridge();
 
-    let make_keyexpr = |i: u32, mode: Mode| -> String {
+    let make_keyexpr = |i: u32, mode: Mode| -> KeyExpr {
         format!(
-            "/some/key/expr{}_{}_{}",
+            "some/key/expr{}_{}_{}",
             i,
             mode,
             UNIQUE_NUMBER.fetch_add(1, SeqCst)
         )
+        .try_into()
+        .unwrap()
     };
 
     // wait for systems to become ready
@@ -205,43 +325,34 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
     let src_checker = &src_system.ros_env.as_ref().unwrap().checker;
     let dst_checker = &dst_system.ros_env.as_ref().unwrap().checker;
 
-    enum Entity {
-        Pub(RAIICounter<Publisher<RawMessage>>),
-        Sub(RAIICounter<Subscriber>),
-        Service(RAIICounter<Service>),
-        Client(RAIICounter<Client<RawMessage>>),
-    }
-
     // create topic entities
     let mut entities = Vec::new();
     for i in 0..instances {
         if mode.contains(&Mode::Ros1ToZenoh) {
             let topic = make_keyexpr(i, Mode::Ros1ToZenoh);
-            entities.push(Entity::Pub(src_checker.make_ros_publisher(topic.as_str())));
-            entities.push(Entity::Sub(
-                dst_checker.make_ros_subscriber(topic.as_str(), |_: RawMessage| {}),
-            ));
+            let entity = create_pubsub(topic, src_checker, dst_checker);
+            entities.push(entity);
         }
         if mode.contains(&Mode::ZenohToRos1) {
             let topic = make_keyexpr(i, Mode::ZenohToRos1);
-            entities.push(Entity::Sub(
-                src_checker.make_ros_subscriber(topic.as_str(), |_: RawMessage| {}),
-            ));
-            entities.push(Entity::Pub(dst_checker.make_ros_publisher(topic.as_str())));
+            let entity = create_pubsub(topic, dst_checker, src_checker);
+            entities.push(entity);
         }
         if mode.contains(&Mode::Ros1Service) {
+            // allow automatical client bridging because it is disabled by default
+            Environment::client_bridging_mode().set(BridgingMode::Auto);
+
             let topic = make_keyexpr(i, Mode::Ros1Service);
-            entities.push(Entity::Service(
-                src_checker.make_ros_service(topic.as_str(), Ok),
-            ));
-            entities.push(Entity::Client(dst_checker.make_ros_client(topic.as_str())));
+            let entity = create_srv_client(topic, src_checker, dst_checker);
+            entities.push(entity);
         }
         if mode.contains(&Mode::Ros1Client) {
+            // allow automatical client bridging because it is disabled by default
+            Environment::client_bridging_mode().set(BridgingMode::Auto);
+
             let topic = make_keyexpr(i, Mode::Ros1Client);
-            entities.push(Entity::Client(src_checker.make_ros_client(topic.as_str())));
-            entities.push(Entity::Service(
-                dst_checker.make_ros_service(topic.as_str(), Ok),
-            ));
+            let entity = create_srv_client(topic, dst_checker, src_checker);
+            entities.push(entity);
         }
     }
 
@@ -249,8 +360,12 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
     src_system.wait_state_synch().await;
     dst_system.wait_state_synch().await;
 
-    // drop everything
-    drop(entities);
+    // run all entities
+    let mut vec = Vec::new();
+    for entity in entities {
+        vec.push(entity.run(TestParams::pps_measurements()));
+    }
+    futures::future::join_all(vec).await;
 
     // check states again
     src_system.wait_state_synch().await;

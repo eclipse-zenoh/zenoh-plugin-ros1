@@ -12,12 +12,11 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use strum_macros::Display;
+use super::resource_cache::{DataType, Md5, TopicName};
 
-#[derive(Clone, Copy, PartialEq, Eq, Display)]
-pub enum BridgeType {
-    Publisher,
-    Subscriber,
-    Service,
-    Client,
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub struct TopicDescriptor {
+    pub name: TopicName,
+    pub datatype: DataType,
+    pub md5: Md5,
 }

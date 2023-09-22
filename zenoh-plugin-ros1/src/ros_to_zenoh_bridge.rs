@@ -14,8 +14,9 @@
 
 use async_std::task::JoinHandle;
 
+use log::error;
 use zenoh;
-use zenoh_core::AsyncResolve;
+use zenoh_core::{zresult::ZResult, AsyncResolve};
 
 use std::sync::{
     atomic::{AtomicBool, Ordering::Relaxed},
@@ -31,13 +32,21 @@ pub mod aloha_subscription;
 #[cfg(feature = "test")]
 pub mod bridge_type;
 #[cfg(feature = "test")]
+pub mod bridging_mode;
+#[cfg(feature = "test")]
 pub mod discovery;
+#[cfg(feature = "test")]
+pub mod resource_cache;
 #[cfg(feature = "test")]
 pub mod ros1_client;
 #[cfg(feature = "test")]
 pub mod ros1_to_zenoh_bridge_impl;
 #[cfg(feature = "test")]
+pub mod rosclient_test_helpers;
+#[cfg(feature = "test")]
 pub mod test_helpers;
+#[cfg(feature = "test")]
+pub mod topic_descriptor;
 #[cfg(feature = "test")]
 pub mod topic_utilities;
 #[cfg(feature = "test")]
@@ -50,11 +59,17 @@ mod aloha_subscription;
 #[cfg(not(feature = "test"))]
 mod bridge_type;
 #[cfg(not(feature = "test"))]
+mod bridging_mode;
+#[cfg(not(feature = "test"))]
 mod discovery;
+#[cfg(not(feature = "test"))]
+mod resource_cache;
 #[cfg(not(feature = "test"))]
 mod ros1_client;
 #[cfg(not(feature = "test"))]
 mod ros1_to_zenoh_bridge_impl;
+#[cfg(not(feature = "test"))]
+mod topic_descriptor;
 #[cfg(not(feature = "test"))]
 mod topic_utilities;
 #[cfg(not(feature = "test"))]
@@ -73,9 +88,9 @@ pub struct Ros1ToZenohBridge {
     task_handle: Box<JoinHandle<()>>,
 }
 impl Ros1ToZenohBridge {
-    pub async fn new_with_own_session(config: zenoh::config::Config) -> Self {
-        let session = zenoh::open(config).res_async().await.unwrap().into_arc();
-        Self::new_with_external_session(session)
+    pub async fn new_with_own_session(config: zenoh::config::Config) -> ZResult<Self> {
+        let session = zenoh::open(config).res_async().await?.into_arc();
+        Ok(Self::new_with_external_session(session))
     }
 
     pub fn new_with_external_session(session: Arc<zenoh::Session>) -> Self {
@@ -93,14 +108,17 @@ impl Ros1ToZenohBridge {
 
     //PRIVATE:
     async fn run(session: Arc<zenoh::Session>, flag: Arc<AtomicBool>) {
-        work_cycle(
+        if let Err(e) = work_cycle(
             Environment::ros_master_uri().get().as_str(),
             session,
             flag,
             |_v| {},
             |_status| {},
         )
-        .await;
+        .await
+        {
+            error!("Error occured while running the bridge: {e}")
+        }
     }
 
     async fn async_await(&mut self) {
