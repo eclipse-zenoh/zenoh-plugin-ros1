@@ -15,7 +15,6 @@
 use duration_string::DurationString;
 use log::error;
 use rosrust::api::resolve::*;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::convert::From;
 use std::time::Duration;
@@ -46,8 +45,9 @@ where
 
     pub fn get(&self) -> Tvar {
         if let Ok(val) = std::env::var(self.name) {
-            if let Ok(val) = val.parse::<Tvar>() {
-                return val;
+            match Tvar::from_str(&val) {
+                Ok(val) => return val,
+                Err(_) => error!("Error parsing settings entry {}", self.name),
             }
         }
         self.default.clone()
@@ -89,11 +89,7 @@ pub struct CustomBridgingModes {
 
 impl ToString for CustomBridgingModes {
     fn to_string(&self) -> String {
-        let mut json_map = serde_json::Map::new();
-        for (k, v) in &self.modes {
-            json_map.insert(k.clone(), Value::String(v.to_string()));
-        }
-        serde_json::Value::Object(json_map).to_string()
+        serde_json::to_string(&self.modes).unwrap()
     }
 }
 
@@ -101,32 +97,8 @@ impl FromStr for CustomBridgingModes {
     type Err = serde_json::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut result = CustomBridgingModes::default();
-        let parsed: Value = serde_json::from_str(s)?;
-        match parsed.as_object() {
-            Some(v) => {
-                for (topic, mode) in v {
-                    match mode.as_str() {
-                        Some(v) => match BridgingMode::from_str(v) {
-                            Ok(mode) => {
-                                result.modes.insert(topic.clone(), mode);
-                            }
-                            Err(e) => {
-                                error!("Error reading value {v} as Bridging Mode: {e}");
-                            }
-                        },
-                        None => {
-                            error!("Error reading non-string as Bridging Mode");
-                        }
-                    }
-                }
-            }
-            None => {
-                error!("Error reading custom Bridging Mode map: the value provided is not a map!");
-            }
-        }
-
-        Ok(result)
+        let modes: HashMap<String, BridgingMode> = serde_json::from_str(s)?;
+        Ok(Self { modes })
     }
 }
 

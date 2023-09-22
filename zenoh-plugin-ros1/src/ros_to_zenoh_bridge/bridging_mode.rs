@@ -20,6 +20,7 @@ use super::{bridge_type::BridgeType, environment::Environment};
 #[derive(PartialEq, Eq, EnumString, Clone, Display)]
 #[strum(serialize_all = "snake_case")]
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "snake_case")]
 pub enum BridgingMode {
     LazyAuto,
     Auto,

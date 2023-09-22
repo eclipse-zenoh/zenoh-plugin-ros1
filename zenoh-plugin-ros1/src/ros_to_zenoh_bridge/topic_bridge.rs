@@ -17,13 +17,15 @@ use super::{
     bridge_type::BridgeType,
     bridging_mode::BridgingMode,
     discovery::{LocalResource, LocalResources},
-    ros1_client, zenoh_client,
+    ros1_client,
+    topic_descriptor::TopicDescriptor,
+    zenoh_client,
 };
 use log::error;
 use std::{fmt::Display, sync::Arc};
 
 pub struct TopicBridge {
-    topic: rosrust::api::Topic,
+    topic: TopicDescriptor,
     b_type: BridgeType,
     ros1_client: Arc<ros1_client::Ros1Client>,
     zenoh_client: Arc<zenoh_client::ZenohClient>,
@@ -46,7 +48,7 @@ impl Display for TopicBridge {
 
 impl TopicBridge {
     pub fn new(
-        topic: rosrust::api::Topic,
+        topic: TopicDescriptor,
         b_type: BridgeType,
         declaration_interface: Arc<LocalResources>,
         ros1_client: Arc<ros1_client::Ros1Client>,
