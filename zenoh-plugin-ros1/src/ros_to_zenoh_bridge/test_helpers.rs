@@ -24,6 +24,7 @@ use zenoh::config::ModeDependentValue;
 use zenoh::prelude::OwnedKeyExpr;
 use zenoh::prelude::SplitBuffer;
 use zenoh::sample::Sample;
+use zenoh::Session;
 use zenoh_core::{bail, zlock, zresult::ZResult, AsyncResolve, SyncResolve};
 
 use super::discovery::LocalResources;
@@ -252,6 +253,7 @@ impl ROSEnvironment {
 }
 
 pub struct BridgeChecker {
+    session: Arc<Session>,
     ros_client: ros1_client::Ros1Client,
     zenoh_client: zenoh_client::ZenohClient,
     pub local_resources: LocalResources,
@@ -263,11 +265,27 @@ impl BridgeChecker {
     pub fn new(config: zenoh::config::Config, ros_master_uri: &str) -> BridgeChecker {
         let session = zenoh::open(config).res_sync().unwrap().into_arc();
         BridgeChecker {
+            session: session.clone(),
             ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri).unwrap(),
             zenoh_client: zenoh_client::ZenohClient::new(session.clone()),
             local_resources: LocalResources::new("*".to_string(), "*".to_string(), session),
             expected_bridge_status: Arc::new(RwLock::new(BridgeStatus::default())),
         }
+    }
+
+    pub async fn assert_zenoh_peers(&self, peer_count: usize) {
+        assert!(
+            self.wait_for_zenoh_peers(peer_count, core::time::Duration::from_secs(30))
+                .await
+        );
+    }
+
+    async fn wait_for_zenoh_peers(&self, peer_count: usize, timeout: core::time::Duration) -> bool {
+        wait(
+            || self.session.info().peers_zid().res_sync().count() == peer_count,
+            timeout,
+        )
+        .await
     }
 
     pub async fn make_zenoh_subscriber<C>(

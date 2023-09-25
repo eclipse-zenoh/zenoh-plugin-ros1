@@ -383,6 +383,7 @@ impl TestEnvironment {
         // - performs wait and ensures that everything is properly connected and negotiated within the bridge
         async_std::task::block_on(bridge.assert_ros_ok());
         async_std::task::block_on(bridge.assert_bridge_empy());
+        async_std::task::block_on(checker.assert_zenoh_peers(1));
 
         TestEnvironment {
             bridge,
