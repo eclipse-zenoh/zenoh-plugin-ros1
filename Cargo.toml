@@ -17,6 +17,7 @@ members = [
   "zenoh-bridge-ros1",
   "zenoh-plugin-ros1",
 ]
+exclude = [ "rosrust" ]
 
 [workspace.package]
 version = "0.10.0-dev"
@@ -51,7 +52,8 @@ zenoh = { version = "0.10.0-rc", git = "https://github.com/eclipse-zenoh/zenoh.g
 zenoh-ext = { version = "0.10.0-rc", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "release-0.10.0-rc", features = ["unstable"] }
 zenoh-core = { version = "0.10.0-rc", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "release-0.10.0-rc" }
 zenoh-plugin-trait = { version = "0.10.0-rc", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "release-0.10.0-rc", default-features = false }
-rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "feature/fix_bugs" }
+#rosrust = { git = "https://github.com/ZettaScaleLabs/rosrust.git", branch = "feature/fix_bugs" }
+rosrust = { version = "0.9.11", path = "rosrust/rosrust" }
 flume = "0.11"
 hex = "0.4.3"
 xml-rpc = "0.0.12"
