@@ -90,6 +90,7 @@ impl ZenohClient {
             .await
     }
 
+    #[cfg(feature = "test")]
     pub async fn make_query<'b, Callback, IntoSelector>(
         &self,
         selector: IntoSelector,

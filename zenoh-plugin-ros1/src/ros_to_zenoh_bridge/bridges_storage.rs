@@ -238,42 +238,6 @@ impl<'a> ElementAccessor<'a> {
     }
 }
 
-pub struct TypeAccessor<'a> {
-    storage: &'a mut BridgesStorage,
-    _v: bool,
-}
-impl<'a> TypeAccessor<'a> {
-    fn new(storage: &'a mut BridgesStorage) -> Self {
-        Self { storage, _v: false }
-    }
-
-    pub fn complementary_for(&'a mut self, b_type: BridgeType) -> ComplementaryElementAccessor<'a> {
-        let b_type = match b_type {
-            BridgeType::Publisher => BridgeType::Subscriber,
-            BridgeType::Subscriber => BridgeType::Publisher,
-            BridgeType::Service => BridgeType::Client,
-            BridgeType::Client => BridgeType::Service,
-        };
-        ComplementaryElementAccessor::new(
-            b_type,
-            self.storage.bridges.container_mut(b_type),
-            self.storage.ros1_client.clone(),
-            self.storage.zenoh_client.clone(),
-            self.storage.declaration_interface.clone(),
-        )
-    }
-
-    pub fn for_type(&'a mut self, b_type: BridgeType) -> ElementAccessor<'a> {
-        ElementAccessor::new(
-            b_type,
-            self.storage.bridges.container_mut(b_type),
-            self.storage.ros1_client.clone(),
-            self.storage.zenoh_client.clone(),
-            self.storage.declaration_interface.clone(),
-        )
-    }
-}
-
 pub struct BridgesStorage {
     bridges: Bridges,
 
@@ -296,23 +260,42 @@ impl BridgesStorage {
         }
     }
 
-    pub fn bridges(&mut self) -> TypeAccessor {
-        TypeAccessor::new(self)
+    pub fn complementary_for(&mut self, b_type: BridgeType) -> ComplementaryElementAccessor<'_> {
+        let b_type = match b_type {
+            BridgeType::Publisher => BridgeType::Subscriber,
+            BridgeType::Subscriber => BridgeType::Publisher,
+            BridgeType::Service => BridgeType::Client,
+            BridgeType::Client => BridgeType::Service,
+        };
+        ComplementaryElementAccessor::new(
+            b_type,
+            self.bridges.container_mut(b_type),
+            self.ros1_client.clone(),
+            self.zenoh_client.clone(),
+            self.declaration_interface.clone(),
+        )
+    }
+
+    pub fn for_type(&mut self, b_type: BridgeType) -> ElementAccessor<'_> {
+        ElementAccessor::new(
+            b_type,
+            self.bridges.container_mut(b_type),
+            self.ros1_client.clone(),
+            self.zenoh_client.clone(),
+            self.declaration_interface.clone(),
+        )
     }
 
     pub async fn receive_ros1_state(&mut self, ros1_state: &mut Ros1TopicMapping) -> bool {
         let mut smth_changed = self
-            .bridges()
             .for_type(BridgeType::Publisher)
             .receive_ros1_state(&mut ros1_state.published)
             .await;
         smth_changed |= self
-            .bridges()
             .for_type(BridgeType::Service)
             .receive_ros1_state(&mut ros1_state.serviced)
             .await;
         smth_changed |= self
-            .bridges()
             .for_type(BridgeType::Subscriber)
             .receive_ros1_state(&mut ros1_state.subscribed)
             .await;
