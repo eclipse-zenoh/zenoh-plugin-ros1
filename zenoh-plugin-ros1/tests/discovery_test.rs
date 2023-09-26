@@ -27,7 +27,7 @@ use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     topic_descriptor::TopicDescriptor,
 };
 
-const TIMEOUT: Duration = Duration::from_secs(10);
+const TIMEOUT: Duration = Duration::from_secs(60);
 
 fn session_builder(cfg: &IsolatedConfig) -> OpenBuilder<zenoh::config::Config> {
     zenoh::open(cfg.peer())

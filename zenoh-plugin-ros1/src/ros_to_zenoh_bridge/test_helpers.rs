@@ -12,6 +12,9 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use async_std::prelude::FutureExt;
+use async_trait::async_trait;
+use futures::Future;
 use log::error;
 use rosrust::{Client, RawMessage, RawMessageDescription};
 use std::process::Command;
@@ -19,6 +22,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::*;
 use std::sync::{Arc, Mutex, RwLock};
+use std::time::Duration;
 use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
 use zenoh::config::ModeDependentValue;
 use zenoh::prelude::OwnedKeyExpr;
@@ -78,7 +82,7 @@ impl IsolatedROSMaster {
     }
 }
 
-pub async fn wait<Waiter>(waiter: Waiter, timeout: core::time::Duration) -> bool
+pub fn wait_sync<Waiter>(waiter: Waiter, timeout: Duration) -> bool
 where
     Waiter: Fn() -> bool,
 {
@@ -86,15 +90,41 @@ where
     let millis = timeout.as_millis() / cycles + 1;
 
     for _i in 0..cycles {
-        async_std::task::sleep(core::time::Duration::from_millis(
-            millis.try_into().unwrap(),
-        ))
-        .await;
         if waiter() {
             return true;
         }
+        std::thread::sleep(Duration::from_millis(millis.try_into().unwrap()));
     }
     false
+}
+
+pub async fn wait_async_fn<Waiter>(waiter: Waiter, timeout: Duration) -> bool
+where
+    Waiter: Fn() -> bool,
+{
+    let sleep_millis = 10u64;
+    let cycles = (timeout.as_millis() as u64) / sleep_millis + 1;
+
+    for _i in 0..cycles {
+        if waiter() {
+            return true;
+        }
+        async_std::task::sleep(Duration::from_millis(sleep_millis)).await;
+    }
+    false
+}
+
+pub async fn wait_async<Waiter, Fut>(waiter: Waiter, timeout: Duration) -> bool
+where
+    Waiter: Fn() -> Fut + Send + Sync,
+    Fut: Future<Output = bool>,
+{
+    let w = async {
+        while !waiter().await {
+            async_std::task::sleep(Duration::from_millis(10)).await
+        }
+    };
+    w.timeout(timeout).await.is_ok()
 }
 
 pub struct RunningBridge {
@@ -153,14 +183,11 @@ impl RunningBridge {
         self.assert_status(RosStatus::Ok).await;
     }
     pub async fn assert_status(&self, status: RosStatus) {
-        assert!(
-            self.wait_ros_status(status, core::time::Duration::from_secs(10))
-                .await
-        );
+        assert!(self.wait_ros_status(status, Duration::from_secs(10)).await);
     }
-    pub async fn wait_ros_status(&self, status: RosStatus, timeout: core::time::Duration) -> bool {
-        wait(
-            move || {
+    pub async fn wait_ros_status(&self, status: RosStatus, timeout: Duration) -> bool {
+        wait_async_fn(
+            || {
                 let val = self.ros_status.lock().unwrap();
                 *val == status
             },
@@ -174,16 +201,16 @@ impl RunningBridge {
     }
     pub async fn assert_bridge_status<F: Fn() -> BridgeStatus>(&self, status: F) {
         assert!(
-            self.wait_bridge_status(status, core::time::Duration::from_secs(120))
+            self.wait_bridge_status(status, Duration::from_secs(120))
                 .await
         );
     }
     pub async fn wait_bridge_status<F: Fn() -> BridgeStatus>(
         &self,
         status: F,
-        timeout: core::time::Duration,
+        timeout: Duration,
     ) -> bool {
-        wait(
+        wait_async_fn(
             move || {
                 let expected = (status)();
                 let real = self.bridge_status.lock().unwrap();
@@ -275,17 +302,15 @@ impl BridgeChecker {
 
     pub async fn assert_zenoh_peers(&self, peer_count: usize) {
         assert!(
-            self.wait_for_zenoh_peers(peer_count, core::time::Duration::from_secs(30))
+            self.wait_for_zenoh_peers(peer_count, Duration::from_secs(30))
                 .await
         );
     }
 
-    async fn wait_for_zenoh_peers(&self, peer_count: usize, timeout: core::time::Duration) -> bool {
-        wait(
-            || self.session.info().peers_zid().res_sync().count() == peer_count,
-            timeout,
-        )
-        .await
+    async fn wait_for_zenoh_peers(&self, peer_count: usize, timeout: Duration) -> bool {
+        let waiter =
+            || async { self.session.info().peers_zid().res_async().await.count() == peer_count };
+        wait_async(waiter, timeout).await
     }
 
     pub async fn make_zenoh_subscriber<C>(
@@ -625,9 +650,10 @@ impl Drop for ROS1Client {
     }
 }
 
-pub trait Publisher {
+#[async_trait]
+pub trait Publisher: Sync {
     fn put(&self, data: Vec<u8>);
-    fn ready(&self) -> bool {
+    async fn ready(&self) -> bool {
         true
     }
 }
@@ -637,6 +663,7 @@ impl Publisher for ZenohPublisher {
         async_std::task::spawn_blocking(move || inner.put(data).res_sync().unwrap());
     }
 }
+#[async_trait]
 impl Publisher for ROS1Publisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
@@ -645,10 +672,11 @@ impl Publisher for ROS1Publisher {
         });
     }
 
-    fn ready(&self) -> bool {
+    async fn ready(&self) -> bool {
         self.inner.data.subscriber_count() != 0
     }
 }
+#[async_trait]
 impl Publisher for ZenohQuery {
     fn put(&self, data: Vec<u8>) {
         async_std::task::spawn(Self::query_loop(
@@ -660,14 +688,14 @@ impl Publisher for ZenohQuery {
         ));
     }
 
-    fn ready(&self) -> bool {
+    async fn ready(&self) -> bool {
         let data = (0..10).collect();
-        async_std::task::block_on(
-            async move { Self::make_query(&self.inner, &self.key, &data).await },
-        )
-        .is_ok()
+        Self::make_query(&self.inner, &self.key, &data)
+            .await
+            .is_ok()
     }
 }
+#[async_trait]
 impl Publisher for ROS1Client {
     fn put(&self, data: Vec<u8>) {
         let running = self.running.clone();
@@ -684,14 +712,18 @@ impl Publisher for ROS1Client {
         });
     }
 
-    fn ready(&self) -> bool {
+    async fn ready(&self) -> bool {
         let description = RawMessageDescription {
             msg_definition: String::from("*"),
             md5sum: self.topic.md5.clone(),
             msg_type: self.topic.datatype.clone(),
         };
         let data = (0..10).collect();
-        Self::make_query(description, &data, &self.ros1_client).is_ok()
+        let ros1_client = self.ros1_client.clone();
+        async_std::task::spawn_blocking(move || {
+            Self::make_query(description, &data, &ros1_client).is_ok()
+        })
+        .await
     }
 }
 
@@ -708,7 +740,7 @@ pub struct ROS1Service {
     pub _inner: RAIICounter<rosrust::Service>,
 }
 
-pub trait Subscriber {
+pub trait Subscriber: Sync {
     fn ready(&self) -> bool {
         true
     }

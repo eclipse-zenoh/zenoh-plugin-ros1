@@ -34,6 +34,7 @@ categories = ["network-programming"]
 [workspace.dependencies]
 atoi = "2.0.0"
 async-std = "=1.12.0"
+async-trait = "0.1"
 clap = "3.2.23"
 ctrlc = "3.2.5"
 env_logger = "0.9.1"

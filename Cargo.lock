@@ -3889,6 +3889,7 @@ version = "0.10.0-dev"
 dependencies = [
  "async-global-executor",
  "async-std",
+ "async-trait",
  "atoi",
  "ctrlc",
  "duration-string",

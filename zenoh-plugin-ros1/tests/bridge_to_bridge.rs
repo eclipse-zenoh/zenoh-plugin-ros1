@@ -13,14 +13,18 @@
 //
 
 use std::sync::Arc;
+use std::time::Duration;
 use std::{collections::HashSet, sync::atomic::AtomicU64};
 
+use async_std::prelude::FutureExt;
 use log::{debug, trace};
 use rosrust::RawMessage;
 use std::sync::atomic::{AtomicUsize, Ordering::*};
 use strum_macros::Display;
 use zenoh::prelude::{KeyExpr, OwnedKeyExpr};
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{self, wait, Publisher, Subscriber};
+use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
+    self, wait_async, Publisher, Subscriber,
+};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     bridging_mode::BridgingMode,
     environment::Environment,
@@ -193,27 +197,42 @@ impl SrcDstPair {
 
     async fn start(&self) {
         self.wait_for_ready().await;
-        self.start_ping_pong().await;
+        assert!(self.start_ping_pong().await);
     }
 
     async fn wait_for_ready(&self) {
         assert!(
-            wait(
-                move || { self.src.ready() && self.dst.ready() },
+            wait_async(
+                || async { self.src.ready().await && self.dst.ready() },
                 core::time::Duration::from_secs(30)
             )
             .await
         );
     }
 
-    async fn start_ping_pong(&self) {
+    async fn start_ping_pong(&self) -> bool {
         debug!("Starting ping-pong!");
         let mut data = Vec::new();
         data.reserve(TestParams::data_size() as usize);
         for i in 0..TestParams::data_size() {
             data.push((i % 255) as u8);
         }
-        self.src.put(data.clone());
+
+        async {
+            while {
+                self.src.put(data.clone());
+                !test_helpers::wait_async_fn(
+                    || self.counter.load(Relaxed) > 0,
+                    Duration::from_secs(5),
+                )
+                .await
+            } {
+                debug!("Restarting ping-pong!");
+            }
+        }
+        .timeout(Duration::from_secs(30))
+        .await
+        .is_ok()
     }
 
     async fn check_pps(&self, pps_measurements: u32) {
