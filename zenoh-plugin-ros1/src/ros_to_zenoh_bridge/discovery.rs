@@ -46,13 +46,14 @@ const ROS1_DISCOVERY_INFO_SUBSCRIBERS_CLASS: &str = "sub";
 const ROS1_DISCOVERY_INFO_SERVICES_CLASS: &str = "srv";
 const ROS1_DISCOVERY_INFO_CLIENTS_CLASS: &str = "cl";
 
-struct RemoteResources {
+pub struct RemoteResources {
     _subscriber: Option<AlohaSubscription>,
 }
 impl RemoteResources {
     async fn new<F>(
         session: Arc<zenoh::Session>,
         discovery_namespace: String,
+        bridge_namespace: String,
         on_discovered: F,
         on_lost: F,
     ) -> Self
@@ -70,7 +71,7 @@ impl RemoteResources {
             resource_class = "*",
             data_type = "*",
             md5 = "*",
-            bridge_namespace = "*",
+            bridge_namespace = bridge_namespace,
             topic = "*/**"
         )
         .unwrap();
@@ -276,47 +277,12 @@ impl LocalResources {
     }
 }
 
-pub struct Discovery {
-    _remote_resources: RemoteResources,
-    local_resources: LocalResources,
-}
-impl Discovery {
-    pub async fn new<F>(
-        discovery_namespace: String,
-        bridge_namespace: String,
-        session: Arc<zenoh::Session>,
-        on_discovered: F,
-        on_lost: F,
-    ) -> Self
-    where
-        F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
-            + Send
-            + Sync
-            + 'static,
-    {
-        Self {
-            _remote_resources: RemoteResources::new(
-                session.clone(),
-                discovery_namespace.clone(),
-                on_discovered,
-                on_lost,
-            )
-            .await,
-            local_resources: LocalResources::new(discovery_namespace, bridge_namespace, session),
-        }
-    }
-
-    pub fn local_resources(&self) -> &LocalResources {
-        &self.local_resources
-    }
-}
-
 pub type TCallback = dyn Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>
     + Send
     + Sync
     + 'static;
 
-pub struct DiscoveryBuilder {
+pub struct RemoteResourcesBuilder {
     discovery_namespace: String,
     bridge_namespace: String,
     session: Arc<zenoh::Session>,
@@ -325,7 +291,7 @@ pub struct DiscoveryBuilder {
     on_lost: Option<Box<TCallback>>,
 }
 
-impl DiscoveryBuilder {
+impl RemoteResourcesBuilder {
     pub fn new(
         discovery_namespace: String,
         bridge_namespace: String,
@@ -361,11 +327,11 @@ impl DiscoveryBuilder {
         self
     }
 
-    pub async fn build(self) -> Discovery {
-        Discovery::new(
+    pub async fn build(self) -> RemoteResources {
+        RemoteResources::new(
+            self.session,
             self.discovery_namespace,
             self.bridge_namespace,
-            self.session,
             self.on_discovered
                 .unwrap_or(Box::new(|_, _| Box::new(Box::pin(async {})))),
             self.on_lost

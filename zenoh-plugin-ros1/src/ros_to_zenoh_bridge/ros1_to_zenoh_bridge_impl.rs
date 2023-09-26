@@ -33,7 +33,7 @@ use crate::ros_to_zenoh_bridge::{
 };
 
 use super::{
-    discovery::{Discovery, DiscoveryBuilder},
+    discovery::{RemoteResources, RemoteResourcesBuilder},
     resource_cache::Ros1ResourceCache,
     ros1_client::Ros1Client,
 };
@@ -93,7 +93,8 @@ where
         local_resources,
     )));
 
-    let _discovery = make_discovery(session.clone(), bridges.clone()).await;
+    let _remote_resources_discovery =
+        make_remote_resources_discovery(session.clone(), bridges.clone()).await;
 
     let mut bridge = RosToZenohBridge::new(ros_status_callback, statistics_callback);
     bridge
@@ -102,19 +103,18 @@ where
     Ok(())
 }
 
-async fn make_discovery<'a>(
+async fn make_remote_resources_discovery<'a>(
     session: Arc<zenoh::Session>,
     bridges: Arc<Mutex<BridgesStorage>>,
-) -> Discovery {
+) -> RemoteResources {
     let bridges2 = bridges.clone();
 
-    let builder = DiscoveryBuilder::new("*".to_string(), "*".to_string(), session);
+    let builder = RemoteResourcesBuilder::new("*".to_string(), "*".to_string(), session);
     builder
         .on_discovered(move |b_type, topic| {
             let bridges = bridges.clone();
             Box::new(Box::pin(async move {
                 zasynclock!(bridges)
-                    .bridges()
                     .complementary_for(b_type)
                     .complementary_entity_discovered(topic)
                     .await;
@@ -124,7 +124,6 @@ async fn make_discovery<'a>(
             let bridges = bridges2.clone();
             Box::new(Box::pin(async move {
                 zasynclock!(bridges)
-                    .bridges()
                     .complementary_for(b_type)
                     .complementary_entity_lost(topic)
                     .await;

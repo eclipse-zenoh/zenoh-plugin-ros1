@@ -101,10 +101,6 @@ impl Ros1Client {
         self.filter(self.ros.state())
     }
 
-    pub fn topic_types(&self) -> rosrust::api::error::Response<Vec<rosrust::api::Topic>> {
-        self.ros.topics()
-    }
-
     // PRIVATE
     /**
      * Filter out topics, which are published\subscribed\serviced only by the bridge itself

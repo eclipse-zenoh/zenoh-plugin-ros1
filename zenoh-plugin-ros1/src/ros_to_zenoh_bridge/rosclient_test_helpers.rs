@@ -19,7 +19,7 @@ use rosrust::{Publisher, RawMessage, Subscriber};
 use super::{ros1_client::Ros1Client, test_helpers::wait_sync};
 
 pub fn wait_for_rosclient_to_connect(rosclient: &Ros1Client) -> bool {
-    wait_sync(|| rosclient.topic_types().is_ok(), Duration::from_secs(10))
+    wait_sync(|| rosclient.state().is_ok(), Duration::from_secs(10))
 }
 
 pub fn wait_for_publishers(subscriber: &Subscriber, count: usize) -> bool {

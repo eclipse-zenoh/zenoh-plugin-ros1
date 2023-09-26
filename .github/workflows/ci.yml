@@ -52,9 +52,18 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
+          args: -- -D warnings
+        env:
+          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+      - name: Clippy All targets
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
           args: --all-targets -- -D warnings
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
 
   test:
     name: Run tests on ${{ matrix.os }}
