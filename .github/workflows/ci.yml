@@ -11,15 +11,15 @@
 # Contributors:
 #   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 #
-name: Release
+name: CI
 
-on:
-  release:
-    types: [published]
+on:  
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
   schedule:
-    - cron: "0 1 * * 1-5"
-  workflow_dispatch:
-
+    - cron: "0 6 * * 1-5"
 
 jobs:
   check:

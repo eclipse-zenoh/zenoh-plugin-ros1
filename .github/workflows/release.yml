@@ -11,15 +11,14 @@
 # Contributors:
 #   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 #
-name: CI
+name: Release
 
 on:
-  push:
-    branches: ["**"]
-  pull_request:
-    branches: ["**"]
+  release:
+    types: [published]
   schedule:
-    - cron: "0 6 * * 1-5"
+    - cron: "0 1 * * 1-5"
+  workflow_dispatch:
 
 jobs:
   checks:
@@ -304,13 +303,13 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           file: .github/workflows/Dockerfile
-          push:  false # true todo: temporary disabled
+          push:  true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
   publication:
     name: Release publication
-    if: false # needs.checks.outputs.IS_RELEASE == 'true' todo: temporary disabled
+    if: needs.checks.outputs.IS_RELEASE == 'true'
     needs: [checks, builds]
     runs-on: ubuntu-latest
     steps:
