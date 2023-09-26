@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -137,6 +139,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 500 # NOTE: get long history for git-version crate to correctly compute a version
+          submodules: recursive
       - name: Fetch Git tags # NOTE: workaround for https://github.com/actions/checkout/issues/290
         shell: bash
         run: git fetch --tags --force
@@ -266,6 +269,7 @@ jobs:
   #     - uses: actions/checkout@v2
   #       with:
   #         fetch-depth: 500 # NOTE: get long history for git-version crate to correctly compute a version
+  #         submodules: recursive
   #     - name: Fetch Git tags # NOTE: workaround for https://github.com/actions/checkout/issues/290
   #       shell: bash
   #       run: git fetch --tags --force
@@ -341,6 +345,8 @@ jobs:
           echo "---- cleanup identity"
           ssh-add -D
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
       - name: Publish to crates.io
