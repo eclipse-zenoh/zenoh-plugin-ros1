@@ -138,7 +138,7 @@ r#"--client_bridging_mode=[String] \
         .arg(Arg::from_usage(
 r#"--subscriber_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
 Custom bridging mode overrides the global one.
-Format: {"topic", "mode"}
+Format: {"topic1":"mode", "topic2":"mode"}
 Example: {\"/my/topic1\":\"lazy_auto\",\"/my/topic2\":\"auto\"}
 where
 - topic: ROS1 topic name
@@ -148,7 +148,7 @@ The default is empty'"#
         .arg(Arg::from_usage(
 r#"--publisher_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
 Custom bridging mode overrides the global one.
-Format: {"topic", "mode"}
+Format: {"topic1":"mode", "topic2":"mode"}
 Example: {\"/my/topic1\":\"lazy_auto\",\"/my/topic2\":\"auto\"}
 where
 - topic: ROS1 topic name
@@ -158,7 +158,7 @@ The default is empty'"#
         .arg(Arg::from_usage(
 r#"--service_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
 Custom bridging mode overrides the global one.
-Format: {"topic", "mode"}
+Format: {"topic1":"mode", "topic2":"mode"}
 Example: {\"/my/topic1\":\"lazy_auto\",\"/my/topic2\":\"auto\"}
 where
 - topic: ROS1 topic name
@@ -168,7 +168,7 @@ The default is empty'"#
         .arg(Arg::from_usage(
 r#"--client_topic_custom_bridging_mode=[JSON]   'A JSON Map describing custom bridging modes for particular topics.
 Custom bridging mode overrides the global one.
-Format: {"topic", "mode"}
+Format: {"topic1":"mode", "topic2":"mode"}
 Example: {\"/my/topic1\":\"auto\",\"/my/topic2\":\"auto\"}
 where
 - topic: ROS1 topic name

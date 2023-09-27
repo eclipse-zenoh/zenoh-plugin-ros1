@@ -12,6 +12,7 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use async_std::prelude::FutureExt;
 use strum_macros::Display;
 use zenoh::prelude::SplitBuffer;
 use zenoh_core::SyncResolve;
@@ -22,15 +23,16 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering::*},
         Arc,
     },
+    time::Duration,
 };
 
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     bridging_mode::BridgingMode,
     environment::Environment,
     test_helpers::{
-        BridgeChecker, Publisher, ROS1Client, ROS1Publisher, ROS1Service, ROS1Subscriber,
-        ROSEnvironment, RunningBridge, Subscriber, TestParams, ZenohPublisher, ZenohQuery,
-        ZenohQueryable, ZenohSubscriber,
+        self, wait_async_fn, BridgeChecker, Publisher, ROS1Client, ROS1Publisher, ROS1Service,
+        ROS1Subscriber, ROSEnvironment, RunningBridge, Subscriber, TestParams, ZenohPublisher,
+        ZenohQuery, ZenohQueryable, ZenohSubscriber,
     },
 };
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
@@ -234,13 +236,13 @@ impl PingPong {
         let rpub = ros1_pub.clone();
         let zenoh_sub = backend
             .make_zenoh_subscriber(key, move |msg| {
+                c.fetch_add(1, Relaxed);
                 let data = msg.value.payload.contiguous().to_vec();
                 debug!(
                     "PingPong: transferring {} bytes from Zenoh to ROS1!",
                     data.len()
                 );
                 rpub.data.send(rosrust::RawMessage(data)).unwrap();
-                c.fetch_add(1, Relaxed);
             })
             .await;
 
@@ -268,12 +270,12 @@ impl PingPong {
         let c = cycles.clone();
         let zpub = zenoh_pub.clone();
         let ros1_sub = backend.make_ros_subscriber(key, move |msg: rosrust::RawMessage| {
+            c.fetch_add(1, Relaxed);
             debug!(
                 "PingPong: transferring {} bytes from ROS1 to Zenoh!",
                 msg.0.len()
             );
             zpub.put(msg.0).res_sync().unwrap();
-            c.fetch_add(1, Relaxed);
         });
 
         PingPong {
@@ -289,17 +291,28 @@ impl PingPong {
 
     async fn start(&self) {
         self.wait_for_pub_sub_ready().await;
-        self.start_ping_pong().await;
+        assert!(self.start_ping_pong().await);
     }
 
-    async fn start_ping_pong(&self) {
+    async fn start_ping_pong(&self) -> bool {
         debug!("Starting ping-pong!");
         let mut data = Vec::new();
         data.reserve(TestParams::data_size() as usize);
         for i in 0..TestParams::data_size() {
             data.push((i % 255) as u8);
         }
-        self.pub_sub.publisher.put(data.clone());
+
+        async {
+            while {
+                self.pub_sub.publisher.put(data.clone());
+                !wait_async_fn(|| self.cycles.load(Relaxed) > 0, Duration::from_secs(5)).await
+            } {
+                debug!("Restarting ping-pong!");
+            }
+        }
+        .timeout(Duration::from_secs(30))
+        .await
+        .is_ok()
     }
 
     async fn check_pps(&self, pps_measurements: u32) {
@@ -319,8 +332,8 @@ impl PingPong {
         let mut duration: u64 = 0;
 
         self.cycles.store(0, Relaxed);
-        while !(result > 0.0 || duration >= 10000) {
-            async_std::task::sleep(core::time::Duration::from_millis(duration_milliseconds)).await;
+        while !(result > 0.0 || duration >= 30000) {
+            async_std::task::sleep(Duration::from_millis(duration_milliseconds)).await;
             duration += duration_milliseconds;
             result += self.cycles.load(Relaxed) as f64;
         }
@@ -330,32 +343,14 @@ impl PingPong {
 
     async fn wait_for_pub_sub_ready(&self) {
         assert!(
-            Self::wait(
-                move || { self.pub_sub.publisher.ready() && self.pub_sub.subscriber.ready() },
-                core::time::Duration::from_secs(30)
+            test_helpers::wait_async(
+                || async {
+                    self.pub_sub.publisher.ready().await && self.pub_sub.subscriber.ready()
+                },
+                Duration::from_secs(30)
             )
             .await
         );
-        async_std::task::sleep(time::Duration::from_secs(1)).await;
-    }
-
-    async fn wait<Waiter>(waiter: Waiter, timeout: core::time::Duration) -> bool
-    where
-        Waiter: Fn() -> bool,
-    {
-        let cycles = 1000;
-        let micros = timeout.as_micros() / cycles;
-
-        for _i in 0..cycles {
-            async_std::task::sleep(core::time::Duration::from_micros(
-                micros.try_into().unwrap(),
-            ))
-            .await;
-            if waiter() {
-                return true;
-            }
-        }
-        false
     }
 }
 
@@ -383,6 +378,7 @@ impl TestEnvironment {
         // - performs wait and ensures that everything is properly connected and negotiated within the bridge
         async_std::task::block_on(bridge.assert_ros_ok());
         async_std::task::block_on(bridge.assert_bridge_empy());
+        async_std::task::block_on(checker.assert_zenoh_peers(1));
 
         TestEnvironment {
             bridge,

@@ -13,7 +13,7 @@
 #
 name: CI
 
-on:
+on:  
   push:
     branches: ["**"]
   pull_request:
@@ -32,6 +32,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -50,9 +52,18 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
+          args: -- -D warnings
+        env:
+          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+      - name: Clippy All targets
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
           args: --all-targets -- -D warnings
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
 
   test:
     name: Run tests on ${{ matrix.os }}
@@ -64,6 +75,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
       - name: Install latest Rust toolchain
         uses: actions-rs/toolchain@v1

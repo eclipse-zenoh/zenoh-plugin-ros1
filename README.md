@@ -18,11 +18,43 @@ Check the website [zenoh.io](http://zenoh.io) and the [roadmap](https://github.c
 -------------------------------
 # ROS1 to Zenoh Bridge plugin
 
+:point_right: **Install latest release:** see [below](#How-to-install-it)
+
+:point_right: **Docker image:** see [below](#Docker-image)
+
+:point_right: **Build "master" branch:** see [below](#How-to-build-it)
+
 ## Background
 ROS1 is a well-known mature platform for building robotic systems. Despite the fact that next generation of ROS - ROS2 is released long time ago, many developers still prefer using ROS1. In order to integrate ROS1 systems to Zenoh infrastructure, [as it was done for DDS/ROS2](https://github.com/eclipse-zenoh/zenoh-plugin-dds), ROS1 to Zenoh Bridge was designed.
 
 ## How to install it
-Currently, only out-of-source build is supported.
+
+To install the latest release of either the ROS1 plugin for the Zenoh router, either the `zenoh-bridge-ros1` standalone executable, you can do as follows:
+
+### Manual installation (all platforms)
+
+All release packages can be downloaded from:  
+ - https://download.eclipse.org/zenoh/zenoh-plugin-ros1/latest/   
+
+Each subdirectory has the name of the Rust target. See the platforms each target corresponds to on https://doc.rust-lang.org/stable/rustc/platform-support.html
+
+Choose your platform and download:
+ - the `zenoh-plugin-ros1-<version>-<platform>.zip` file for the plugin.  
+   Then unzip it in the same directory than `zenohd` or to any directory where it can find the plugin library (e.g. /usr/lib)
+ - the `zenoh-bridge-ros1-<version>-<platform>.zip` file for the standalone executable.  
+   Then unzip it where you want, and run the extracted `zenoh-bridge-ros1` binary.
+
+### Linux Debian
+
+Add Eclipse Zenoh private repository to the sources list:
+
+```bash
+echo "deb [trusted=yes] https://download.eclipse.org/zenoh/debian-repo/ /" | sudo tee -a /etc/apt/sources.list > /dev/null
+sudo apt update
+```
+Then either:
+  - install the plugin with: `sudo apt install zenoh-plugin-ros1`.
+  - install the standalone executable with: `sudo apt install zenoh-bridge-ros1`.
 
 ## How to build it
 
@@ -69,6 +101,13 @@ $ cargo build --release -p zenoh-bridge-ros1
 ```
 The **`zenoh-bridge-ros1`** binary will be generated in the `target/release` sub-directory.
 
+## Docker image
+The **`zenoh-bridge-ros1`** standalone executable is also available as a [Docker images](https://hub.docker.com/r/eclipse/zenoh-bridge-ros1/tags?page=1&ordering=last_updated) for both amd64 and arm64. To get it, do:
+  - `docker pull eclipse/zenoh-bridge-ros1:latest` for the latest release
+  - `docker pull eclipse/zenoh-bridge-ros1:master` for the master branch version (nightly build)
+
+Usage: **`docker run --init --net host eclipse/zenoh-bridge-ros1`**  
+It supports the same command line arguments than the `zenoh-bridge-ros1` (see below or check with `-h` argument).
 
 ## A quick test with built-in examples
 
@@ -80,60 +119,35 @@ $ sudo apt install -y ros-base
 There is a set of example utilities illustarating bridge in operation.
 Here is a description on how to configure the following schema:
 ```
-_____________________________                               ________________________________
-|                           |                               |                              |
-|        rosmaster_1        |                               |         rosmaster_2          |
-|                           |                               |                              |
-| ros1_publisher -> ros_to_zenoh_bridge -> zenoh -> ros_to_zenoh_bridge -> ros1_subscriber |
-|___________________________|                               |______________________________|
+_____________________________                           ________________________________
+|                           |                           |                              |
+|        rosmaster_1        |                           |         rosmaster_2          |
+|                           |                           |                              |
+| ros1_publisher -> zenoh-bridge-ros1 -> zenoh -> zenoh-bridge-ros1 -> ros1_subscriber |
+|___________________________|                           |______________________________|
 ```
 
-1. Build everything:
 ```bash
-$ cargo build --release -p zenoh-bridge-ros1
-$ cargo test --release --no-run
+# build the bridge from source
+cargo build -p zenoh-bridge-ros1
+cd target/debug/
+# terminal 1:
+./zenoh-bridge-ros1 --with_rosmaster true --ros_master_uri http://localhost:10000
+# terminal 2:
+./zenoh-bridge-ros1 --with_rosmaster true --ros_master_uri http://localhost:10001
+# terminal 3:
+ROS_MASTER_URI=http://localhost:10000 rostopic pub /topic std_msgs/String -r 1 test_message
+# terminal 4:
+ROS_MASTER_URI=http://localhost:10001 rostopic echo /topic
 ```
-There are three executables we'll need:
-```
-target/release/zenoh-bridge-ros1             // bridge executable
-target/release/examples/ros1_standalone_sub  // ros1 test subscriber
-target/release/examples/ros1_standalone_pub  // ros1 test publisher
-```
-
-2. Start first bridge together with rosmaster_1:
-```bash
-$ ./target/release/zenoh-bridge-ros1 --with_rosmaster true --ros_master_uri http://localhost:10000
-```
-At this step we start ROS1 master together with bridge isolated on port 10000 
-
-3. Start second bridge together with rosmaster_2:
-```bash
-$ ./target/release/zenoh-bridge-ros1 --with_rosmaster true --ros_master_uri http://localhost:10001
-```
-At this step we start ROS1 master together with bridge isolated on port 10001
-
-4. Start ros1_subscriber:
-```bash
-$ ROS_MASTER_URI=http://localhost:10000 ./target/release/examples/ros1_standalone_sub
-```
-The subscriber will work with ROS1 isolated on port 10000
-
-5. Start ros1_publisher:
-```bash
-$ ROS_MASTER_URI=http://localhost:10001 ./target/release/examples/ros1_standalone_pub
-```
-The publisher will work with ROS1 isolated on port 10001
 
 Once completed, you will see the following exchange between ROS1 publisher and subscriber:
-<img src="pubsub.png">
-
-
+<img src="ros_pubsub.png">
 
 ## Implementation
-Currently, ROS1 to Zenoh Bridge is based on [rosrust library fork](https://github.com/ZettaScaleLabs/rosrust). Some limitations are applied due to rosrust's implementation details, and we are targeting to re-engineer rosrust to overcome this
+Currently, ROS1 to Zenoh Bridge is based on [rosrust library fork](https://github.com/ZettaScaleLabs/rosrust). Some limitations are applied due to rosrust's implementation details, and we are re-engineering rosrust to overcome this
 
 ## Limitations
 - all topic names are bridged as-is
-- all topic datatypes and md5 sums are bridged as "*" wildcard and may not work with some ROS1 client implementations
 - there is a performance impact coming from rosrust
 

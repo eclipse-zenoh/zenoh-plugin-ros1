@@ -22,33 +22,37 @@ use multiset::HashMultiSet;
 use zenoh::{prelude::keyexpr, OpenBuilder, Session};
 use zenoh_core::{AsyncResolve, SyncResolve};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
-    discovery,
+    discovery::{self, LocalResources, RemoteResources},
     test_helpers::{BridgeChecker, IsolatedConfig},
     topic_descriptor::TopicDescriptor,
 };
 
-const TIMEOUT: Duration = Duration::from_secs(10);
+const TIMEOUT: Duration = Duration::from_secs(60);
 
 fn session_builder(cfg: &IsolatedConfig) -> OpenBuilder<zenoh::config::Config> {
     zenoh::open(cfg.peer())
 }
 
-fn discovery_builder(session: Arc<Session>) -> discovery::DiscoveryBuilder {
-    discovery::DiscoveryBuilder::new("*".to_string(), "*".to_string(), session)
+fn remote_resources_builder(session: Arc<Session>) -> discovery::RemoteResourcesBuilder {
+    discovery::RemoteResourcesBuilder::new("*".to_string(), "*".to_string(), session)
 }
 
 fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
     session_builder(cfg).res_sync().unwrap().into_arc()
 }
 
-fn make_discovery(session: Arc<Session>) -> discovery::Discovery {
-    async_std::task::block_on(discovery_builder(session).build())
+fn make_local_resources(session: Arc<Session>) -> LocalResources {
+    LocalResources::new("*".to_owned(), "*".to_owned(), session)
+}
+fn make_remote_resources(session: Arc<Session>) -> RemoteResources {
+    async_std::task::block_on(remote_resources_builder(session).build())
 }
 
 #[test]
 fn discovery_instantination_one_instance() {
     let session = make_session(&IsolatedConfig::default());
-    let _discovery = make_discovery(session);
+    let _remote = make_remote_resources(session.clone());
+    let _local = make_local_resources(session);
 }
 
 #[test]
@@ -61,7 +65,9 @@ fn discovery_instantination_many_instances() {
 
     let mut discoveries = Vec::new();
     for session in sessions.iter() {
-        discoveries.push(make_discovery(session.clone()));
+        let remote = make_remote_resources(session.clone());
+        let local = make_local_resources(session.clone());
+        discoveries.push((remote, local));
     }
 }
 
@@ -81,7 +87,10 @@ impl DiscoveryCollector {
         }
     }
 
-    pub fn use_builder(&self, builder: discovery::DiscoveryBuilder) -> discovery::DiscoveryBuilder {
+    pub fn use_builder(
+        &self,
+        builder: discovery::RemoteResourcesBuilder,
+    ) -> discovery::RemoteResourcesBuilder {
         let p = self.publishers.clone();
         let s = self.subscribers.clone();
         let srv = self.services.clone();
@@ -237,7 +246,7 @@ impl State {
 }
 
 async fn test_state_transition(
-    src_discovery: &discovery::Discovery,
+    local_resources: &LocalResources,
     rcv: &DiscoveryCollector,
     state: &State,
 ) {
@@ -245,37 +254,22 @@ async fn test_state_transition(
 
     let mut _pub_entities = Vec::new();
     for publisher in publishers.iter() {
-        _pub_entities.push(
-            src_discovery
-                .local_resources()
-                .declare_publisher(publisher)
-                .await,
-        );
+        _pub_entities.push(local_resources.declare_publisher(publisher).await);
     }
 
     let mut _sub_entities = Vec::new();
     for subscriber in subscribers.iter() {
-        _sub_entities.push(
-            src_discovery
-                .local_resources()
-                .declare_subscriber(subscriber)
-                .await,
-        );
+        _sub_entities.push(local_resources.declare_subscriber(subscriber).await);
     }
 
     let mut _srv_entities = Vec::new();
     for service in services.iter() {
-        _srv_entities.push(
-            src_discovery
-                .local_resources()
-                .declare_service(service)
-                .await,
-        );
+        _srv_entities.push(local_resources.declare_service(service).await);
     }
 
     let mut _cl_entities = Vec::new();
     for client in clients.iter() {
-        _cl_entities.push(src_discovery.local_resources().declare_client(client).await);
+        _cl_entities.push(local_resources.declare_client(client).await);
     }
 
     rcv.wait_publishers(publishers).await;
@@ -288,17 +282,17 @@ async fn run_discovery(scenario: Vec<State>) {
     let cfg = IsolatedConfig::default();
 
     let src_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
-    let src_discovery = discovery_builder(src_session).build().await;
+    let local_resources = make_local_resources(src_session.clone());
 
     let rcv = DiscoveryCollector::new();
     let rcv_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
     let _rcv_discovery = rcv
-        .use_builder(discovery_builder(rcv_session))
+        .use_builder(remote_resources_builder(rcv_session))
         .build()
         .await;
 
     for scene in scenario {
-        test_state_transition(&src_discovery, &rcv, &scene)
+        test_state_transition(&local_resources, &rcv, &scene)
             .timeout(TIMEOUT)
             .await
             .expect("Timeout waiting state transition!");

@@ -25,12 +25,89 @@
       // ros_name: "ros1_to_zenoh_bridge",
 
       ////
-      //// ros_bridging_mode: When to bridge topics:
-      //// "auto"(default) - bridge topics once they are declared locally
-      //// "lazy" - bridge topics once they are declared both locally and required remotely through discovery
-      //// Warn: this setting is ignored for local ROS1 clients, as they require a tricky discovery mechanism  
+      //// with_rosmaster: An option wether the bridge should run it's own rosmaster process, the default is "false" 
       ////
-      // ros_bridging_mode: "auto",
+      // with_rosmaster: "false",
+
+      ////
+      //// subscriber_bridging_mode: Global subscriber's topic bridging mode. Accepted values:
+      //// - "auto"(default) - bridge topics once they are declared locally or discovered remotely
+      //// - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
+      //// - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
+      // subscriber_bridging_mode: "auto",
+
+      ////
+      //// publisher_bridging_mode: Global publisher's topic bridging mode. Accepted values:
+      //// - "auto"(default) - bridge topics once they are declared locally or discovered remotely
+      //// - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
+      //// - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
+      // publisher_bridging_mode: "auto",
+
+      ////
+      //// service_bridging_mode: Global service's topic bridging mode. Accepted values:
+      //// - "auto"(default) - bridge topics once they are declared locally or discovered remotely
+      //// - "lazy_auto" - bridge topics once they are both declared locally and discovered remotely
+      //// - "disabled" - never bridge topics. This setting will also suppress the topic discovery."#
+      // service_bridging_mode: "auto",
+
+      ////
+      //// client_bridging_mode: Mode of client's topic bridging. Accepted values:
+      //// - "auto" - bridge topics once they are discovered remotely
+      //// - "disabled"(default) - never bridge topics. This setting will also suppress the topic discovery.
+      //// NOTE: there are some pecularities on how ROS1 handles clients:
+      //// - ROS1 doesn't provide any client discovery mechanism
+      //// - ROS1 doesn't allow multiple services on the same topic
+      //// Due to this, client's bridging works differently compared to pub\sub bridging:
+      //// - lazy bridging mode is not available as there is no way to discover local ROS1 clients
+      //// - client bridging is disabled by default, as it may brake the local ROS1 system if it intends to have client and service interacting on the same topic  
+      //// In order to use client bridging, you have two options:
+      //// - globally select auto bridging mode (with caution!) with this option
+      //// - bridge specific topics using 'client_topic_custom_bridging_mode' option (with a little bit less caution!)"#
+      // client_bridging_mode: "disabled",
+
+      //// 
+      //// subscriber_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
+      //// Custom bridging mode overrides the global one.
+      //// Format: {"topic1":"mode", "topic2":"mode"}
+      //// Example: {"/my/topic1":"lazy_auto","/my/topic2":"auto"}
+      //// where
+      //// - topic: ROS1 topic name
+      //// - mode (auto/lazy_auto/disabled) as described above
+      //// The default is empty
+      // subscriber_topic_custom_bridging_mode: ""
+
+      //// 
+      //// publisher_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
+      //// Custom bridging mode overrides the global one.
+      //// Format: {"topic1":"mode", "topic2":"mode"}
+      //// Example: {"/my/topic1":"lazy_auto","/my/topic2":"auto"}
+      //// where
+      //// - topic: ROS1 topic name
+      //// - mode (auto/lazy_auto/disabled) as described above
+      //// The default is empty
+      // publisher_topic_custom_bridging_mode: ""
+
+      //// 
+      //// service_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
+      //// Custom bridging mode overrides the global one.
+      //// Format: {"topic1":"mode", "topic2":"mode"}
+      //// Example: {"/my/topic1":"lazy_auto","/my/topic2":"auto"}
+      //// where
+      //// - topic: ROS1 topic name
+      //// - mode (auto/lazy_auto/disabled) as described above
+      //// The default is empty
+      // service_topic_custom_bridging_mode: ""
+
+      //// 
+      //// client_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
+      //// Custom bridging mode overrides the global one.
+      //// Format: {"topic1":"mode", "topic2":"mode"}
+      //// Example: {"/my/topic1":"auto","/my/topic2":"auto"}
+      //// where
+      //// - topic: ROS1 topic name
+      //// - mode (auto/disabled) as described above
+      //// The default is empty
+      // client_topic_custom_bridging_mode: ""
 
       ////
       //// ros_master_polling_interval: An interval how to poll the ROS1 master for status
@@ -41,11 +118,6 @@
       //// The string format is [0-9]+(ns|us|ms|[smhdwy])
       ////
       // ros_master_polling_interval: "100ms",
-
-      ////
-      //// with_rosmaster: An option wether the bridge should run it's own rosmaster process, the default is "false" 
-      ////
-      // with_rosmaster: "false",
     },
 
     ////
