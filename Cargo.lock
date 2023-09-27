@@ -3913,7 +3913,6 @@ dependencies = [
  "zenoh",
  "zenoh-core",
  "zenoh-ext",
- "zenoh-plugin-ros1",
  "zenoh-plugin-trait",
 ]
 

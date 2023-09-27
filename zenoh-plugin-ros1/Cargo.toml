@@ -28,8 +28,8 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 no_mangle = ["zenoh-plugin-trait/no_mangle"]
-default = ["no_mangle"]
 test = []
+default = ["no_mangle", "test"] # TODO: https://zettascale.atlassian.net/browse/ZEN-291
 
 [dependencies]
 atoi = { workspace = true }
@@ -59,7 +59,8 @@ xml-rpc = { workspace = true }
 serial_test = "0.10.0"
 multiset = "0.0.5"
 ctrlc = { workspace = true }
-zenoh-plugin-ros1 = { path = ".", features = ["test"]}
+# TODO: https://zettascale.atlassian.net/browse/ZEN-291
+# zenoh-plugin-ros1 = { path = ".", features = ["test"]}
 
 [dependencies.async-std]
 version = "=1.12.0"
