@@ -51,9 +51,9 @@ zenoh = { workspace = true }
 zenoh-ext = { workspace = true }
 zenoh-core = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
-rosrust = { workspace = true }
 hex = { workspace = true }
 xml-rpc = { workspace = true }
+rosrust = { path="../rosrust/rosrust" }
 
 [dev-dependencies]
 serial_test = "0.10.0"
