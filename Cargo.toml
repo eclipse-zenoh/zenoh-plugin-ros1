@@ -21,7 +21,7 @@ members = [
 exclude = [ "rosrust" ]
 
 [workspace.package]
-version = "0.10.0-dev"
+version = "0.10.0-rc"
 authors = [
     "Dmitrii Bannov <dmitrii.bannov@zettascale.tech>",
     "Luca Cominardi <luca@zettascale.tech>"
