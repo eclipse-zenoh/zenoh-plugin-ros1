@@ -29,9 +29,9 @@ jobs:
         with:
           submodules: recursive
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          components: rustfmt, clippy
+        run: |
+          rustup show
+          rustup component add rustfmt clippy
       - name: Code format check
         uses: actions-rs/cargo@v1
         with:
@@ -166,12 +166,9 @@ jobs:
           esac
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.job.target }}
-          override: true
-          profile: minimal
+        run: |
+          rustup show
+          rustup target add ${{ matrix.job.target }}
 
       - name: zenoh-plugin-ros1 > Build
         uses: actions-rs/cargo@v1
