@@ -29,6 +29,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 no_mangle = ["zenoh-plugin-trait/no_mangle"]
 test = []
+stats = ["zenoh/stats"]
 default = ["no_mangle", "test"] # TODO: https://zettascale.atlassian.net/browse/ZEN-291
 
 [dependencies]
