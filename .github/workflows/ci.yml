@@ -78,8 +78,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install latest Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust toolchain
+        run: rustup show
 
       - name: Build
         uses: actions-rs/cargo@v1
