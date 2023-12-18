@@ -283,7 +283,7 @@ jobs:
           unzip PACKAGES/aarch64-unknown-linux-musl/zenoh-bridge-ros1-${{ needs.checks.outputs.PKG_VERSION }}-aarch64-unknown-linux-musl.zip -d docker/linux/arm64/
           tree docker
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
       - name: Docker meta - set tags and labels
         id: meta
         uses: docker/metadata-action@v3
