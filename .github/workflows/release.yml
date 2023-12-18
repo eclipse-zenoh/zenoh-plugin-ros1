@@ -25,7 +25,7 @@ jobs:
     name: Code checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Install Rust toolchain
@@ -136,7 +136,7 @@ jobs:
           # - { target: x86_64-pc-windows-gnu         , arch: win64 , os: windows-2019                  }
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 500 # NOTE: get long history for git-version crate to correctly compute a version
           submodules: recursive
@@ -263,7 +263,7 @@ jobs:
     needs: [checks, builds]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 500 # NOTE: get long history for git-version crate to correctly compute a version
           submodules: recursive
