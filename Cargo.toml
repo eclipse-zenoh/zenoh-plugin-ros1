@@ -47,10 +47,10 @@ rand = "0.8.5"
 strum = "0.24"
 strum_macros = "0.24"
 duration-string = "0.3.0"
-zenoh = { version = "0.10.1-rc", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "release-0.10.1-rc" }
-zenoh-ext = { version = "0.10.1-rc", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "release-0.10.1-rc" }
-zenoh-core = { version = "0.10.1-rc", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "release-0.10.1-rc" }
-zenoh-plugin-trait = { version = "0.10.1-rc", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "release-0.10.1-rc", default-features = false }
+zenoh = { version = "0.10.1-rc" }
+zenoh-ext = { version = "0.10.1-rc" }
+zenoh-core = { version = "0.10.1-rc" }
+zenoh-plugin-trait = { version = "0.10.1-rc", default-features = false }
 flume = "0.11"
 hex = "0.4.3"
 xml-rpc = "0.0.12"
