@@ -30,7 +30,10 @@ crate-type = ["cdylib", "rlib"]
 no_mangle = ["zenoh-plugin-trait/no_mangle"]
 test = []
 stats = ["zenoh/stats"]
-default = ["no_mangle", "test"] # TODO: https://zettascale.atlassian.net/browse/ZEN-291
+default = [
+    "no_mangle",
+    "test",
+] # TODO: https://zettascale.atlassian.net/browse/ZEN-291
 
 [dependencies]
 atoi = { workspace = true }
@@ -54,7 +57,7 @@ zenoh-core = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
 hex = { workspace = true }
 xml-rpc = { workspace = true }
-rosrust = { path="../rosrust/rosrust" }
+rosrust = { path = "../rosrust/rosrust" }
 
 [dev-dependencies]
 serial_test = "0.10.0"
@@ -76,4 +79,4 @@ maintainer = "zenoh-dev@eclipse.org"
 copyright = "2017, 2022 ZettaScale Technology Inc."
 section = "net"
 license-file = ["../LICENSE", "0"]
-depends = "zenohd (=0.11.0-dev)"
+depends = "zenohd (=0.11.0-dev-1)"
