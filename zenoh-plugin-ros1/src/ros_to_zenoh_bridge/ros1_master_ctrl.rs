@@ -18,7 +18,7 @@ use async_std::{
 };
 use atoi::atoi;
 use log::error;
-use zenoh::plugins::ZResult;
+use zenoh_core::Result as ZResult;
 use zenoh_core::{bail, zasynclock, zerror};
 
 use crate::ros_to_zenoh_bridge::environment::Environment;

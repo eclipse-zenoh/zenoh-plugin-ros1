@@ -86,8 +86,6 @@ $ git clone https://github.com/eclipse-zenoh/zenoh-plugin-ros1.git
 $ cd zenoh-plugin-ros1
 ```
 
-> :warning: **WARNING** :warning: : On Linux, don't use `cargo build` command without specifying a package with `-p`. Building both `zenoh-plugin-ros1` (plugin library) and `zenoh-bridge-ros1` (standalone executable) together will lead to a `multiple definition of `load_plugin'` error at link time. See [#117](https://github.com/eclipse-zenoh/zenoh-plugin-dds/issues/117#issuecomment-1439694331) for explanations.
-
 You can then choose between building the zenoh bridge for ROS1:
 - as a plugin library that can be dynamically loaded by the zenoh router (`zenohd`):
 ```bash

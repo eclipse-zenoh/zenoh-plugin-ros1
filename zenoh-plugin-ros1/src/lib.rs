@@ -13,23 +13,17 @@
 //
 #![recursion_limit = "1024"]
 
-use git_version::git_version;
 use ros_to_zenoh_bridge::environment::Environment;
 use ros_to_zenoh_bridge::ros1_master_ctrl::Ros1MasterCtrl;
 use ros_to_zenoh_bridge::Ros1ToZenohBridge;
-use std::sync::Arc;
+use zenoh_plugin_trait::{Plugin, plugin_version, plugin_long_version, PluginControl};
 use std::time::Duration;
-use zenoh::plugins::{Plugin, RunningPluginTrait, ValidationFunction, ZenohPlugin};
+use zenoh::plugins::{RunningPluginTrait, ZenohPlugin, RunningPlugin};
 use zenoh::prelude::r#async::*;
 use zenoh::runtime::Runtime;
-use zenoh_core::{bail, Result as ZResult};
+use zenoh::Result as ZResult;
 
 pub mod ros_to_zenoh_bridge;
-
-pub const GIT_VERSION: &str = git_version!(prefix = "v", cargo_prefix = "v");
-lazy_static::lazy_static! {
-    pub static ref LONG_VERSION: String = format!("{} built with {}", GIT_VERSION, env!("RUSTC_VERSION"));
-}
 
 // The struct implementing the ZenohPlugin and ZenohPlugin traits
 pub struct Ros1Plugin {}
@@ -40,14 +34,16 @@ zenoh_plugin_trait::declare_plugin!(Ros1Plugin);
 impl ZenohPlugin for Ros1Plugin {}
 impl Plugin for Ros1Plugin {
     type StartArgs = Runtime;
-    type RunningPlugin = zenoh::plugins::RunningPlugin;
+    type Instance = RunningPlugin;
 
     // A mandatory const to define, in case of the plugin is built as a standalone executable
-    const STATIC_NAME: &'static str = "ros1";
+    const DEFAULT_NAME: &'static str = "ros1";
+    const PLUGIN_VERSION: &'static str = plugin_version!();
+    const PLUGIN_LONG_VERSION: &'static str = plugin_long_version!();
 
     // The first operation called by zenohd on the plugin
-    fn start(name: &str, runtime: &Self::StartArgs) -> ZResult<Self::RunningPlugin> {
-        let config = runtime.config.lock();
+    fn start(name: &str, runtime: &Self::StartArgs) -> ZResult<Self::Instance> {
+        let config = runtime.config().lock();
         let self_cfg = config
             .plugin(name)
             .ok_or("No plugin in the config!")?
@@ -66,41 +62,25 @@ impl Plugin for Ros1Plugin {
         drop(config);
 
         // return a RunningPlugin to zenohd
-        Ok(Box::new(RunningPlugin::new(runtime)?))
+        Ok(Box::new(Ros1PluginInstance::new(runtime)?))
     }
+
 }
 
 // The RunningPlugin struct implementing the RunningPluginTrait trait
-struct RunningPlugin {
+struct Ros1PluginInstance {
     _bridge: Ros1ToZenohBridge,
 }
-impl RunningPluginTrait for RunningPlugin {
-    // Operation returning a ValidationFunction(path, old, new)-> ZResult<Option<serde_json::Map<String, serde_json::Value>>>
-    // this function will be called each time the plugin's config is changed via the zenohd admin space
-    fn config_checker(&self) -> ValidationFunction {
-        Arc::new(move |_path, _old, _new| {
-            bail!("Reconfiguration at runtime is not allowed!");
-        })
-    }
-
-    // Function called on any query on admin space that matches this plugin's sub-part of the admin space.
-    // Thus the plugin can reply its contribution to the global admin space of this zenohd.
-    fn adminspace_getter<'a>(
-        &'a self,
-        _selector: &'a Selector<'a>,
-        _plugin_status_key: &str,
-    ) -> ZResult<Vec<zenoh::plugins::Response>> {
-        Ok(Vec::new())
-    }
-}
-impl Drop for RunningPlugin {
+impl PluginControl for Ros1PluginInstance {}
+impl RunningPluginTrait for Ros1PluginInstance {}
+impl Drop for Ros1PluginInstance {
     fn drop(&mut self) {
         if Environment::with_rosmaster().get() {
             async_std::task::block_on(Ros1MasterCtrl::without_ros1_master());
         }
     }
 }
-impl RunningPlugin {
+impl Ros1PluginInstance {
     fn new(runtime: &Runtime) -> ZResult<Self> {
         let bridge: ZResult<Ros1ToZenohBridge> = async_std::task::block_on(async {
             if Environment::with_rosmaster().get() {
