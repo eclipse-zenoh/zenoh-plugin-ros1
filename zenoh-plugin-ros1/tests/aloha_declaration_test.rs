@@ -20,8 +20,8 @@ use std::{
 };
 
 use async_std::{prelude::FutureExt, sync::Mutex};
-use zenoh::{plugins::ZResult, prelude::OwnedKeyExpr, OpenBuilder, Session};
-use zenoh_core::{AsyncResolve, SyncResolve};
+use zenoh::{prelude::OwnedKeyExpr, OpenBuilder, Session};
+use zenoh_core::{AsyncResolve, SyncResolve, Result as ZResult};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
 };

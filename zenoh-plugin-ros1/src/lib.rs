@@ -29,6 +29,7 @@ pub mod ros_to_zenoh_bridge;
 pub struct Ros1Plugin {}
 
 // declaration of the plugin's VTable for zenohd to find the plugin's functions to be called
+#[cfg(feature = "no_mangle")]
 zenoh_plugin_trait::declare_plugin!(Ros1Plugin);
 
 impl ZenohPlugin for Ros1Plugin {}
