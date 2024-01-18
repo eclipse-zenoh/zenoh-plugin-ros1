@@ -16,12 +16,12 @@
 use ros_to_zenoh_bridge::environment::Environment;
 use ros_to_zenoh_bridge::ros1_master_ctrl::Ros1MasterCtrl;
 use ros_to_zenoh_bridge::Ros1ToZenohBridge;
-use zenoh_plugin_trait::{Plugin, plugin_version, plugin_long_version, PluginControl};
 use std::time::Duration;
-use zenoh::plugins::{RunningPluginTrait, ZenohPlugin, RunningPlugin};
+use zenoh::plugins::{RunningPlugin, RunningPluginTrait, ZenohPlugin};
 use zenoh::prelude::r#async::*;
 use zenoh::runtime::Runtime;
 use zenoh::Result as ZResult;
+use zenoh_plugin_trait::{plugin_long_version, plugin_version, Plugin, PluginControl};
 
 pub mod ros_to_zenoh_bridge;
 
@@ -65,7 +65,6 @@ impl Plugin for Ros1Plugin {
         // return a RunningPlugin to zenohd
         Ok(Box::new(Ros1PluginInstance::new(runtime)?))
     }
-
 }
 
 // The RunningPlugin struct implementing the RunningPluginTrait trait

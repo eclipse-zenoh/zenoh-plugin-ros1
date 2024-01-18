@@ -21,7 +21,7 @@ use std::{
 
 use async_std::{prelude::FutureExt, sync::Mutex};
 use zenoh::{prelude::OwnedKeyExpr, OpenBuilder, Session};
-use zenoh_core::{AsyncResolve, SyncResolve, Result as ZResult};
+use zenoh_core::{AsyncResolve, Result as ZResult, SyncResolve};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
 };

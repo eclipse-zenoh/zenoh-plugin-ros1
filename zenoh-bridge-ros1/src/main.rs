@@ -13,11 +13,11 @@
 //
 use async_std::channel::unbounded;
 use clap::{App, Arg};
-use zenoh_plugin_trait::Plugin;
 use std::str::FromStr;
 use zenoh::config::Config;
 use zenoh::prelude::*;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
+use zenoh_plugin_trait::Plugin;
 
 macro_rules! insert_json5 {
     ($config: expr, $args: expr, $key: expr, if $name: expr) => {
@@ -252,7 +252,10 @@ async fn main() {
     .expect("Error setting Ctrl+C handler");
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("z=info")).init();
-    log::info!("zenoh-bridge-ros1 {}", zenoh_plugin_ros1::Ros1Plugin::PLUGIN_LONG_VERSION);
+    log::info!(
+        "zenoh-bridge-ros1 {}",
+        zenoh_plugin_ros1::Ros1Plugin::PLUGIN_LONG_VERSION
+    );
 
     let config = parse_args();
 
