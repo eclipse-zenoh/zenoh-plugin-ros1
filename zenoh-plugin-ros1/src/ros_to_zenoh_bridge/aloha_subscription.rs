@@ -25,7 +25,8 @@ use async_std::sync::Mutex;
 use flume::Receiver;
 use futures::{join, Future, FutureExt};
 use log::error;
-use zenoh::{plugins::ZResult, prelude::r#async::*};
+use zenoh::prelude::r#async::*;
+use zenoh_core::Result as ZResult;
 
 struct AlohaResource {
     activity: AtomicBool,

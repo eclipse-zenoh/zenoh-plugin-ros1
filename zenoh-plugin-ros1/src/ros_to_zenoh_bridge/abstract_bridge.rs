@@ -17,10 +17,9 @@ use std::sync::Arc;
 use log::{debug, error, info};
 
 use rosrust::RawMessageDescription;
-use zenoh::{
-    plugins::ZResult,
-    prelude::{keyexpr, SplitBuffer},
-};
+use zenoh::buffers::buffer::SplitBuffer;
+use zenoh::key_expr::keyexpr;
+use zenoh_core::Result as ZResult;
 use zenoh_core::{AsyncResolve, SyncResolve};
 
 use super::{

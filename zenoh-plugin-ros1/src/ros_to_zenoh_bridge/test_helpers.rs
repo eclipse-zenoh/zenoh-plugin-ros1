@@ -29,6 +29,7 @@ use zenoh::prelude::OwnedKeyExpr;
 use zenoh::prelude::SplitBuffer;
 use zenoh::sample::Sample;
 use zenoh::Session;
+use zenoh::SessionDeclarations;
 use zenoh_core::{bail, zlock, zresult::ZResult, AsyncResolve, SyncResolve};
 
 use super::discovery::LocalResources;

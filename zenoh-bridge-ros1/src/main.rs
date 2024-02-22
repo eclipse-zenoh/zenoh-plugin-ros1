@@ -17,6 +17,7 @@ use std::str::FromStr;
 use zenoh::config::Config;
 use zenoh::prelude::*;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
+use zenoh_plugin_trait::Plugin;
 
 macro_rules! insert_json5 {
     ($config: expr, $args: expr, $key: expr, if $name: expr) => {
@@ -38,8 +39,8 @@ macro_rules! insert_json5 {
 
 fn parse_args() -> Config {
     let app = App::new("zenoh bridge for ROS1")
-        .version(zenoh_plugin_ros1::GIT_VERSION)
-        .long_version(zenoh_plugin_ros1::LONG_VERSION.as_str())
+        .version(zenoh_plugin_ros1::Ros1Plugin::PLUGIN_VERSION)
+        .long_version(zenoh_plugin_ros1::Ros1Plugin::PLUGIN_LONG_VERSION)
         //
         // zenoh related arguments:
         //
@@ -251,7 +252,10 @@ async fn main() {
     .expect("Error setting Ctrl+C handler");
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("z=info")).init();
-    log::info!("zenoh-bridge-ros1 {}", *zenoh_plugin_ros1::LONG_VERSION);
+    log::info!(
+        "zenoh-bridge-ros1 {}",
+        zenoh_plugin_ros1::Ros1Plugin::PLUGIN_LONG_VERSION
+    );
 
     let config = parse_args();
 
