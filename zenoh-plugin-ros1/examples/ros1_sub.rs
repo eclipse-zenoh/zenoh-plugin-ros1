@@ -12,6 +12,7 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use zenoh::SessionDeclarations;
 use zenoh_core::AsyncResolve;
 
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
