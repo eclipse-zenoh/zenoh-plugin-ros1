@@ -146,18 +146,12 @@ impl RemoteResources {
         F: Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Output = ()> + Unpin + Send>,
     {
         //let discovery_namespace = discovery.discovery_namespace().ok_or("No discovery_namespace present!")?;
-        let datatype_bytes = hex::decode(
-            discovery
-                .data_type()
-                .as_str(),
-        )?;
+        let datatype_bytes = hex::decode(discovery.data_type().as_str())?;
         let datatype = std::str::from_utf8(&datatype_bytes)?;
 
         let md5 = discovery.md5().to_string();
 
-        let resource_class = discovery
-            .resource_class()
-            .to_string();
+        let resource_class = discovery.resource_class().to_string();
         //let bridge_namespace = discovery.bridge_namespace().ok_or("No bridge_namespace present!")?.to_string();
         let topic = discovery.topic().ok_or("No topic present!")?;
 
