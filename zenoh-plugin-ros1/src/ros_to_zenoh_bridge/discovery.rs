@@ -149,16 +149,14 @@ impl RemoteResources {
         let datatype_bytes = hex::decode(
             discovery
                 .data_type()
-                .ok_or("No data_type present!")?
                 .as_str(),
         )?;
         let datatype = std::str::from_utf8(&datatype_bytes)?;
 
-        let md5 = discovery.md5().ok_or("No md5 present!")?.to_string();
+        let md5 = discovery.md5().to_string();
 
         let resource_class = discovery
             .resource_class()
-            .ok_or("No resource_class present!")?
             .to_string();
         //let bridge_namespace = discovery.bridge_namespace().ok_or("No bridge_namespace present!")?.to_string();
         let topic = discovery.topic().ok_or("No topic present!")?;
