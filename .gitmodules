@@ -1,4 +1,4 @@
 [submodule "rosrust"]
 	path = rosrust
-	url = git@github.com:ZettaScaleLabs/rosrust.git
+	url = https://github.com/ZettaScaleLabs/rosrust.git
 	branch = feature/fix_bugs
