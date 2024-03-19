@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/eclipse-zenoh/zenoh/master/zenoh-dragon.png" height="150">
+<img src="https://raw.githubusercontent.com/eclipse-zenoh/zenoh/main/zenoh-dragon.png" height="150">
 
 <!--- 
 [![CI](https://github.com/eclipse-zenoh/zenoh-plugin-ros1/workflows/Rust/badge.svg)](https://github.com/eclipse-zenoh/zenoh-plugin-ros1/actions?query=workflow%3ARust)
@@ -22,7 +22,7 @@ Check the website [zenoh.io](http://zenoh.io) and the [roadmap](https://github.c
 
 :point_right: **Docker image:** see [below](#Docker-image)
 
-:point_right: **Build "master" branch:** see [below](#How-to-build-it)
+:point_right: **Build "main" branch:** see [below](#How-to-build-it)
 
 ## Background
 ROS1 is a well-known mature platform for building robotic systems. Despite the fact that next generation of ROS - ROS2 is released long time ago, many developers still prefer using ROS1. In order to integrate ROS1 systems to Zenoh infrastructure, [as it was done for DDS/ROS2](https://github.com/eclipse-zenoh/zenoh-plugin-dds), ROS1 to Zenoh Bridge was designed.
@@ -94,7 +94,7 @@ loaded by the zenoh router `zenohd` will be generated in the `target/release` su
 ## Docker image
 The **`zenoh-bridge-ros1`** standalone executable is also available as a [Docker images](https://hub.docker.com/r/eclipse/zenoh-bridge-ros1/tags?page=1&ordering=last_updated) for both amd64 and arm64. To get it, do:
   - `docker pull eclipse/zenoh-bridge-ros1:latest` for the latest release
-  - `docker pull eclipse/zenoh-bridge-ros1:master` for the master branch version (nightly build)
+  - `docker pull eclipse/zenoh-bridge-ros1:main` for the main branch version (nightly build)
 
 Usage: **`docker run --init --net host eclipse/zenoh-bridge-ros1`**  
 It supports the same command line arguments than the `zenoh-bridge-ros1` (see below or check with `-h` argument).
