@@ -3782,7 +3782,7 @@ dependencies = [
 
 [[package]]
 name = "zenoh-bridge-ros1"
-version = "0.11.0-dev"
+version = "0.11.0-dev-38-g28804df"
 dependencies = [
  "async-std",
  "clap",
@@ -4090,7 +4090,7 @@ dependencies = [
 
 [[package]]
 name = "zenoh-plugin-ros1"
-version = "0.11.0-dev"
+version = "0.11.0-dev-38-g28804df"
 dependencies = [
  "async-global-executor",
  "async-std",
