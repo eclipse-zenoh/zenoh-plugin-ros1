@@ -1,82 +1,123 @@
-#
-# Copyright (c) 2022 ZettaScale Technology
-#
-# This program and the accompanying materials are made available under the
-# terms of the Eclipse Public License 2.0 which is available at
-# http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
-# which is available at https://www.apache.org/licenses/LICENSE-2.0.
-#
-# SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
-#
-# Contributors:
-#   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
-#
 [package]
 name = "zenoh-plugin-ros1"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-repository = { workspace = true }
-homepage = { workspace = true }
-license = { workspace = true }
-categories = ["network-programming"]
+categories = [ "network-programming" ]
 description = "Zenoh plugin for bidging ROS1"
 
-[lib]
-name = "zenoh_plugin_ros1"
-crate-type = ["cdylib", "rlib"]
+[package.version]
+workspace = true
 
-[features]
-no_mangle = []
-test = []
-stats = ["zenoh/stats"]
-default = [
-    "no_mangle",
-    "test",
-] # TODO: https://zettascale.atlassian.net/browse/ZEN-291
+[package.authors]
+workspace = true
 
-[dependencies]
-atoi = { workspace = true }
-env_logger = { workspace = true }
-flume = { workspace = true }
-futures = { workspace = true }
-git-version = { workspace = true }
-lazy_static = { workspace = true }
-log = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-async-global-executor = { workspace = true }
-async-trait = { workspace = true }
-rand = { workspace = true }
-strum = { workspace = true }
-strum_macros = { workspace = true }
-duration-string = { workspace = true }
-zenoh = { workspace = true }
-zenoh-ext = { workspace = true }
-zenoh-core = { workspace = true }
-zenoh-plugin-trait = { workspace = true }
-hex = { workspace = true }
-xml-rpc = { workspace = true }
-rosrust = { path = "../rosrust/rosrust" }
+[package.edition]
+workspace = true
 
-[dev-dependencies]
-serial_test = "0.10.0"
-multiset = "0.0.5"
-ctrlc = { workspace = true }
-# TODO: https://zettascale.atlassian.net/browse/ZEN-291
-# zenoh-plugin-ros1 = { path = ".", features = ["test"]}
+[package.repository]
+workspace = true
 
-[dependencies.async-std]
-version = "=1.12.0"
-features = ["unstable", "attributes"]
+[package.homepage]
+workspace = true
 
-[build-dependencies]
-rustc_version = { workspace = true }
+[package.license]
+workspace = true
 
+[package.metadata]
 [package.metadata.deb]
 name = "zenoh-plugin-ros1"
 maintainer = "zenoh-dev@eclipse.org"
 copyright = "2017, 2022 ZettaScale Technology Inc."
 section = "net"
-license-file = ["../LICENSE", "0"]
-depends = "zenohd (=0.11.0-dev-1)"
+license-file = [ "../LICENSE", "0" ]
+depends = "zenohd (=0.11.0-dev-40-gb7cddbf)"
+
+[lib]
+name = "zenoh_plugin_ros1"
+crate-type = [ "cdylib", "rlib" ]
+
+[features]
+no_mangle = []
+test = []
+stats = [ "zenoh/stats" ]
+default = [ "no_mangle", "test" ]
+
+[dependencies]
+[dependencies.atoi]
+workspace = true
+
+[dependencies.env_logger]
+workspace = true
+
+[dependencies.flume]
+workspace = true
+
+[dependencies.futures]
+workspace = true
+
+[dependencies.git-version]
+workspace = true
+
+[dependencies.lazy_static]
+workspace = true
+
+[dependencies.log]
+workspace = true
+
+[dependencies.serde]
+workspace = true
+
+[dependencies.serde_json]
+workspace = true
+
+[dependencies.async-global-executor]
+workspace = true
+
+[dependencies.async-trait]
+workspace = true
+
+[dependencies.rand]
+workspace = true
+
+[dependencies.strum]
+workspace = true
+
+[dependencies.strum_macros]
+workspace = true
+
+[dependencies.duration-string]
+workspace = true
+
+[dependencies.zenoh]
+workspace = true
+
+[dependencies.zenoh-ext]
+workspace = true
+
+[dependencies.zenoh-core]
+workspace = true
+
+[dependencies.zenoh-plugin-trait]
+workspace = true
+
+[dependencies.hex]
+workspace = true
+
+[dependencies.xml-rpc]
+workspace = true
+
+[dependencies.rosrust]
+path = "../rosrust/rosrust"
+
+[dependencies.async-std]
+version = "=1.12.0"
+features = [ "unstable", "attributes" ]
+
+[dev-dependencies]
+serial_test = "0.10.0"
+multiset = "0.0.5"
+
+[dev-dependencies.ctrlc]
+workspace = true
+
+[build-dependencies]
+[build-dependencies.rustc_version]
+workspace = true
