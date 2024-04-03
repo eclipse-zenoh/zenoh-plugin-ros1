@@ -20,7 +20,7 @@ use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 async fn main() {
     let (sender, receiver) = unbounded();
     ctrlc::set_handler(move || {
-        log::info!("Catching Ctrl+C...");
+        tracing::info!("Catching Ctrl+C...");
         sender
             .send_blocking(())
             .expect("Error handling Ctrl+C signal")
@@ -28,7 +28,7 @@ async fn main() {
     .expect("Error setting Ctrl+C handler");
 
     // initiate logging
-    env_logger::init();
+    zenoh_util::init_log();
 
     // create ROS1 node and subscriber
     print!("Creating ROS1 Node...");
@@ -55,5 +55,5 @@ async fn main() {
         .recv()
         .await
         .expect("Error receiving Ctrl+C signal");
-    log::info!("Caught Ctrl+C, stopping...");
+    tracing::info!("Caught Ctrl+C, stopping...");
 }

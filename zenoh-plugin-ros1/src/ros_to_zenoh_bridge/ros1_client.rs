@@ -12,8 +12,8 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use log::debug;
 use rosrust::{self, RawMessageDescription};
+use tracing::debug;
 use zenoh_core::{zerror, zresult::ZResult};
 
 use super::topic_descriptor::TopicDescriptor;

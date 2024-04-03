@@ -15,7 +15,7 @@
 use std::fmt::Display;
 use std::sync::Arc;
 
-use log::debug;
+use tracing::debug;
 
 use zenoh::prelude::r#async::*;
 use zenoh::Session;

@@ -37,12 +37,11 @@ default = [
 
 [dependencies]
 atoi = { workspace = true }
-env_logger = { workspace = true }
 flume = { workspace = true }
 futures = { workspace = true }
 git-version = { workspace = true }
 lazy_static = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 async-global-executor = { workspace = true }
@@ -55,6 +54,7 @@ zenoh = { workspace = true }
 zenoh-ext = { workspace = true }
 zenoh-core = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
+zenoh-util = { workspace = true }
 hex = { workspace = true }
 xml-rpc = { workspace = true }
 rosrust = { path = "../rosrust/rosrust" }

@@ -24,7 +24,7 @@ use std::{
 use async_std::sync::Mutex;
 use flume::Receiver;
 use futures::{join, Future, FutureExt};
-use log::error;
+use tracing::error;
 use zenoh::prelude::r#async::*;
 use zenoh_core::Result as ZResult;
 

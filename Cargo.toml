@@ -34,11 +34,9 @@ async-std = "=1.12.0"
 async-trait = "0.1"
 clap = "3.2.23"
 ctrlc = "3.2.5"
-env_logger = "0.9.1"
 futures = "0.3.24"
 git-version = "0.3.5"
 lazy_static = "1.4.0"
-log = "0.4.17"
 serde = "1.0.147"
 serde_derive = "1.0.147"
 serde_json = "1.0.85"
@@ -51,11 +49,13 @@ flume = "0.11"
 hex = "0.4.3"
 xml-rpc = "0.0.12"
 rustc_version = "0.4"
-zenoh = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
-zenoh-ext = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
-zenoh-core = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
-zenoh-plugin-trait = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", default-features = false }
+tracing = "0.1"
+zenoh = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
+zenoh-ext = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
+zenoh-core = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
+zenoh-plugin-trait = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing", default-features = false }
 zenoh-plugin-ros1 = { version = "0.11.0-dev", path = "zenoh-plugin-ros1", default-features = false }
+zenoh-util = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
 
 [profile.release]
 debug = false

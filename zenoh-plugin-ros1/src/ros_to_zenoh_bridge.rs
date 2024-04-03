@@ -14,7 +14,7 @@
 
 use async_std::task::JoinHandle;
 
-use log::error;
+use tracing::error;
 use zenoh;
 use zenoh_core::{zresult::ZResult, AsyncResolve};
 

@@ -13,12 +13,12 @@
 //
 
 use duration_string::DurationString;
-use log::error;
 use rosrust::api::resolve::*;
 use std::collections::HashMap;
 use std::convert::From;
 use std::time::Duration;
 use std::{marker::PhantomData, str::FromStr};
+use tracing::error;
 
 use super::bridging_mode::BridgingMode;
 

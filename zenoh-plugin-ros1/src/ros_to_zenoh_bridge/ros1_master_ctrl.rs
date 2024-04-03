@@ -17,7 +17,7 @@ use async_std::{
     sync::Mutex,
 };
 use atoi::atoi;
-use log::error;
+use tracing::error;
 use zenoh_core::Result as ZResult;
 use zenoh_core::{bail, zasynclock, zerror};
 

@@ -26,14 +26,13 @@ description = "Zenoh bridge for ROS1"
 async-std = { workspace = true, features = ["unstable", "attributes"] }
 clap = { workspace = true }
 ctrlc = { workspace = true }
-env_logger = { workspace = true }
+tracing = { workspace = true }
 lazy_static = { workspace = true }
-log = { workspace = true }
 serde_json = { workspace = true }
 zenoh = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
 zenoh-plugin-ros1 = { workspace = true }
-
+zenoh-util = { workspace = true }
 [[bin]]
 name = "zenoh-bridge-ros1"
 path = "src/main.rs"
