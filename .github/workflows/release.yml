@@ -162,7 +162,7 @@ jobs:
       version: ${{ needs.tag.outputs.version }}
       branch: ${{ needs.tag.outputs.branch }}
       repo: ${{ github.repository }}
-      tags: "eclipse/zenoh-plugin-ros1:${{ needs.tag.outputs.version }}"
+      tags: "eclipse/zenoh-bridge-ros1:${{ needs.tag.outputs.version }}"
       binary: zenoh-bridge-ros1
       files: |
         zenoh-bridge-ros1
