@@ -50,12 +50,12 @@ hex = "0.4.3"
 xml-rpc = "0.0.12"
 rustc_version = "0.4"
 tracing = "0.1"
-zenoh = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
-zenoh-ext = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
-zenoh-core = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
-zenoh-plugin-trait = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing", default-features = false }
+zenoh = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
+zenoh-ext = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
+zenoh-core = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
+zenoh-plugin-trait = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", default-features = false }
 zenoh-plugin-ros1 = { version = "0.11.0-dev", path = "zenoh-plugin-ros1", default-features = false }
-zenoh-util = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "feat/tracing" }
+zenoh-util = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
 
 [profile.release]
 debug = false
