@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use log::{debug, error, info};
+use tracing::{debug, error, info};
 
 use rosrust::RawMessageDescription;
 use zenoh::buffers::buffer::SplitBuffer;

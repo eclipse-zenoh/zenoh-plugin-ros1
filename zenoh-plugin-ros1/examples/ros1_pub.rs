@@ -21,7 +21,7 @@ use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
 #[async_std::main]
 async fn main() {
     // initiate logging
-    env_logger::init();
+    zenoh_util::init_log_from_env();
 
     // You need to have ros1 installed within your system and have "rosmaster" command available, otherwise this code will fail.
     // start ROS1 master...

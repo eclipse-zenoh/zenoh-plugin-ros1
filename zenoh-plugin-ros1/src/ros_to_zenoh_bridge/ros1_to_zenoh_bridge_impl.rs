@@ -25,7 +25,7 @@ use std::{
     time::Duration,
 };
 
-use log::{debug, error};
+use tracing::{debug, error};
 
 use crate::ros_to_zenoh_bridge::{
     bridges_storage::BridgesStorage, discovery::LocalResources, environment::Environment,

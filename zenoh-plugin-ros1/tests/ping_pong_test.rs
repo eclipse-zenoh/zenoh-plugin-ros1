@@ -40,8 +40,8 @@ use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     test_helpers::{IsolatedConfig, IsolatedROSMaster},
 };
 
-use log::{debug, trace};
 use std::sync::atomic::AtomicUsize;
+use tracing::{debug, trace};
 use zenoh::prelude::r#async::*;
 
 use std::{thread, time};

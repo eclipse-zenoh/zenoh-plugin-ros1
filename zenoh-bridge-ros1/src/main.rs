@@ -251,8 +251,8 @@ async fn main() {
     })
     .expect("Error setting Ctrl+C handler");
 
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("z=info")).init();
-    log::info!(
+    zenoh_util::init_log_from_env();
+    tracing::info!(
         "zenoh-bridge-ros1 {}",
         zenoh_plugin_ros1::Ros1Plugin::PLUGIN_LONG_VERSION
     );
@@ -274,5 +274,5 @@ async fn main() {
         .recv()
         .await
         .expect("Error receiving Ctrl+C signal");
-    log::info!("Caught Ctrl+C, stopping bridge...");
+    tracing::info!("Caught Ctrl+C, stopping bridge...");
 }

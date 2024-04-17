@@ -21,8 +21,8 @@ use super::{
     topic_descriptor::TopicDescriptor,
     zenoh_client,
 };
-use log::error;
 use std::{fmt::Display, sync::Arc};
+use tracing::error;
 
 pub struct TopicBridge {
     topic: TopicDescriptor,

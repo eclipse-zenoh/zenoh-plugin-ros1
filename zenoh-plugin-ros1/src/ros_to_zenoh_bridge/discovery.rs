@@ -13,7 +13,7 @@
 //
 
 use futures::Future;
-use log::error;
+use tracing::error;
 use zenoh_core::bail;
 
 use std::sync::Arc;

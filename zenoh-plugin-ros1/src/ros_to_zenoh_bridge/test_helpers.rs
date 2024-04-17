@@ -15,7 +15,6 @@
 use async_std::prelude::FutureExt;
 use async_trait::async_trait;
 use futures::Future;
-use log::error;
 use rosrust::{Client, RawMessage, RawMessageDescription};
 use std::process::Command;
 use std::sync::atomic::AtomicBool;
@@ -24,6 +23,7 @@ use std::sync::atomic::Ordering::*;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
+use tracing::error;
 use zenoh::config::ModeDependentValue;
 use zenoh::prelude::OwnedKeyExpr;
 use zenoh::prelude::SplitBuffer;
