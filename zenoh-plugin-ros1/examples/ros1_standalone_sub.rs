@@ -28,7 +28,7 @@ async fn main() {
     .expect("Error setting Ctrl+C handler");
 
     // initiate logging
-    zenoh_util::init_log_from_env();
+    zenoh_util::try_init_log_from_env();
 
     // create ROS1 node and subscriber
     print!("Creating ROS1 Node...");
