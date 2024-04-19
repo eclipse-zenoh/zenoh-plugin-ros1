@@ -251,7 +251,7 @@ async fn main() {
     })
     .expect("Error setting Ctrl+C handler");
 
-    zenoh_util::try_init_log_from_env();
+    zenoh_util::init_log_from_env_or("z=info");
     tracing::info!(
         "zenoh-bridge-ros1 {}",
         zenoh_plugin_ros1::Ros1Plugin::PLUGIN_LONG_VERSION
