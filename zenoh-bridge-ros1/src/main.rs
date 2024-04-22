@@ -15,7 +15,7 @@ use async_std::channel::unbounded;
 use clap::{App, Arg};
 use std::str::FromStr;
 use zenoh::config::Config;
-use zenoh::prelude::*;
+use zenoh::prelude::r#async::*;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 use zenoh_plugin_trait::Plugin;
 
@@ -229,6 +229,11 @@ The string format is [0-9]+(ns|us|ms|[smhdwy])"#
             .unwrap();
     }
 
+    // Enable admin space
+    config.adminspace.set_enabled(true).unwrap();
+    // Enable loading plugins
+    config.plugins_loading.set_enabled(true).unwrap();
+
     // apply ros1 related arguments over config
     // run through the bridge's supported config options and fill them from command line options
     let plugin_configuration_entries = Environment::env();
@@ -259,15 +264,11 @@ async fn main() {
 
     let config = parse_args();
 
-    // create a zenoh Runtime (to share with plugins)
-    let runtime = zenoh::runtime::Runtime::new(config)
+    // create a zenoh session
+    let _session = zenoh::open(config)
+        .res()
         .await
-        .expect("Error creating runtime");
-
-    // start ros1 plugin
-    use zenoh_plugin_trait::Plugin;
-    let _running_bridge = zenoh_plugin_ros1::Ros1Plugin::start("ros1", &runtime)
-        .expect("Error starting zenoh-bridge-ros1");
+        .expect("Error creating zenoh session");
 
     // wait Ctrl+C
     receiver
