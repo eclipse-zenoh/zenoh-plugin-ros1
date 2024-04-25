@@ -44,12 +44,19 @@ impl Plugin for Ros1Plugin {
 
     // The first operation called by zenohd on the plugin
     fn start(name: &str, runtime: &Self::StartArgs) -> ZResult<Self::Instance> {
+        // Try to initiate login.
+        // Required in case of dynamic lib, otherwise no logs.
+        // But cannot be done twice in case of static link.
+        zenoh_util::try_init_log_from_env();
+        tracing::debug!("ROS1 plugin {}", Ros1Plugin::PLUGIN_LONG_VERSION);
+
         let config = runtime.config().lock();
         let self_cfg = config
             .plugin(name)
             .ok_or("No plugin in the config!")?
             .as_object()
             .ok_or("Unable to get cfg objet!")?;
+        tracing::info!("ROS1 config: {:?}", self_cfg);
 
         // run through the bridge's config options and fill them from plugins config
         let plugin_configuration_entries = Environment::env();
