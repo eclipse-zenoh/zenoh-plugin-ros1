@@ -13,6 +13,8 @@
 //
 use async_std::channel::unbounded;
 use clap::{App, Arg};
+use zenoh::plugins::PluginsManager;
+use zenoh::runtime::RuntimeBuilder;
 use std::str::FromStr;
 use zenoh::config::Config;
 use zenoh::prelude::r#async::*;
@@ -263,12 +265,35 @@ async fn main() {
     );
 
     let config = parse_args();
+    tracing::info!("Zenoh {config:?}");
 
-    // create a zenoh session
-    let _session = zenoh::open(config)
-        .res()
+    let mut plugins_mgr = PluginsManager::static_plugins_only();
+
+    // declare REST plugin if specified in conf
+    if config.plugin("rest").is_some() {
+        plugins_mgr = plugins_mgr.declare_static_plugin::<zenoh_plugin_rest::RestPlugin>(true);
+    }
+
+    // declare ROS2DDS plugin
+    plugins_mgr = plugins_mgr.declare_static_plugin::<zenoh_plugin_ros1::Ros1Plugin>(true);
+
+    // create a zenoh Runtime.
+    let runtime = match RuntimeBuilder::new(config)
+        .plugins_manager(plugins_mgr)
+        .build()
         .await
-        .expect("Error creating zenoh session");
+    {
+        Ok(runtime) => runtime,
+        Err(e) => {
+            println!("{e}. Exiting...");
+            std::process::exit(-1);
+        }
+    };
+    // create a zenoh Session.
+    let _session = zenoh::init(runtime).res().await.unwrap_or_else(|e| {
+        println!("{e}. Exiting...");
+        std::process::exit(-1);
+    });
 
     // wait Ctrl+C
     receiver
