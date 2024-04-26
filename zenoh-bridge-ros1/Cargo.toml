@@ -67,3 +67,4 @@ assets = [
         "644",
     ],
 ]
+conf-files = ["/etc/zenoh-bridge-ros1/conf.json5"]
