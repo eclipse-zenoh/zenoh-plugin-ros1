@@ -278,7 +278,7 @@ async fn main() {
     plugins_mgr = plugins_mgr.declare_static_plugin::<zenoh_plugin_ros1::Ros1Plugin>(true);
 
     // create a zenoh Runtime.
-    let runtime = match RuntimeBuilder::new(config)
+    let mut runtime = match RuntimeBuilder::new(config)
         .plugins_manager(plugins_mgr)
         .build()
         .await
@@ -289,11 +289,10 @@ async fn main() {
             std::process::exit(-1);
         }
     };
-    // create a zenoh Session.
-    let _session = zenoh::init(runtime).res().await.unwrap_or_else(|e| {
-        println!("{e}. Exiting...");
+    if let Err(e) = runtime.start().await {
+        println!("Failed to start Zenoh runtime: {e}. Exiting...");
         std::process::exit(-1);
-    });
+    }
 
     // wait Ctrl+C
     receiver
