@@ -27,11 +27,11 @@ name = "zenoh_plugin_ros1"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-no_mangle = []
+dynamic_plugin = []
 test = []
 stats = ["zenoh/stats"]
 default = [
-    "no_mangle",
+    "dynamic_plugin",
     "test",
 ] # TODO: https://zettascale.atlassian.net/browse/ZEN-291
 
