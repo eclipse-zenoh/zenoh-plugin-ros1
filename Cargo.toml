@@ -50,16 +50,16 @@ hex = "0.4.3"
 xml-rpc = "0.0.12"
 rustc_version = "0.4"
 tracing = "0.1"
-zenoh = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", features = [
+zenoh = { version = "0.11.0", features = [
   "unstable",
   "plugins",
 ] }
-zenoh-ext = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
-zenoh-core = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
-zenoh-plugin-rest = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", default-features = false }
-zenoh-plugin-trait = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main", default-features = false }
-zenoh-plugin-ros1 = { version = "0.11.0-dev", path = "zenoh-plugin-ros1", default-features = false }
-zenoh-util = { version = "0.11.0-dev", git = "https://github.com/eclipse-zenoh/zenoh.git", branch = "main" }
+zenoh-ext = { version = "0.11.0"}
+zenoh-core = { version = "0.11.0"}
+zenoh-plugin-rest = { version = "0.11.0", default-features = false }
+zenoh-plugin-trait = { version = "0.11.0", default-features = false }
+zenoh-plugin-ros1 = { version = "0.11.0", path = "zenoh-plugin-ros1", default-features = false }
+zenoh-util = { version = "0.11.0"}
 
 [profile.release]
 debug = false
