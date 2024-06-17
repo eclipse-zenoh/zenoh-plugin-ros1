@@ -12,14 +12,14 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::buffers::ZBuf;
+use zenoh::{
+    core::Priority, internal::buffers::ZBuf, key_expr::OwnedKeyExpr, prelude::*,
+    publisher::CongestionControl, sample::Locality, subscriber::Reliability, Session,
+};
 
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Arc;
 use std::time::Duration;
-
-use zenoh::prelude::r#async::*;
-use zenoh::Session;
 
 pub struct AlohaDeclaration {
     monitor_running: Arc<AtomicBool>,
@@ -60,7 +60,6 @@ impl AlohaDeclaration {
             .callback(move |_| {
                 rb.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             })
-            .res_async()
             .await
             .unwrap();
 
@@ -136,15 +135,11 @@ impl AlohaDeclaration {
             .allowed_destination(Locality::Remote)
             .congestion_control(CongestionControl::Drop)
             .priority(Priority::Background)
-            .res_async()
             .await
             .unwrap();
 
         while running.load(std::sync::atomic::Ordering::Relaxed) {
-            let _res = publisher
-                .put(zenoh::value::Value::new(ZBuf::default()))
-                .res_async()
-                .await;
+            let _res = publisher.put(ZBuf::default()).await;
             async_std::task::sleep(beacon_period).await;
         }
     }

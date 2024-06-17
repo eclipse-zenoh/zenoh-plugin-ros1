@@ -17,8 +17,15 @@ use std::sync::Arc;
 
 use tracing::debug;
 
-use zenoh::prelude::r#async::*;
-use zenoh::Session;
+use zenoh::{
+    key_expr::KeyExpr,
+    prelude::*,
+    publisher::CongestionControl,
+    sample::{Locality, Sample},
+    selector::Selector,
+    subscriber::Reliability,
+    Session,
+};
 pub use zenoh_core::zresult::ZResult;
 
 pub struct ZenohClient {
@@ -48,14 +55,13 @@ impl ZenohClient {
             .callback(callback)
             .allowed_origin(Locality::Remote)
             .reliability(Reliability::Reliable)
-            .res_async()
             .await
     }
 
     pub async fn publish<'b: 'static, TryIntoKeyExpr>(
         &self,
         key_expr: TryIntoKeyExpr,
-    ) -> ZResult<zenoh::publication::Publisher<'static>>
+    ) -> ZResult<zenoh::publisher::Publisher<'static>>
     where
         TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,
         <TryIntoKeyExpr as TryInto<KeyExpr<'b>>>::Error: Into<zenoh::Error>,
@@ -66,7 +72,6 @@ impl ZenohClient {
             .declare_publisher(key_expr)
             .allowed_destination(Locality::Remote)
             .congestion_control(CongestionControl::Block)
-            .res_async()
             .await
     }
 
@@ -76,7 +81,7 @@ impl ZenohClient {
         callback: Callback,
     ) -> ZResult<zenoh::queryable::Queryable<'static, ()>>
     where
-        Callback: Fn(zenoh::queryable::Query) + Send + Sync + 'static,
+        Callback: Fn(zenoh::query::Query) + Send + Sync + 'static,
         TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,
         <TryIntoKeyExpr as TryInto<KeyExpr<'b>>>::Error: Into<zenoh::Error>,
     {
@@ -86,7 +91,6 @@ impl ZenohClient {
             .declare_queryable(key_expr)
             .allowed_origin(Locality::Remote)
             .callback(callback)
-            .res_async()
             .await
     }
 
@@ -106,10 +110,9 @@ impl ZenohClient {
 
         self.session
             .get(selector)
-            .with_value(data)
+            .payload(data)
             .callback(callback)
             .allowed_destination(Locality::Remote)
-            .res_async()
             .await
     }
 
@@ -126,9 +129,8 @@ impl ZenohClient {
 
         self.session
             .get(selector)
-            .with_value(data)
+            .payload(data)
             .allowed_destination(Locality::Remote)
-            .res_async()
             .await
     }
 }

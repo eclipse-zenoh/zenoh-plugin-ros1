@@ -12,15 +12,13 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use async_std::prelude::FutureExt;
+use multiset::HashMultiSet;
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-
-use async_std::prelude::FutureExt;
-use multiset::HashMultiSet;
-use zenoh::{prelude::keyexpr, OpenBuilder, Session};
-use zenoh_core::{AsyncResolve, SyncResolve};
+use zenoh::{key_expr::keyexpr, prelude::*, session::OpenBuilder, Session};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::{self, LocalResources, RemoteResources},
     test_helpers::{BridgeChecker, IsolatedConfig},
@@ -38,7 +36,7 @@ fn remote_resources_builder(session: Arc<Session>) -> discovery::RemoteResources
 }
 
 fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
-    session_builder(cfg).res_sync().unwrap().into_arc()
+    session_builder(cfg).wait().unwrap().into_arc()
 }
 
 fn make_local_resources(session: Arc<Session>) -> LocalResources {
@@ -281,11 +279,11 @@ async fn test_state_transition(
 async fn run_discovery(scenario: Vec<State>) {
     let cfg = IsolatedConfig::default();
 
-    let src_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
+    let src_session = session_builder(&cfg).await.unwrap().into_arc();
     let local_resources = make_local_resources(src_session.clone());
 
     let rcv = DiscoveryCollector::new();
-    let rcv_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
+    let rcv_session = session_builder(&cfg).await.unwrap().into_arc();
     let _rcv_discovery = rcv
         .use_builder(remote_resources_builder(rcv_session))
         .build()

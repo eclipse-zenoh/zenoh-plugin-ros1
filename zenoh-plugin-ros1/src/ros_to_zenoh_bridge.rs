@@ -16,7 +16,7 @@ use async_std::task::JoinHandle;
 
 use tracing::error;
 use zenoh;
-use zenoh_core::{zresult::ZResult, AsyncResolve};
+use zenoh_core::zresult::ZResult;
 
 use std::sync::{
     atomic::{AtomicBool, Ordering::Relaxed},
@@ -89,7 +89,7 @@ pub struct Ros1ToZenohBridge {
 }
 impl Ros1ToZenohBridge {
     pub async fn new_with_own_session(config: zenoh::config::Config) -> ZResult<Self> {
-        let session = zenoh::open(config).res_async().await?.into_arc();
+        let session = zenoh::open(config).await?.into_arc();
         Ok(Self::new_with_external_session(session))
     }
 

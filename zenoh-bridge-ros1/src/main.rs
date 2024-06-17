@@ -14,10 +14,11 @@
 use async_std::channel::unbounded;
 use clap::{App, Arg};
 use std::str::FromStr;
-use zenoh::config::Config;
-use zenoh::plugins::PluginsManager;
-use zenoh::prelude::r#async::*;
-use zenoh::runtime::RuntimeBuilder;
+use zenoh::{
+    config::{Config, ZenohId},
+    internal::{plugins::PluginsManager, runtime::RuntimeBuilder},
+    prelude::*,
+};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 use zenoh_plugin_trait::Plugin;
 

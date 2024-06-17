@@ -24,13 +24,11 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
 use tracing::error;
-use zenoh::config::ModeDependentValue;
-use zenoh::prelude::OwnedKeyExpr;
-use zenoh::prelude::SplitBuffer;
-use zenoh::sample::Sample;
-use zenoh::Session;
-use zenoh::SessionDeclarations;
-use zenoh_core::{bail, zlock, zresult::ZResult, AsyncResolve, SyncResolve};
+use zenoh::{
+    config::ModeDependentValue, key_expr::OwnedKeyExpr, prelude::*, sample::Sample,
+    session::SessionDeclarations, Session,
+};
+use zenoh_core::{bail, zlock, zresult::ZResult};
 
 use super::discovery::LocalResources;
 use super::ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus};
@@ -159,7 +157,7 @@ impl RunningBridge {
         ros_status: Arc<Mutex<RosStatus>>,
         bridge_status: Arc<Mutex<BridgeStatus>>,
     ) {
-        let session = zenoh::open(config).res_async().await.unwrap().into_arc();
+        let session = zenoh::open(config).await.unwrap().into_arc();
         work_cycle(
             ros_master_uri.as_str(),
             session,
@@ -291,7 +289,7 @@ pub struct BridgeChecker {
 impl BridgeChecker {
     // PUBLIC
     pub fn new(config: zenoh::config::Config, ros_master_uri: &str) -> BridgeChecker {
-        let session = zenoh::open(config).res_sync().unwrap().into_arc();
+        let session = zenoh::open(config).wait().unwrap().into_arc();
         BridgeChecker {
             session: session.clone(),
             ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri).unwrap(),
@@ -309,8 +307,7 @@ impl BridgeChecker {
     }
 
     async fn wait_for_zenoh_peers(&self, peer_count: usize, timeout: Duration) -> bool {
-        let waiter =
-            || async { self.session.info().peers_zid().res_async().await.count() == peer_count };
+        let waiter = || async { self.session.info().peers_zid().await.count() == peer_count };
         wait_async(waiter, timeout).await
     }
 
@@ -328,7 +325,7 @@ impl BridgeChecker {
             .unwrap()
     }
 
-    pub async fn make_zenoh_publisher(&self, name: &str) -> zenoh::publication::Publisher<'static> {
+    pub async fn make_zenoh_publisher(&self, name: &str) -> zenoh::publisher::Publisher<'static> {
         self.zenoh_client
             .publish(Self::make_zenoh_key(&Self::make_topic(name)))
             .await
@@ -341,7 +338,7 @@ impl BridgeChecker {
         callback: Callback,
     ) -> zenoh::queryable::Queryable<'static, ()>
     where
-        Callback: Fn(zenoh::queryable::Query) + Send + Sync + 'static,
+        Callback: Fn(zenoh::query::Query) + Send + Sync + 'static,
     {
         self.zenoh_client
             .make_queryable(Self::make_zenoh_key(&Self::make_topic(name)), callback)
@@ -512,7 +509,7 @@ impl TestParams {
 }
 
 pub struct ZenohPublisher {
-    pub inner: Arc<zenoh::publication::Publisher<'static>>,
+    pub inner: Arc<zenoh::publisher::Publisher<'static>>,
 }
 pub struct ROS1Publisher {
     pub inner: Arc<RAIICounter<rosrust::Publisher<rosrust::RawMessage>>>,
@@ -537,9 +534,9 @@ impl ZenohQuery {
     async fn make_query(inner: &Arc<BridgeChecker>, key: &str, data: &Vec<u8>) -> ZResult<()> {
         let query = inner.make_zenoh_query_sync(key, data.clone()).await;
         match query.recv_async().await {
-            Ok(reply) => match reply.sample {
-                Ok(value) => {
-                    let returned_data = value.payload.contiguous().to_vec();
+            Ok(reply) => match reply.result() {
+                Ok(sample) => {
+                    let returned_data = sample.payload().into::<Vec<u8>>();
                     if data.eq(&returned_data) {
                         Ok(())
                     } else {
@@ -547,7 +544,7 @@ impl ZenohQuery {
                     }
                 }
                 Err(e) => {
-                    bail!("ZenohQuery: got reply with error: {}", e);
+                    bail!("ZenohQuery: got reply with error: {:?}", e);
                 }
             },
             Err(e) => {
@@ -661,7 +658,7 @@ pub trait Publisher: Sync {
 impl Publisher for ZenohPublisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || inner.put(data).res_sync().unwrap());
+        async_std::task::spawn_blocking(move || inner.put(data).wait().unwrap());
     }
 }
 #[async_trait]

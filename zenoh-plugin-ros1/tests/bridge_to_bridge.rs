@@ -12,16 +12,15 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::sync::Arc;
-use std::time::Duration;
-use std::{collections::HashSet, sync::atomic::AtomicU64};
-
 use async_std::prelude::FutureExt;
 use rosrust::RawMessage;
 use std::sync::atomic::{AtomicUsize, Ordering::*};
+use std::sync::Arc;
+use std::time::Duration;
+use std::{collections::HashSet, sync::atomic::AtomicU64};
 use strum_macros::Display;
 use tracing::{debug, trace};
-use zenoh::prelude::{KeyExpr, OwnedKeyExpr};
+use zenoh::key_expr::{KeyExpr, OwnedKeyExpr};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
     self, wait_async, Publisher, Subscriber,
 };

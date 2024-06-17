@@ -14,14 +14,16 @@
 
 use futures::Future;
 use tracing::error;
+
+use zenoh::key_expr::{
+    format::{kedefine, keformat},
+    KeyExpr,
+};
 use zenoh_core::bail;
 
+use std::str;
 use std::sync::Arc;
 use std::time::Duration;
-
-use zenoh::prelude::r#async::*;
-
-use std::str;
 
 use super::aloha_declaration::AlohaDeclaration;
 use super::aloha_subscription::{AlohaSubscription, AlohaSubscriptionBuilder};
@@ -31,7 +33,7 @@ use super::topic_utilities::{make_topic, make_topic_key};
 
 use crate::ZResult;
 
-zenoh::kedefine!(
+kedefine!(
     pub discovery_format: "ros1_discovery_info/${discovery_namespace:*}/${resource_class:*}/${data_type:*}/${md5:*}/${bridge_namespace:*}/${topic:**}",
 );
 // example:
@@ -65,7 +67,7 @@ impl RemoteResources {
     {
         // make proper discovery keyexpr
         let mut formatter = discovery_format::formatter();
-        let discovery_keyexpr = zenoh::keformat!(
+        let discovery_keyexpr = keformat!(
             formatter,
             discovery_namespace = discovery_namespace,
             resource_class = "*",
@@ -185,7 +187,7 @@ impl LocalResource {
     ) -> ZResult<LocalResource> {
         // make proper discovery keyexpr
         let mut formatter = discovery_format::formatter();
-        let discovery_keyexpr = zenoh::keformat!(
+        let discovery_keyexpr = keformat!(
             formatter,
             discovery_namespace = discovery_namespace,
             resource_class = resource_class,

@@ -12,8 +12,7 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::SessionDeclarations;
-use zenoh_core::AsyncResolve;
+use zenoh::prelude::*;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
@@ -54,7 +53,6 @@ async fn main() {
     // create Zenoh session and subscriber
     print!("Creating Zenoh Session...");
     let zenoh_session = zenoh::open(zenoh::config::default())
-        .res_async()
         .await
         .unwrap()
         .into_arc();
@@ -64,7 +62,6 @@ async fn main() {
     let zenoh_subscriber = zenoh_session
         .declare_subscriber("some/ros/topic")
         .callback(|data| println!("Zenoh Subscriber: got data!"))
-        .res_async()
         .await
         .unwrap();
     println!(" OK!");
