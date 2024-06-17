@@ -271,11 +271,13 @@ async fn main() {
 
     // declare REST plugin if specified in conf
     if config.plugin("rest").is_some() {
-        plugins_mgr = plugins_mgr.declare_static_plugin::<zenoh_plugin_rest::RestPlugin>(true);
+        plugins_mgr =
+            plugins_mgr.declare_static_plugin::<zenoh_plugin_rest::RestPlugin, &str>("ros1", true);
     }
 
     // declare ROS2DDS plugin
-    plugins_mgr = plugins_mgr.declare_static_plugin::<zenoh_plugin_ros1::Ros1Plugin>(true);
+    plugins_mgr =
+        plugins_mgr.declare_static_plugin::<zenoh_plugin_ros1::Ros1Plugin, &str>("ros1", true);
 
     // create a zenoh Runtime.
     let mut runtime = match RuntimeBuilder::new(config)
