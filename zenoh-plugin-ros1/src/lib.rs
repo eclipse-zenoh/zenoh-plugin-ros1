@@ -50,7 +50,7 @@ impl Plugin for Ros1Plugin {
         // Try to initiate login.
         // Required in case of dynamic lib, otherwise no logs.
         // But cannot be done twice in case of static link.
-        zenoh_util::try_init_log_from_env();
+        zenoh::try_init_log_from_env();
         tracing::debug!("ROS1 plugin {}", Ros1Plugin::PLUGIN_LONG_VERSION);
 
         let config = runtime.config().lock();

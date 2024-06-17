@@ -15,11 +15,13 @@
 use futures::Future;
 use tracing::error;
 
-use zenoh::key_expr::{
-    format::{kedefine, keformat},
-    KeyExpr,
+use zenoh::{
+    internal::bail,
+    key_expr::{
+        format::{kedefine, keformat},
+        KeyExpr,
+    },
 };
-use zenoh_core::bail;
 
 use std::str;
 use std::sync::Arc;

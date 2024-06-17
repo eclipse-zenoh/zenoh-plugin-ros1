@@ -17,8 +17,7 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 
 use rosrust::RawMessageDescription;
-use zenoh::{key_expr::keyexpr, prelude::*};
-use zenoh_core::Result as ZResult;
+use zenoh::{core::Result as ZResult, internal::bail, key_expr::keyexpr, prelude::*};
 
 use super::{
     bridge_type::BridgeType, ros1_client, topic_descriptor::TopicDescriptor,
@@ -83,7 +82,7 @@ impl Ros1ToZenohClient {
         ) {
             Ok(service) => Ok(Ros1ToZenohClient { _service: service }),
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e)
+                bail!("Ros error: {}", e)
             }
         }
     }
@@ -172,7 +171,7 @@ impl Ros1ToZenohService {
                 })
             }
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e.to_string())
+                bail!("Ros error: {}", e.to_string())
             }
         }
     }
@@ -291,7 +290,7 @@ impl Ros1ToZenoh {
                 _subscriber: subscriber,
             }),
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e.to_string())
+                bail!("Ros error: {}", e.to_string())
             }
         }
     }
@@ -334,7 +333,7 @@ impl ZenohToRos1 {
                 })
             }
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e.to_string())
+                bail!("Ros error: {}", e.to_string())
             }
         }
     }

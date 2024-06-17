@@ -25,8 +25,7 @@ use async_std::sync::Mutex;
 use flume::Receiver;
 use futures::{join, Future, FutureExt};
 use tracing::error;
-use zenoh::{key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Session};
-use zenoh_core::Result as ZResult;
+use zenoh::{core::Result as ZResult, key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Session};
 
 struct AlohaResource {
     activity: AtomicBool,

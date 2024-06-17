@@ -402,7 +402,7 @@ async fn ping_pong_duplex_parallel_many_(
     number: u32,
     mode: std::collections::HashSet<Mode>,
 ) {
-    zenoh_core::zasync_executor_init!();
+    zenoh::internal::zasync_executor_init!();
 
     let make_keyexpr = |i: u32, mode: Mode| -> KeyExpr {
         format!(

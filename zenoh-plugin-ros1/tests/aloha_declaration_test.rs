@@ -19,8 +19,9 @@ use std::{
     sync::{atomic::AtomicUsize, Arc},
     time::Duration,
 };
-use zenoh::{key_expr::OwnedKeyExpr, prelude::*, session::OpenBuilder, Session};
-use zenoh_core::Result as ZResult;
+use zenoh::{
+    core::Result as ZResult, key_expr::OwnedKeyExpr, prelude::*, session::OpenBuilder, Session,
+};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
 };

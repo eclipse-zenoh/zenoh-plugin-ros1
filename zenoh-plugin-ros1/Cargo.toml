@@ -51,10 +51,7 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 duration-string = { workspace = true }
 zenoh = { workspace = true }
-zenoh-ext = { workspace = true }
-zenoh-core = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
-zenoh-util = { workspace = true }
 hex = { workspace = true }
 xml-rpc = { workspace = true }
 rosrust = { path = "../rosrust/rosrust" }

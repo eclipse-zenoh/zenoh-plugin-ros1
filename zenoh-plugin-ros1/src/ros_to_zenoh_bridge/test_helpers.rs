@@ -25,10 +25,15 @@ use std::time::Duration;
 use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
 use tracing::error;
 use zenoh::{
-    config::ModeDependentValue, key_expr::OwnedKeyExpr, prelude::*, sample::Sample,
-    session::SessionDeclarations, Session,
+    config::ModeDependentValue,
+    core::Result as ZResult,
+    internal::{bail, zlock},
+    key_expr::OwnedKeyExpr,
+    prelude::*,
+    sample::Sample,
+    session::SessionDeclarations,
+    Session,
 };
-use zenoh_core::{bail, zlock, zresult::ZResult};
 
 use super::discovery::LocalResources;
 use super::ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus};

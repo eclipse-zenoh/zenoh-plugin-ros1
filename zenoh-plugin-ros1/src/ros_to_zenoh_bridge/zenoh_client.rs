@@ -18,6 +18,7 @@ use std::sync::Arc;
 use tracing::debug;
 
 use zenoh::{
+    core::Result as ZResult,
     key_expr::KeyExpr,
     prelude::*,
     publisher::CongestionControl,
@@ -26,7 +27,6 @@ use zenoh::{
     subscriber::Reliability,
     Session,
 };
-pub use zenoh_core::zresult::ZResult;
 
 pub struct ZenohClient {
     session: Arc<Session>,

@@ -18,8 +18,10 @@ use async_std::{
 };
 use atoi::atoi;
 use tracing::error;
-use zenoh_core::Result as ZResult;
-use zenoh_core::{bail, zasynclock, zerror};
+use zenoh::{
+    core::Result as ZResult,
+    internal::{bail, zasynclock, zerror},
+};
 
 use crate::ros_to_zenoh_bridge::environment::Environment;
 

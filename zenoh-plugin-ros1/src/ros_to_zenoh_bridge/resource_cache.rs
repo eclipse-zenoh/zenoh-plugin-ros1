@@ -19,7 +19,10 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use zenoh_core::{bail, zerror, zresult::ZResult};
+use zenoh::{
+    core::Result as ZResult,
+    internal::{bail, zerror},
+};
 
 use super::{ros1_client::Ros1Client, topic_descriptor::TopicDescriptor};
 use rosrust::RosMsg;

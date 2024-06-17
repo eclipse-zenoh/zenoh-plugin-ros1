@@ -315,7 +315,7 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
             }
         };
 
-    zenoh_core::zasync_executor_init!();
+    zenoh::internal::zasync_executor_init!();
 
     let env = TestEnvironment::default();
     let mut src_system = env.add_system();
