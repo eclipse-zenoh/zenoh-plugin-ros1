@@ -13,10 +13,7 @@
 //
 
 use async_std::prelude::FutureExt;
-use strum_macros::Display;
-use zenoh::prelude::SplitBuffer;
-use zenoh_core::SyncResolve;
-
+use std::sync::atomic::AtomicUsize;
 use std::{
     collections::HashSet,
     sync::{
@@ -25,7 +22,10 @@ use std::{
     },
     time::Duration,
 };
-
+use std::{thread, time};
+use strum_macros::Display;
+use tracing::{debug, trace};
+use zenoh::{key_expr::KeyExpr, prelude::*};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     bridging_mode::BridgingMode,
     environment::Environment,
@@ -39,12 +39,6 @@ use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::LocalResource,
     test_helpers::{IsolatedConfig, IsolatedROSMaster},
 };
-
-use std::sync::atomic::AtomicUsize;
-use tracing::{debug, trace};
-use zenoh::prelude::r#async::*;
-
-use std::{thread, time};
 
 #[test]
 fn env_checks_no_master_init_and_exit_immed() {
@@ -203,8 +197,8 @@ impl PingPong {
             .make_zenoh_queryable(key, |q| {
                 async_std::task::spawn(async move {
                     let key = q.key_expr().clone();
-                    let val = q.value().unwrap().clone();
-                    let _ = q.reply(Ok(Sample::new(key, val))).res_async().await;
+                    let val = q.payload().unwrap().clone();
+                    let _ = q.reply(key, val).await;
                 });
             })
             .await;
@@ -237,7 +231,7 @@ impl PingPong {
         let zenoh_sub = backend
             .make_zenoh_subscriber(key, move |msg| {
                 c.fetch_add(1, Relaxed);
-                let data = msg.value.payload.contiguous().to_vec();
+                let data = msg.payload().into::<Vec<u8>>();
                 debug!(
                     "PingPong: transferring {} bytes from Zenoh to ROS1!",
                     data.len()
@@ -275,7 +269,7 @@ impl PingPong {
                 "PingPong: transferring {} bytes from ROS1 to Zenoh!",
                 msg.0.len()
             );
-            zpub.put(msg.0).res_sync().unwrap();
+            zpub.put(msg.0).wait().unwrap();
         });
 
         PingPong {
@@ -296,8 +290,7 @@ impl PingPong {
 
     async fn start_ping_pong(&self) -> bool {
         debug!("Starting ping-pong!");
-        let mut data = Vec::new();
-        data.reserve(TestParams::data_size() as usize);
+        let mut data = Vec::with_capacity(TestParams::data_size() as usize);
         for i in 0..TestParams::data_size() {
             data.push((i % 255) as u8);
         }
@@ -409,7 +402,7 @@ async fn ping_pong_duplex_parallel_many_(
     number: u32,
     mode: std::collections::HashSet<Mode>,
 ) {
-    zenoh_core::zasync_executor_init!();
+    zenoh::internal::zasync_executor_init!();
 
     let make_keyexpr = |i: u32, mode: Mode| -> KeyExpr {
         format!(

@@ -12,16 +12,15 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::sync::Arc;
-use std::time::Duration;
-use std::{collections::HashSet, sync::atomic::AtomicU64};
-
 use async_std::prelude::FutureExt;
 use rosrust::RawMessage;
 use std::sync::atomic::{AtomicUsize, Ordering::*};
+use std::sync::Arc;
+use std::time::Duration;
+use std::{collections::HashSet, sync::atomic::AtomicU64};
 use strum_macros::Display;
 use tracing::{debug, trace};
-use zenoh::prelude::{KeyExpr, OwnedKeyExpr};
+use zenoh::key_expr::{KeyExpr, OwnedKeyExpr};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::test_helpers::{
     self, wait_async, Publisher, Subscriber,
 };
@@ -212,8 +211,7 @@ impl SrcDstPair {
 
     async fn start_ping_pong(&self) -> bool {
         debug!("Starting ping-pong!");
-        let mut data = Vec::new();
-        data.reserve(TestParams::data_size() as usize);
+        let mut data = Vec::with_capacity(TestParams::data_size() as usize);
         for i in 0..TestParams::data_size() {
             data.push((i % 255) as u8);
         }
@@ -317,7 +315,7 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
             }
         };
 
-    zenoh_core::zasync_executor_init!();
+    zenoh::internal::zasync_executor_init!();
 
     let env = TestEnvironment::default();
     let mut src_system = env.add_system();

@@ -34,7 +34,6 @@ zenoh = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
 zenoh-plugin-ros1 = { workspace = true }
 zenoh-plugin-rest = { workspace = true }
-zenoh-util = { workspace = true }
 [[bin]]
 name = "zenoh-bridge-ros1"
 path = "src/main.rs"

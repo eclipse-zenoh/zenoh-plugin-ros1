@@ -12,16 +12,16 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use async_std::{prelude::FutureExt, sync::Mutex};
 use std::{
     collections::HashSet,
     str::FromStr,
     sync::{atomic::AtomicUsize, Arc},
     time::Duration,
 };
-
-use async_std::{prelude::FutureExt, sync::Mutex};
-use zenoh::{prelude::OwnedKeyExpr, OpenBuilder, Session, SessionDeclarations};
-use zenoh_core::{AsyncResolve, Result as ZResult, SyncResolve};
+use zenoh::{
+    core::Result as ZResult, key_expr::OwnedKeyExpr, prelude::*, session::OpenBuilder, Session,
+};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
 };
@@ -55,7 +55,7 @@ fn subscription_builder(
 }
 
 fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
-    session_builder(cfg).res_sync().unwrap().into_arc()
+    session_builder(cfg).wait().unwrap().into_arc()
 }
 
 fn make_subscription(
@@ -107,7 +107,6 @@ impl<'a> PPCMeasurement<'a> {
             .callback(move |_val| {
                 p.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             })
-            .res_async()
             .await?;
 
         Ok(Self {
@@ -238,7 +237,7 @@ async fn test_state_transition<'a>(
 
     while declarations.len() < state.declarators_count {
         if declaring_sessions.len() <= declarations.len() {
-            declaring_sessions.push(session_builder(cfg).res_async().await.unwrap().into_arc());
+            declaring_sessions.push(session_builder(cfg).await.unwrap().into_arc());
         }
         declarations.push(declaration_builder(
             declaring_sessions[declarations.len()].clone(),
@@ -263,7 +262,7 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
     let mut declarations: Vec<aloha_declaration::AlohaDeclaration> = Vec::new();
 
     let mut collector = DeclarationCollector::new();
-    let subscription_session = session_builder(&cfg).res_async().await.unwrap().into_arc();
+    let subscription_session = session_builder(&cfg).await.unwrap().into_arc();
     let _subscriber = collector
         .use_builder(subscription_builder(
             subscription_session.clone(),

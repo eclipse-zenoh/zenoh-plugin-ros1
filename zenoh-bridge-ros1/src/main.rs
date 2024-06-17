@@ -14,10 +14,11 @@
 use async_std::channel::unbounded;
 use clap::{App, Arg};
 use std::str::FromStr;
-use zenoh::config::Config;
-use zenoh::plugins::PluginsManager;
-use zenoh::prelude::r#async::*;
-use zenoh::runtime::RuntimeBuilder;
+use zenoh::{
+    config::{Config, ZenohId},
+    internal::{plugins::PluginsManager, runtime::RuntimeBuilder},
+    prelude::*,
+};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 use zenoh_plugin_trait::Plugin;
 
@@ -258,7 +259,7 @@ async fn main() {
     })
     .expect("Error setting Ctrl+C handler");
 
-    zenoh_util::init_log_from_env_or("z=info");
+    zenoh::init_log_from_env_or("z=info");
     tracing::info!(
         "zenoh-bridge-ros1 {}",
         zenoh_plugin_ros1::Ros1Plugin::PLUGIN_LONG_VERSION
@@ -271,11 +272,13 @@ async fn main() {
 
     // declare REST plugin if specified in conf
     if config.plugin("rest").is_some() {
-        plugins_mgr = plugins_mgr.declare_static_plugin::<zenoh_plugin_rest::RestPlugin>(true);
+        plugins_mgr =
+            plugins_mgr.declare_static_plugin::<zenoh_plugin_rest::RestPlugin, &str>("ros1", true);
     }
 
     // declare ROS2DDS plugin
-    plugins_mgr = plugins_mgr.declare_static_plugin::<zenoh_plugin_ros1::Ros1Plugin>(true);
+    plugins_mgr =
+        plugins_mgr.declare_static_plugin::<zenoh_plugin_ros1::Ros1Plugin, &str>("ros1", true);
 
     // create a zenoh Runtime.
     let mut runtime = match RuntimeBuilder::new(config)

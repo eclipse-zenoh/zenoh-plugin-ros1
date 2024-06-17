@@ -25,8 +25,7 @@ use async_std::sync::Mutex;
 use flume::Receiver;
 use futures::{join, Future, FutureExt};
 use tracing::error;
-use zenoh::prelude::r#async::*;
-use zenoh_core::Result as ZResult;
+use zenoh::{core::Result as ZResult, key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Session};
 
 struct AlohaResource {
     activity: AtomicBool,
@@ -109,7 +108,7 @@ impl AlohaSubscription {
             + 'static,
     {
         let accumulating_resources = Mutex::new(HashMap::<OwnedKeyExpr, AlohaResource>::new());
-        let subscriber = session.declare_subscriber(key).res_async().await?;
+        let subscriber = session.declare_subscriber(key).await?;
 
         let listen = Self::listening_task(
             task_running.clone(),
@@ -148,7 +147,7 @@ impl AlohaSubscription {
                 Ok(val) => match accumulating_resources
                     .lock()
                     .await
-                    .entry(val.key_expr.into())
+                    .entry(val.key_expr().as_keyexpr().into())
                 {
                     Occupied(mut val) => {
                         val.get_mut().update();
