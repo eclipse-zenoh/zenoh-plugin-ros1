@@ -211,8 +211,7 @@ impl SrcDstPair {
 
     async fn start_ping_pong(&self) -> bool {
         debug!("Starting ping-pong!");
-        let mut data = Vec::new();
-        data.reserve(TestParams::data_size() as usize);
+        let mut data = Vec::with_capacity(TestParams::data_size() as usize);
         for i in 0..TestParams::data_size() {
             data.push((i % 255) as u8);
         }

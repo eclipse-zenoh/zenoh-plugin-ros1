@@ -172,7 +172,7 @@ impl Environment {
     }
 
     pub fn env() -> Vec<Entry<'static, String>> {
-        return [
+        [
             Self::ros_master_uri(),
             Self::ros_hostname(),
             Self::ros_name(),
@@ -188,6 +188,6 @@ impl Environment {
             Self::master_polling_interval().into(),
             Self::with_rosmaster().into(),
         ]
-        .to_vec();
+        .to_vec()
     }
 }
