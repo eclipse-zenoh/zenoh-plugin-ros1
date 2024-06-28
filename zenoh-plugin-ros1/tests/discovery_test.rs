@@ -12,12 +12,13 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::prelude::FutureExt;
-use multiset::HashMultiSet;
 use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+
+use async_std::prelude::FutureExt;
+use multiset::HashMultiSet;
 use zenoh::{key_expr::keyexpr, prelude::*, session::OpenBuilder, Session};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::{self, LocalResources, RemoteResources},

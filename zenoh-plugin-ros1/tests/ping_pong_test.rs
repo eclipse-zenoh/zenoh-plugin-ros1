@@ -12,32 +12,29 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::prelude::FutureExt;
-use std::sync::atomic::AtomicUsize;
 use std::{
     collections::HashSet,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering::*},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering::*},
         Arc,
     },
+    thread, time,
     time::Duration,
 };
-use std::{thread, time};
+
+use async_std::prelude::FutureExt;
 use strum_macros::Display;
 use tracing::{debug, trace};
 use zenoh::{key_expr::KeyExpr, prelude::*};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     bridging_mode::BridgingMode,
+    discovery::LocalResource,
     environment::Environment,
     test_helpers::{
-        self, wait_async_fn, BridgeChecker, Publisher, ROS1Client, ROS1Publisher, ROS1Service,
-        ROS1Subscriber, ROSEnvironment, RunningBridge, Subscriber, TestParams, ZenohPublisher,
-        ZenohQuery, ZenohQueryable, ZenohSubscriber,
+        self, wait_async_fn, BridgeChecker, IsolatedConfig, IsolatedROSMaster, Publisher,
+        ROS1Client, ROS1Publisher, ROS1Service, ROS1Subscriber, ROSEnvironment, RunningBridge,
+        Subscriber, TestParams, ZenohPublisher, ZenohQuery, ZenohQueryable, ZenohSubscriber,
     },
-};
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
-    discovery::LocalResource,
-    test_helpers::{IsolatedConfig, IsolatedROSMaster},
 };
 
 #[test]

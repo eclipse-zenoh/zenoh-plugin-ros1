@@ -13,7 +13,6 @@
 //
 
 use async_std::channel::unbounded;
-
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 
 #[async_std::main]

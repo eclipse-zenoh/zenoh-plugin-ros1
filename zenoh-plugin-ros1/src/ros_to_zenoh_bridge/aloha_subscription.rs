@@ -25,7 +25,7 @@ use async_std::sync::Mutex;
 use flume::Receiver;
 use futures::{join, Future, FutureExt};
 use tracing::error;
-use zenoh::{core::Result as ZResult, key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Session};
+use zenoh::{key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Result as ZResult, Session};
 
 struct AlohaResource {
     activity: AtomicBool,
@@ -134,7 +134,7 @@ impl AlohaSubscription {
     async fn listening_task<'a, F>(
         task_running: Arc<AtomicBool>,
         accumulating_resources: &Mutex<HashMap<OwnedKeyExpr, AlohaResource>>,
-        subscriber: &'a zenoh::subscriber::Subscriber<'a, Receiver<Sample>>,
+        subscriber: &'a zenoh::pubsub::Subscriber<'a, Receiver<Sample>>,
         on_resource_declared: &F,
     ) where
         F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
