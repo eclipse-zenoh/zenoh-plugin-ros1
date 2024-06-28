@@ -12,20 +12,17 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::fmt::Display;
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
 use tracing::debug;
-
 use zenoh::{
-    core::Result as ZResult,
     key_expr::KeyExpr,
     prelude::*,
-    publisher::CongestionControl,
+    pubsub::Reliability,
+    qos::CongestionControl,
+    query::Selector,
     sample::{Locality, Sample},
-    selector::Selector,
-    subscriber::Reliability,
-    Session,
+    Result as ZResult, Session,
 };
 
 pub struct ZenohClient {
@@ -42,7 +39,7 @@ impl ZenohClient {
         &self,
         key_expr: TryIntoKeyExpr,
         callback: C,
-    ) -> ZResult<zenoh::subscriber::Subscriber<'static, ()>>
+    ) -> ZResult<zenoh::pubsub::Subscriber<'static, ()>>
     where
         C: Fn(Sample) + Send + Sync + 'static,
         TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,
@@ -61,7 +58,7 @@ impl ZenohClient {
     pub async fn publish<'b: 'static, TryIntoKeyExpr>(
         &self,
         key_expr: TryIntoKeyExpr,
-    ) -> ZResult<zenoh::publisher::Publisher<'static>>
+    ) -> ZResult<zenoh::pubsub::Publisher<'static>>
     where
         TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,
         <TryIntoKeyExpr as TryInto<KeyExpr<'b>>>::Error: Into<zenoh::Error>,
@@ -79,7 +76,7 @@ impl ZenohClient {
         &self,
         key_expr: TryIntoKeyExpr,
         callback: Callback,
-    ) -> ZResult<zenoh::queryable::Queryable<'static, ()>>
+    ) -> ZResult<zenoh::query::Queryable<'static, ()>>
     where
         Callback: Fn(zenoh::query::Query) + Send + Sync + 'static,
         TryIntoKeyExpr: TryInto<KeyExpr<'b>> + Display,

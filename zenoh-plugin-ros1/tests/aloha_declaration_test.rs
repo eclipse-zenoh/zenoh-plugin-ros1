@@ -12,16 +12,15 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::{prelude::FutureExt, sync::Mutex};
 use std::{
     collections::HashSet,
     str::FromStr,
     sync::{atomic::AtomicUsize, Arc},
     time::Duration,
 };
-use zenoh::{
-    core::Result as ZResult, key_expr::OwnedKeyExpr, prelude::*, session::OpenBuilder, Session,
-};
+
+use async_std::{prelude::FutureExt, sync::Mutex};
+use zenoh::{key_expr::OwnedKeyExpr, prelude::*, session::OpenBuilder, Result as ZResult, Session};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
 };
@@ -90,7 +89,7 @@ fn aloha_instantination_many_instances() {
 }
 
 pub struct PPCMeasurement<'a> {
-    _subscriber: zenoh::subscriber::Subscriber<'a, ()>,
+    _subscriber: zenoh::pubsub::Subscriber<'a, ()>,
     ppc: Arc<AtomicUsize>,
     measurement_period: Duration,
 }

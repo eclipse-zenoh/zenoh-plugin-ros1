@@ -12,9 +12,10 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::{str, sync::Arc, time::Duration};
+
 use futures::Future;
 use tracing::error;
-
 use zenoh::{
     internal::bail,
     key_expr::{
@@ -23,16 +24,13 @@ use zenoh::{
     },
 };
 
-use std::str;
-use std::sync::Arc;
-use std::time::Duration;
-
-use super::aloha_declaration::AlohaDeclaration;
-use super::aloha_subscription::{AlohaSubscription, AlohaSubscriptionBuilder};
-use super::bridge_type::BridgeType;
-use super::topic_descriptor::TopicDescriptor;
-use super::topic_utilities::{make_topic, make_topic_key};
-
+use super::{
+    aloha_declaration::AlohaDeclaration,
+    aloha_subscription::{AlohaSubscription, AlohaSubscriptionBuilder},
+    bridge_type::BridgeType,
+    topic_descriptor::TopicDescriptor,
+    topic_utilities::{make_topic, make_topic_key},
+};
 use crate::ZResult;
 
 kedefine!(

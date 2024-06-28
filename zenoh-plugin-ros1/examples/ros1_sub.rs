@@ -60,7 +60,7 @@ async fn main() {
     print!("Creating Zenoh Publisher...");
     let zenoh_publisher = zenoh_session
         .declare_publisher("some/ros/topic")
-        .congestion_control(zenoh::publisher::CongestionControl::Block)
+        .congestion_control(zenoh::qos::CongestionControl::Block)
         .await
         .unwrap();
     println!(" OK!");

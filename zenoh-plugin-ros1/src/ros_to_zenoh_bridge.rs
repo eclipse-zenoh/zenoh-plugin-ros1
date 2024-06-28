@@ -12,15 +12,14 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::task::JoinHandle;
-
-use tracing::error;
-use zenoh::{self, core::Result as ZResult, Session};
-
 use std::sync::{
     atomic::{AtomicBool, Ordering::Relaxed},
     Arc,
 };
+
+use async_std::task::JoinHandle;
+use tracing::error;
+use zenoh::{self, Result as ZResult, Session};
 
 use self::{environment::Environment, ros1_to_zenoh_bridge_impl::work_cycle};
 

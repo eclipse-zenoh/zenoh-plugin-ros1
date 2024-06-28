@@ -14,10 +14,9 @@
 
 use std::sync::Arc;
 
-use tracing::{debug, error, info};
-
 use rosrust::RawMessageDescription;
-use zenoh::{core::Result as ZResult, internal::bail, key_expr::keyexpr, prelude::*};
+use tracing::{debug, error, info};
+use zenoh::{internal::bail, key_expr::keyexpr, prelude::*, Result as ZResult};
 
 use super::{
     bridge_type::BridgeType, ros1_client, topic_descriptor::TopicDescriptor,
@@ -140,7 +139,7 @@ impl Ros1ToZenohClient {
 }
 
 struct Ros1ToZenohService {
-    _queryable: zenoh::queryable::Queryable<'static, ()>,
+    _queryable: zenoh::query::Queryable<'static, ()>,
 }
 impl Ros1ToZenohService {
     async fn new<'b>(
@@ -297,7 +296,7 @@ impl Ros1ToZenoh {
 }
 
 struct ZenohToRos1 {
-    _subscriber: zenoh::subscriber::Subscriber<'static, ()>,
+    _subscriber: zenoh::pubsub::Subscriber<'static, ()>,
 }
 impl ZenohToRos1 {
     async fn new(

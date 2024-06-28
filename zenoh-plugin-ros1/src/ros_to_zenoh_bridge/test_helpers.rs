@@ -12,35 +12,40 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::{
+    net::SocketAddr,
+    process::Command,
+    str::FromStr,
+    sync::{
+        atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering::*},
+        Arc, Mutex, RwLock,
+    },
+    time::Duration,
+};
+
 use async_std::prelude::FutureExt;
 use async_trait::async_trait;
 use futures::Future;
 use rosrust::{Client, RawMessage, RawMessageDescription};
-use std::process::Command;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::*;
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
-use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
 use tracing::error;
 use zenoh::{
     config::ModeDependentValue,
-    core::Result as ZResult,
     internal::{bail, zlock},
     key_expr::OwnedKeyExpr,
     prelude::*,
     sample::Sample,
-    session::SessionDeclarations,
-    Session,
+    Result as ZResult, Session,
 };
 
-use super::discovery::LocalResources;
-use super::ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus};
-use super::topic_descriptor::TopicDescriptor;
-use super::topic_utilities;
-use super::topic_utilities::make_topic_key;
-use super::{ros1_client, zenoh_client};
+use super::{
+    discovery::LocalResources,
+    ros1_client,
+    ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus},
+    topic_descriptor::TopicDescriptor,
+    topic_utilities,
+    topic_utilities::make_topic_key,
+    zenoh_client,
+};
 
 pub struct IsolatedPort {
     pub port: u16,
@@ -320,7 +325,7 @@ impl BridgeChecker {
         &self,
         name: &str,
         callback: C,
-    ) -> zenoh::subscriber::Subscriber<'static, ()>
+    ) -> zenoh::pubsub::Subscriber<'static, ()>
     where
         C: Fn(Sample) + Send + Sync + 'static,
     {
@@ -330,7 +335,7 @@ impl BridgeChecker {
             .unwrap()
     }
 
-    pub async fn make_zenoh_publisher(&self, name: &str) -> zenoh::publisher::Publisher<'static> {
+    pub async fn make_zenoh_publisher(&self, name: &str) -> zenoh::pubsub::Publisher<'static> {
         self.zenoh_client
             .publish(Self::make_zenoh_key(&Self::make_topic(name)))
             .await
@@ -341,7 +346,7 @@ impl BridgeChecker {
         &self,
         name: &str,
         callback: Callback,
-    ) -> zenoh::queryable::Queryable<'static, ()>
+    ) -> zenoh::query::Queryable<'static, ()>
     where
         Callback: Fn(zenoh::query::Query) + Send + Sync + 'static,
     {
@@ -514,7 +519,7 @@ impl TestParams {
 }
 
 pub struct ZenohPublisher {
-    pub inner: Arc<zenoh::publisher::Publisher<'static>>,
+    pub inner: Arc<zenoh::pubsub::Publisher<'static>>,
 }
 pub struct ROS1Publisher {
     pub inner: Arc<RAIICounter<rosrust::Publisher<rosrust::RawMessage>>>,
@@ -731,10 +736,10 @@ impl Publisher for ROS1Client {
 }
 
 pub struct ZenohSubscriber {
-    pub _inner: zenoh::subscriber::Subscriber<'static, ()>,
+    pub _inner: zenoh::pubsub::Subscriber<'static, ()>,
 }
 pub struct ZenohQueryable {
-    pub _inner: zenoh::queryable::Queryable<'static, ()>,
+    pub _inner: zenoh::query::Queryable<'static, ()>,
 }
 pub struct ROS1Subscriber {
     pub inner: RAIICounter<rosrust::Subscriber>,

@@ -12,6 +12,10 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::{fmt::Display, sync::Arc};
+
+use tracing::error;
+
 use super::{
     abstract_bridge::AbstractBridge,
     bridge_type::BridgeType,
@@ -21,8 +25,6 @@ use super::{
     topic_descriptor::TopicDescriptor,
     zenoh_client,
 };
-use std::{fmt::Display, sync::Arc};
-use tracing::error;
 
 pub struct TopicBridge {
     topic: TopicDescriptor,

@@ -12,14 +12,23 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::{
-    core::Priority, internal::buffers::ZBuf, key_expr::OwnedKeyExpr, prelude::*,
-    publisher::CongestionControl, sample::Locality, subscriber::Reliability, Session,
+use std::{
+    sync::{
+        atomic::{AtomicBool, AtomicUsize},
+        Arc,
+    },
+    time::Duration,
 };
 
-use std::sync::atomic::{AtomicBool, AtomicUsize};
-use std::sync::Arc;
-use std::time::Duration;
+use zenoh::{
+    internal::buffers::ZBuf,
+    key_expr::OwnedKeyExpr,
+    prelude::*,
+    pubsub::Reliability,
+    qos::{CongestionControl, Priority},
+    sample::Locality,
+    Session,
+};
 
 pub struct AlohaDeclaration {
     monitor_running: Arc<AtomicBool>,

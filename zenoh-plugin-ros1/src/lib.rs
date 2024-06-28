@@ -13,10 +13,11 @@
 //
 #![recursion_limit = "1024"]
 
-use ros_to_zenoh_bridge::environment::Environment;
-use ros_to_zenoh_bridge::ros1_master_ctrl::Ros1MasterCtrl;
-use ros_to_zenoh_bridge::Ros1ToZenohBridge;
 use std::time::Duration;
+
+use ros_to_zenoh_bridge::{
+    environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
+};
 use zenoh::{
     internal::{
         plugins::{RunningPlugin, RunningPluginTrait, ZenohPlugin},
