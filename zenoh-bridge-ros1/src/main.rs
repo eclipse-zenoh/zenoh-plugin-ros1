@@ -11,9 +11,10 @@
 // Contributors:
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
+use std::str::FromStr;
+
 use async_std::channel::unbounded;
 use clap::{App, Arg};
-use std::str::FromStr;
 use zenoh::{
     config::{Config, ZenohId},
     internal::{plugins::PluginsManager, runtime::RuntimeBuilder},

@@ -12,6 +12,18 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        Arc,
+    },
+    time::Duration,
+};
+
+use async_std::sync::Mutex;
+use tracing::{debug, error};
+use zenoh::{self, internal::zasynclock, Result as ZResult};
+
 use super::{
     discovery::{RemoteResources, RemoteResourcesBuilder},
     resource_cache::Ros1ResourceCache,
@@ -21,16 +33,6 @@ use crate::ros_to_zenoh_bridge::{
     bridges_storage::BridgesStorage, discovery::LocalResources, environment::Environment,
     ros1_client, topic_mapping, zenoh_client,
 };
-use async_std::sync::Mutex;
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering::Relaxed},
-        Arc,
-    },
-    time::Duration,
-};
-use tracing::{debug, error};
-use zenoh::{self, core::Result as ZResult, internal::zasynclock};
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum RosStatus {
