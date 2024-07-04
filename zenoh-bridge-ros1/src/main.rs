@@ -216,13 +216,15 @@ The string format is [0-9]+(ns|us|ms|[smhdwy])"#
         config
             .connect
             .endpoints
-            .extend(endpoints.map(|p| p.parse().unwrap()))
+            .set(endpoints.map(|p| p.parse().unwrap()).collect())
+            .unwrap();
     }
     if let Some(endpoints) = args.values_of("listen") {
         config
             .listen
             .endpoints
-            .extend(endpoints.map(|p| p.parse().unwrap()))
+            .set(endpoints.map(|p| p.parse().unwrap()).collect())
+            .unwrap();
     }
     if args.is_present("no-multicast-scouting") {
         config.scouting.multicast.set_enabled(Some(false)).unwrap();
