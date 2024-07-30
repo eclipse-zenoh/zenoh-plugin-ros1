@@ -20,7 +20,7 @@ use std::{
     time::Duration,
 };
 
-use async_std::sync::Mutex;
+use tokio::sync::Mutex;
 use tracing::{debug, error};
 use zenoh::{self, internal::zasynclock, Result as ZResult};
 
@@ -29,9 +29,12 @@ use super::{
     resource_cache::Ros1ResourceCache,
     ros1_client::Ros1Client,
 };
-use crate::ros_to_zenoh_bridge::{
-    bridges_storage::BridgesStorage, discovery::LocalResources, environment::Environment,
-    ros1_client, topic_mapping, zenoh_client,
+use crate::{
+    ros_to_zenoh_bridge::{
+        bridges_storage::BridgesStorage, discovery::LocalResources, environment::Environment,
+        ros1_client, topic_mapping, zenoh_client,
+    },
+    TOKIO_RUNTIME,
 };
 
 #[derive(PartialEq, Clone, Copy)]
@@ -170,16 +173,18 @@ where
 
         while flag.load(Relaxed) {
             let cl = ros1_client.clone();
-            let (ros1_state, returned_cache) = async_std::task::spawn_blocking(move || {
-                (
-                    topic_mapping::Ros1TopicMapping::topic_mapping(
-                        cl.as_ref(),
-                        &mut ros1_resource_cache,
-                    ),
-                    ros1_resource_cache,
-                )
-            })
-            .await;
+            let (ros1_state, returned_cache) = TOKIO_RUNTIME
+                .spawn_blocking(move || {
+                    (
+                        topic_mapping::Ros1TopicMapping::topic_mapping(
+                            cl.as_ref(),
+                            &mut ros1_resource_cache,
+                        ),
+                        ros1_resource_cache,
+                    )
+                })
+                .await
+                .expect("Unable to complete the task");
             ros1_resource_cache = returned_cache;
 
             debug!("ros state: {:#?}", ros1_state);
@@ -195,7 +200,7 @@ where
                         self.report_bridge_statistics(&locked);
                     }
 
-                    async_std::task::sleep({
+                    tokio::time::sleep({
                         if smth_changed {
                             poll_interval / 2
                         } else {
@@ -213,7 +218,7 @@ where
                         Self::cleanup(&mut locked);
                         self.report_bridge_statistics(&locked);
                     }
-                    async_std::task::sleep(poll_interval).await;
+                    tokio::time::sleep(poll_interval).await;
                 }
             }
         }

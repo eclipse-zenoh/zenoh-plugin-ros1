@@ -17,27 +17,23 @@ use std::time::Duration;
 use serial_test::serial;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::ros1_master_ctrl::Ros1MasterCtrl;
 
-#[test]
+#[tokio::test(flavor = "multi_thread")]
 #[serial(ROS1)]
-fn start_and_stop_master() {
-    async_std::task::block_on(async {
-        Ros1MasterCtrl::with_ros1_master()
-            .await
-            .expect("Error starting rosmaster");
+async fn start_and_stop_master() {
+    Ros1MasterCtrl::with_ros1_master()
+        .await
+        .expect("Error starting rosmaster");
 
-        Ros1MasterCtrl::without_ros1_master().await;
-    });
+    Ros1MasterCtrl::without_ros1_master().await;
 }
 
-#[test]
+#[tokio::test(flavor = "multi_thread")]
 #[serial(ROS1)]
-fn start_and_stop_master_and_check_connectivity() {
+async fn start_and_stop_master_and_check_connectivity() {
     // start rosmaster
-    async_std::task::block_on(async {
-        Ros1MasterCtrl::with_ros1_master()
-            .await
-            .expect("Error starting rosmaster");
-    });
+    Ros1MasterCtrl::with_ros1_master()
+        .await
+        .expect("Error starting rosmaster");
 
     // start ros1 client
     let ros1_client = rosrust::api::Ros::new_raw(
@@ -59,9 +55,7 @@ fn start_and_stop_master_and_check_connectivity() {
     }
 
     // stop rosmaster
-    async_std::task::block_on(async {
-        Ros1MasterCtrl::without_ros1_master().await;
-    });
+    Ros1MasterCtrl::without_ros1_master().await;
 
     // check if there was a status from rosmaster...
     if !has_rosmaster {

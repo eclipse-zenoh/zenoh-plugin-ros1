@@ -22,6 +22,7 @@ use super::{
     bridge_type::BridgeType, ros1_client, topic_descriptor::TopicDescriptor,
     topic_utilities::make_zenoh_key, zenoh_client,
 };
+use crate::TOKIO_RUNTIME;
 
 pub struct AbstractBridge {
     _impl: BridgeIml,
@@ -92,7 +93,9 @@ impl Ros1ToZenohClient {
         query: rosrust::RawMessage,
         zenoh_client: &zenoh_client::ZenohClient,
     ) -> rosrust::ServiceResult<rosrust::RawMessage> {
-        return async_std::task::block_on(Self::do_zenoh_query(key, query, zenoh_client));
+        return tokio::task::block_in_place(|| {
+            TOKIO_RUNTIME.block_on(Self::do_zenoh_query(key, query, zenoh_client))
+        });
     }
 
     async fn do_zenoh_query(
@@ -158,7 +161,7 @@ impl Ros1ToZenohService {
                 let topic_in_arc = Arc::new(topic.clone());
                 let queryable = zenoh_client
                     .make_queryable(make_zenoh_key(topic), move |query| {
-                        async_std::task::spawn(Self::on_query(
+                        TOKIO_RUNTIME.spawn(Self::on_query(
                             client_in_arc.clone(),
                             query,
                             topic_in_arc.clone(),
@@ -204,15 +207,17 @@ impl Ros1ToZenohService {
     ) {
         // rosrust is synchronous, so we will use spawn_blocking. If there will be an async mode some day for the rosrust,
         // than reply_to_query can be refactored to async very easily
-        let res = async_std::task::spawn_blocking(move || {
-            let description = RawMessageDescription {
-                msg_definition: String::from("*"),
-                md5sum: topic.md5.clone(),
-                msg_type: topic.datatype.clone(),
-            };
-            ros1_client.req_with_description(&rosrust::RawMessage(payload), description)
-        })
-        .await;
+        let res = TOKIO_RUNTIME
+            .spawn_blocking(move || {
+                let description = RawMessageDescription {
+                    msg_definition: String::from("*"),
+                    md5sum: topic.md5.clone(),
+                    msg_type: topic.datatype.clone(),
+                };
+                ros1_client.req_with_description(&rosrust::RawMessage(payload), description)
+            })
+            .await
+            .expect("Unable to compete the task");
         match Self::reply_to_query(res, &query).await {
             Ok(_) => {}
             Err(e) => {
@@ -315,7 +320,7 @@ impl ZenohToRos1 {
                 let subscriber = zenoh_client
                     .subscribe(make_zenoh_key(topic), move |sample| {
                         let publisher_in_arc_cloned = publisher_in_arc.clone();
-                        async_std::task::spawn_blocking(move || {
+                        TOKIO_RUNTIME.spawn_blocking(move || {
                             let data = sample.payload().into::<Vec<u8>>();
                             debug!("Zenoh -> ROS1: sending {} bytes!", data.len());
                             match publisher_in_arc_cloned.send(rosrust::RawMessage(data)) {

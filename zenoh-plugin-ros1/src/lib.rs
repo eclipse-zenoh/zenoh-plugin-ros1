@@ -29,6 +29,17 @@ use zenoh_plugin_trait::{plugin_long_version, plugin_version, Plugin, PluginCont
 
 pub mod ros_to_zenoh_bridge;
 
+const WORKER_THREAD_NUM: usize = 2;
+const MAX_BLOCK_THREAD_NUM: usize = 50;
+lazy_static::lazy_static! {
+    pub(crate) static ref TOKIO_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
+               .worker_threads(WORKER_THREAD_NUM)
+               .max_blocking_threads(MAX_BLOCK_THREAD_NUM)
+               .enable_all()
+               .build()
+               .expect("Unable to create runtime");
+}
+
 // The struct implementing the ZenohPlugin and ZenohPlugin traits
 pub struct Ros1Plugin {}
 
@@ -87,22 +98,27 @@ impl RunningPluginTrait for Ros1PluginInstance {}
 impl Drop for Ros1PluginInstance {
     fn drop(&mut self) {
         if Environment::with_rosmaster().get() {
-            async_std::task::block_on(Ros1MasterCtrl::without_ros1_master());
+            tokio::task::block_in_place(|| {
+                TOKIO_RUNTIME.block_on(Ros1MasterCtrl::without_ros1_master())
+            });
         }
     }
 }
 impl Ros1PluginInstance {
     fn new(runtime: &Runtime) -> ZResult<Self> {
-        let bridge: ZResult<Ros1ToZenohBridge> = async_std::task::block_on(async {
-            if Environment::with_rosmaster().get() {
-                Ros1MasterCtrl::with_ros1_master().await?;
-                async_std::task::sleep(Duration::from_secs(1)).await;
-            }
+        let bridge: ZResult<Ros1ToZenohBridge> = tokio::task::block_in_place(|| {
+            TOKIO_RUNTIME.block_on(async {
+                if Environment::with_rosmaster().get() {
+                    Ros1MasterCtrl::with_ros1_master().await?;
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                }
 
-            // create a zenoh Session that shares the same Runtime as zenohd
-            let session = zenoh::session::init(runtime.clone()).await?.into_arc();
-            let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
-            Ok(bridge)
+                // create a zenoh Session that shares the same Runtime as zenohd
+                let session = zenoh::session::init(runtime.clone()).await?.into_arc();
+                let bridge =
+                    ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
+                Ok(bridge)
+            })
         });
 
         Ok(Self { _bridge: bridge? })

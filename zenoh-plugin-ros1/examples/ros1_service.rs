@@ -16,7 +16,7 @@ use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     // initiate logging
     zenoh::try_init_log_from_env();
@@ -86,6 +86,6 @@ async fn main() {
                 println!("Zenoh got error: {}", e);
             }
         }
-        async_std::task::sleep(core::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(core::time::Duration::from_secs(1)).await;
     }
 }

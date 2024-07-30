@@ -13,8 +13,8 @@
 //
 use std::str::FromStr;
 
-use async_std::channel::unbounded;
 use clap::{App, Arg};
+use tokio::sync::mpsc::unbounded_channel;
 use zenoh::{
     config::{Config, ZenohId},
     internal::{plugins::PluginsManager, runtime::RuntimeBuilder},
@@ -252,15 +252,11 @@ The string format is [0-9]+(ns|us|ms|[smhdwy])"#
     config
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
-    let (sender, receiver) = unbounded();
-    ctrlc::set_handler(move || {
-        sender
-            .send_blocking(())
-            .expect("Error handling Ctrl+C signal")
-    })
-    .expect("Error setting Ctrl+C handler");
+    let (sender, mut receiver) = unbounded_channel();
+    ctrlc::set_handler(move || sender.send(()).expect("Error handling Ctrl+C signal"))
+        .expect("Error setting Ctrl+C handler");
 
     zenoh::init_log_from_env_or("z=info");
     tracing::info!(

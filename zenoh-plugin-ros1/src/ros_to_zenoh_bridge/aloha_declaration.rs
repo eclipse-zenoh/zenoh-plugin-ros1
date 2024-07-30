@@ -30,6 +30,8 @@ use zenoh::{
     Session,
 };
 
+use crate::TOKIO_RUNTIME;
+
 pub struct AlohaDeclaration {
     monitor_running: Arc<AtomicBool>,
 }
@@ -42,7 +44,7 @@ impl Drop for AlohaDeclaration {
 impl AlohaDeclaration {
     pub fn new(session: Arc<Session>, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
         let monitor_running = Arc::new(AtomicBool::new(true));
-        async_std::task::spawn(Self::aloha_monitor_task(
+        TOKIO_RUNTIME.spawn(Self::aloha_monitor_task(
             beacon_period,
             monitor_running.clone(),
             key,
@@ -87,10 +89,8 @@ impl AlohaDeclaration {
                         // start publisher in ALOHA style...
                         let period_ns = beacon_period.as_nanos();
                         let aloha_wait: u128 = rand::random::<u128>() % period_ns;
-                        async_std::task::sleep(Duration::from_nanos(
-                            aloha_wait.try_into().unwrap(),
-                        ))
-                        .await;
+                        tokio::time::sleep(Duration::from_nanos(aloha_wait.try_into().unwrap()))
+                            .await;
                         if remote_beacons.load(std::sync::atomic::Ordering::SeqCst) == 0 {
                             Self::start_beacon_task(
                                 beacon_period,
@@ -109,7 +109,7 @@ impl AlohaDeclaration {
                     }
                 }
             }
-            async_std::task::sleep(beacon_period).await;
+            tokio::time::sleep(beacon_period).await;
         }
         Self::stop_beacon_task(beacon_task_flag.clone());
     }
@@ -121,7 +121,7 @@ impl AlohaDeclaration {
         running: Arc<AtomicBool>,
     ) {
         running.store(true, std::sync::atomic::Ordering::SeqCst);
-        async_std::task::spawn(Self::aloha_publishing_task(
+        TOKIO_RUNTIME.spawn(Self::aloha_publishing_task(
             beacon_period,
             key,
             session,
@@ -149,7 +149,7 @@ impl AlohaDeclaration {
 
         while running.load(std::sync::atomic::Ordering::Relaxed) {
             let _res = publisher.put(ZBuf::default()).await;
-            async_std::task::sleep(beacon_period).await;
+            tokio::time::sleep(beacon_period).await;
         }
     }
 }
