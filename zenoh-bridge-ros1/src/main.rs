@@ -187,6 +187,16 @@ Bridge polls ROS1 master to get information on local topics. This option is the 
 Accepted value:'
 A string such as 100ms, 2s, 5m
 The string format is [0-9]+(ns|us|ms|[smhdwy])"#
+        ))
+        .arg(Arg::from_usage(
+r#"--work_thread_num=[usize] \
+'The number of worker thread in TOKIO runtime (default: 2)
+The configuration only takes effect if running as a dynamic plugin, which can not reuse the current runtime.'"#
+        ))
+        .arg(Arg::from_usage(
+r#"--max_block_thread_num=[usize] \
+'The number of blocking thread in TOKIO runtime (default: 50)
+The configuration only takes effect if running as a dynamic plugin, which can not reuse the current runtime.'"#
         ));
     let args = app.get_matches();
 

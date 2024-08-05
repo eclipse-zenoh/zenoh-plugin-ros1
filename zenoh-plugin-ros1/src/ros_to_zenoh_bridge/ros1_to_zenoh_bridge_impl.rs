@@ -34,7 +34,7 @@ use crate::{
         bridges_storage::BridgesStorage, discovery::LocalResources, environment::Environment,
         ros1_client, topic_mapping, zenoh_client,
     },
-    TOKIO_RUNTIME,
+    spawn_blocking_runtime,
 };
 
 #[derive(PartialEq, Clone, Copy)]
@@ -173,18 +173,17 @@ where
 
         while flag.load(Relaxed) {
             let cl = ros1_client.clone();
-            let (ros1_state, returned_cache) = TOKIO_RUNTIME
-                .spawn_blocking(move || {
-                    (
-                        topic_mapping::Ros1TopicMapping::topic_mapping(
-                            cl.as_ref(),
-                            &mut ros1_resource_cache,
-                        ),
-                        ros1_resource_cache,
-                    )
-                })
-                .await
-                .expect("Unable to complete the task");
+            let (ros1_state, returned_cache) = spawn_blocking_runtime(move || {
+                (
+                    topic_mapping::Ros1TopicMapping::topic_mapping(
+                        cl.as_ref(),
+                        &mut ros1_resource_cache,
+                    ),
+                    ros1_resource_cache,
+                )
+            })
+            .await
+            .expect("Unable to complete the task");
             ros1_resource_cache = returned_cache;
 
             debug!("ros state: {:#?}", ros1_state);

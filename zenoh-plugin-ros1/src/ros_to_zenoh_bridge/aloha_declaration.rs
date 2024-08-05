@@ -30,7 +30,7 @@ use zenoh::{
     Session,
 };
 
-use crate::TOKIO_RUNTIME;
+use crate::spawn_runtime;
 
 pub struct AlohaDeclaration {
     monitor_running: Arc<AtomicBool>,
@@ -44,7 +44,7 @@ impl Drop for AlohaDeclaration {
 impl AlohaDeclaration {
     pub fn new(session: Arc<Session>, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
         let monitor_running = Arc::new(AtomicBool::new(true));
-        TOKIO_RUNTIME.spawn(Self::aloha_monitor_task(
+        spawn_runtime(Self::aloha_monitor_task(
             beacon_period,
             monitor_running.clone(),
             key,
@@ -121,7 +121,7 @@ impl AlohaDeclaration {
         running: Arc<AtomicBool>,
     ) {
         running.store(true, std::sync::atomic::Ordering::SeqCst);
-        TOKIO_RUNTIME.spawn(Self::aloha_publishing_task(
+        spawn_runtime(Self::aloha_publishing_task(
             beacon_period,
             key,
             session,

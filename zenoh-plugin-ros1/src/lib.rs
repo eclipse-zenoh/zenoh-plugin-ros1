@@ -13,11 +13,16 @@
 //
 #![recursion_limit = "1024"]
 
-use std::time::Duration;
+use std::{
+    future::Future,
+    sync::atomic::{AtomicUsize, Ordering},
+    time::Duration,
+};
 
 use ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
+use tokio::task::JoinHandle;
 use zenoh::{
     internal::{
         plugins::{RunningPlugin, RunningPluginTrait, ZenohPlugin},
@@ -27,17 +32,70 @@ use zenoh::{
 };
 use zenoh_plugin_trait::{plugin_long_version, plugin_version, Plugin, PluginControl};
 
+use crate::ros_to_zenoh_bridge::environment;
+
 pub mod ros_to_zenoh_bridge;
 
-const WORKER_THREAD_NUM: usize = 2;
-const MAX_BLOCK_THREAD_NUM: usize = 50;
 lazy_static::lazy_static! {
-    pub(crate) static ref TOKIO_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
-               .worker_threads(WORKER_THREAD_NUM)
-               .max_blocking_threads(MAX_BLOCK_THREAD_NUM)
+    static ref WORK_THREAD_NUM: AtomicUsize = AtomicUsize::new(environment::DEFAULT_WORK_THREAD_NUM);
+    static ref MAX_BLOCK_THREAD_NUM: AtomicUsize = AtomicUsize::new(environment::DEFAULT_MAX_BLOCK_THREAD_NUM);
+    // The global runtime is used in the dynamic plugins, which we can't get the current runtime
+    static ref TOKIO_RUNTIME: tokio::runtime::Runtime = tokio::runtime::Builder::new_multi_thread()
+               .worker_threads(WORK_THREAD_NUM.load(Ordering::SeqCst))
+               .max_blocking_threads(MAX_BLOCK_THREAD_NUM.load(Ordering::SeqCst))
                .enable_all()
                .build()
                .expect("Unable to create runtime");
+}
+#[inline(always)]
+pub(crate) fn spawn_blocking_runtime<F, R>(func: F) -> JoinHandle<R>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    // Check whether able to get the current runtime
+    match tokio::runtime::Handle::try_current() {
+        Ok(rt) => {
+            // Able to get the current runtime (standalone binary), use the current runtime
+            rt.spawn_blocking(func)
+        }
+        Err(_) => {
+            // Unable to get the current runtime (dynamic plugins), reuse the global runtime
+            TOKIO_RUNTIME.spawn_blocking(func)
+        }
+    }
+}
+#[inline(always)]
+pub(crate) fn spawn_runtime<F>(task: F) -> JoinHandle<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    // Check whether able to get the current runtime
+    match tokio::runtime::Handle::try_current() {
+        Ok(rt) => {
+            // Able to get the current runtime (standalone binary), use the current runtime
+            rt.spawn(task)
+        }
+        Err(_) => {
+            // Unable to get the current runtime (dynamic plugins), reuse the global runtime
+            TOKIO_RUNTIME.spawn(task)
+        }
+    }
+}
+#[inline(always)]
+pub(crate) fn blockon_runtime<F: Future>(task: F) -> F::Output {
+    // Check whether able to get the current runtime
+    match tokio::runtime::Handle::try_current() {
+        Ok(rt) => {
+            // Able to get the current runtime (standalone binary), use the current runtime
+            tokio::task::block_in_place(|| rt.block_on(task))
+        }
+        Err(_) => {
+            // Unable to get the current runtime (dynamic plugins), reuse the global runtime
+            tokio::task::block_in_place(|| TOKIO_RUNTIME.block_on(task))
+        }
+    }
 }
 
 // The struct implementing the ZenohPlugin and ZenohPlugin traits
@@ -81,6 +139,9 @@ impl Plugin for Ros1Plugin {
                 entry.set(str.trim_matches('"').to_string());
             }
         }
+        // Setup the thread numbers
+        WORK_THREAD_NUM.store(Environment::work_thread_num().get(), Ordering::SeqCst);
+        MAX_BLOCK_THREAD_NUM.store(Environment::max_block_thread_num().get(), Ordering::SeqCst);
 
         drop(config);
 
@@ -98,27 +159,22 @@ impl RunningPluginTrait for Ros1PluginInstance {}
 impl Drop for Ros1PluginInstance {
     fn drop(&mut self) {
         if Environment::with_rosmaster().get() {
-            tokio::task::block_in_place(|| {
-                TOKIO_RUNTIME.block_on(Ros1MasterCtrl::without_ros1_master())
-            });
+            blockon_runtime(Ros1MasterCtrl::without_ros1_master());
         }
     }
 }
 impl Ros1PluginInstance {
     fn new(runtime: &Runtime) -> ZResult<Self> {
-        let bridge: ZResult<Ros1ToZenohBridge> = tokio::task::block_in_place(|| {
-            TOKIO_RUNTIME.block_on(async {
-                if Environment::with_rosmaster().get() {
-                    Ros1MasterCtrl::with_ros1_master().await?;
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                }
+        let bridge: ZResult<Ros1ToZenohBridge> = blockon_runtime(async {
+            if Environment::with_rosmaster().get() {
+                Ros1MasterCtrl::with_ros1_master().await?;
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
 
-                // create a zenoh Session that shares the same Runtime as zenohd
-                let session = zenoh::session::init(runtime.clone()).await?.into_arc();
-                let bridge =
-                    ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
-                Ok(bridge)
-            })
+            // create a zenoh Session that shares the same Runtime as zenohd
+            let session = zenoh::session::init(runtime.clone()).await?.into_arc();
+            let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
+            Ok(bridge)
         });
 
         Ok(Self { _bridge: bridge? })

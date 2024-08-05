@@ -45,7 +45,7 @@ use super::{
     topic_utilities::make_topic_key,
     zenoh_client,
 };
-use crate::TOKIO_RUNTIME;
+use crate::{spawn_blocking_runtime, spawn_runtime};
 
 pub struct IsolatedPort {
     pub port: u16,
@@ -150,7 +150,7 @@ impl RunningBridge {
             ros_status: Arc::new(Mutex::new(RosStatus::Unknown)),
             bridge_status: Arc::new(Mutex::new(BridgeStatus::default())),
         };
-        TOKIO_RUNTIME.spawn(Self::run(
+        spawn_runtime(Self::run(
             ros_master_uri,
             config,
             result.flag.clone(),
@@ -668,14 +668,14 @@ pub trait Publisher: Sync {
 impl Publisher for ZenohPublisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        TOKIO_RUNTIME.spawn_blocking(move || inner.put(data).wait().unwrap());
+        spawn_blocking_runtime(move || inner.put(data).wait().unwrap());
     }
 }
 #[async_trait]
 impl Publisher for ROS1Publisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        TOKIO_RUNTIME.spawn_blocking(move || inner.data.send(rosrust::RawMessage(data)).unwrap());
+        spawn_blocking_runtime(move || inner.data.send(rosrust::RawMessage(data)).unwrap());
     }
 
     async fn ready(&self) -> bool {
@@ -685,7 +685,7 @@ impl Publisher for ROS1Publisher {
 #[async_trait]
 impl Publisher for ZenohQuery {
     fn put(&self, data: Vec<u8>) {
-        TOKIO_RUNTIME.spawn(Self::query_loop(
+        spawn_runtime(Self::query_loop(
             self.inner.clone(),
             self.key.clone(),
             self.running.clone(),
@@ -713,8 +713,9 @@ impl Publisher for ROS1Client {
             msg_type: self.topic.datatype.clone(),
         };
 
-        TOKIO_RUNTIME
-            .spawn_blocking(|| Self::query_loop(description, running, data, cycles, ros1_client));
+        spawn_blocking_runtime(|| {
+            Self::query_loop(description, running, data, cycles, ros1_client)
+        });
     }
 
     async fn ready(&self) -> bool {
@@ -725,8 +726,7 @@ impl Publisher for ROS1Client {
         };
         let data = (0..10).collect();
         let ros1_client = self.ros1_client.clone();
-        TOKIO_RUNTIME
-            .spawn_blocking(move || Self::make_query(description, &data, &ros1_client).is_ok())
+        spawn_blocking_runtime(move || Self::make_query(description, &data, &ros1_client).is_ok())
             .await
             .unwrap_or(false)
     }

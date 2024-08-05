@@ -27,7 +27,7 @@ use tokio::sync::Mutex;
 use tracing::error;
 use zenoh::{key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Result as ZResult, Session};
 
-use crate::TOKIO_RUNTIME;
+use crate::spawn_runtime;
 
 struct AlohaResource {
     activity: AtomicBool,
@@ -82,7 +82,7 @@ impl AlohaSubscription {
     {
         let task_running = Arc::new(AtomicBool::new(true));
 
-        TOKIO_RUNTIME.spawn(AlohaSubscription::task(
+        spawn_runtime(AlohaSubscription::task(
             task_running.clone(),
             key,
             beacon_period,

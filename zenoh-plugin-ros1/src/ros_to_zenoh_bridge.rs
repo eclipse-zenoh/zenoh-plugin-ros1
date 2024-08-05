@@ -22,7 +22,7 @@ use tracing::error;
 use zenoh::{self, Result as ZResult, Session};
 
 use self::{environment::Environment, ros1_to_zenoh_bridge_impl::work_cycle};
-use crate::TOKIO_RUNTIME;
+use crate::spawn_runtime;
 
 #[cfg(feature = "test")]
 pub mod aloha_declaration;
@@ -96,7 +96,7 @@ impl Ros1ToZenohBridge {
         let flag = Arc::new(AtomicBool::new(true));
         Self {
             flag: flag.clone(),
-            task_handle: Box::new(TOKIO_RUNTIME.spawn(Self::run(session, flag))),
+            task_handle: Box::new(spawn_runtime(Self::run(session, flag))),
         }
     }
 
