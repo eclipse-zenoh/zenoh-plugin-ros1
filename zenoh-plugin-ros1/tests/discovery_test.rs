@@ -17,8 +17,8 @@ use std::{
     time::Duration,
 };
 
-use async_std::prelude::FutureExt;
 use multiset::HashMultiSet;
+use test_case::test_case;
 use zenoh::{key_expr::keyexpr, prelude::*, session::OpenBuilder, Session};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::{self, LocalResources, RemoteResources},
@@ -43,19 +43,19 @@ fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
 fn make_local_resources(session: Arc<Session>) -> LocalResources {
     LocalResources::new("*".to_owned(), "*".to_owned(), session)
 }
-fn make_remote_resources(session: Arc<Session>) -> RemoteResources {
-    async_std::task::block_on(remote_resources_builder(session).build())
+async fn make_remote_resources(session: Arc<Session>) -> RemoteResources {
+    remote_resources_builder(session).build().await
 }
 
-#[test]
-fn discovery_instantination_one_instance() {
+#[tokio::test(flavor = "multi_thread")]
+async fn discovery_instantination_one_instance() {
     let session = make_session(&IsolatedConfig::default());
-    let _remote = make_remote_resources(session.clone());
+    let _remote = make_remote_resources(session.clone()).await;
     let _local = make_local_resources(session);
 }
 
-#[test]
-fn discovery_instantination_many_instances() {
+#[tokio::test(flavor = "multi_thread")]
+async fn discovery_instantination_many_instances() {
     let cfg = IsolatedConfig::default();
     let mut sessions = Vec::new();
     for _i in 0..10 {
@@ -64,7 +64,7 @@ fn discovery_instantination_many_instances() {
 
     let mut discoveries = Vec::new();
     for session in sessions.iter() {
-        let remote = make_remote_resources(session.clone());
+        let remote = make_remote_resources(session.clone()).await;
         let local = make_local_resources(session.clone());
         discoveries.push((remote, local));
     }
@@ -159,7 +159,7 @@ impl DiscoveryCollector {
         expected: HashMultiSet<TopicDescriptor>,
     ) {
         while expected != *container.lock().unwrap() {
-            async_std::task::sleep(core::time::Duration::from_millis(10)).await;
+            tokio::time::sleep(core::time::Duration::from_millis(10)).await;
         }
     }
 }
@@ -291,117 +291,46 @@ async fn run_discovery(scenario: Vec<State>) {
         .await;
 
     for scene in scenario {
-        test_state_transition(&local_resources, &rcv, &scene)
-            .timeout(TIMEOUT)
-            .await
-            .expect("Timeout waiting state transition!");
+        tokio::time::timeout(
+            TIMEOUT,
+            test_state_transition(&local_resources, &rcv, &scene),
+        )
+        .await
+        .expect("Timeout waiting state transition!");
     }
 }
 
-#[test]
-fn discover_single_publisher() {
-    async_std::task::block_on(run_discovery(
-        [State::default().publishers(1, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_single_subscriber() {
-    async_std::task::block_on(run_discovery(
-        [State::default().subscribers(1, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_single_service() {
-    async_std::task::block_on(run_discovery(
-        [State::default().services(1, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_single_client() {
-    async_std::task::block_on(run_discovery(
-        [State::default().clients(1, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_single_transition() {
-    async_std::task::block_on(run_discovery(
-        [
-            State::default().publishers(1, 1),
-            State::default().subscribers(1, 1),
-            State::default().services(1, 1),
-            State::default().clients(1, 1),
-        ]
-        .into_iter()
-        .collect(),
-    ));
-}
-#[test]
-fn discover_single_transition_with_zero_state() {
-    async_std::task::block_on(run_discovery(
-        [
-            State::default().publishers(1, 1),
-            State::default(),
-            State::default().subscribers(1, 1),
-            State::default(),
-            State::default().services(1, 1),
-            State::default(),
-            State::default().clients(1, 1),
-        ]
-        .into_iter()
-        .collect(),
-    ));
-}
-
-#[test]
-fn discover_multiple_publishers() {
-    async_std::task::block_on(run_discovery(
-        [State::default().publishers(100, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_multiple_subscribers() {
-    async_std::task::block_on(run_discovery(
-        [State::default().subscribers(100, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_multiple_services() {
-    async_std::task::block_on(run_discovery(
-        [State::default().services(100, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_multiple_clients() {
-    async_std::task::block_on(run_discovery(
-        [State::default().clients(100, 1)].into_iter().collect(),
-    ));
-}
-#[test]
-fn discover_multiple_transition() {
-    async_std::task::block_on(run_discovery(
-        [
-            State::default().publishers(100, 1),
-            State::default().subscribers(100, 1),
-            State::default().services(100, 1),
-            State::default().clients(100, 1),
-        ]
-        .into_iter()
-        .collect(),
-    ));
-}
-#[test]
-fn discover_multiple_transition_with_zero_state() {
-    async_std::task::block_on(run_discovery(
-        [
-            State::default().publishers(100, 1),
-            State::default(),
-            State::default().subscribers(100, 1),
-            State::default(),
-            State::default().services(100, 1),
-            State::default(),
-            State::default().clients(100, 1),
-        ]
-        .into_iter()
-        .collect(),
-    ));
+#[test_case([State::default().publishers(1, 1)].into_iter().collect(); "single_publisher")]
+#[test_case([State::default().subscribers(1, 1)].into_iter().collect(); "single_subscriber")]
+#[test_case([State::default().services(1, 1)].into_iter().collect(); "single_service")]
+#[test_case([State::default().clients(1, 1)].into_iter().collect(); "single_client")]
+#[test_case([State::default().publishers(1, 1),
+             State::default().subscribers(1, 1),
+             State::default().services(1, 1),
+             State::default().clients(1, 1),].into_iter().collect(); "single_transition")]
+#[test_case([State::default().publishers(1, 1),
+             State::default(),
+             State::default().subscribers(1, 1),
+             State::default(),
+             State::default().services(1, 1),
+             State::default(),
+             State::default().clients(1, 1),].into_iter().collect(); "single_transition_with_zero_state")]
+#[test_case([State::default().publishers(100, 1)].into_iter().collect(); "multiple_publisher")]
+#[test_case([State::default().subscribers(100, 1)].into_iter().collect(); "multiple_subscriber")]
+#[test_case([State::default().services(100, 1)].into_iter().collect(); "multiple_service")]
+#[test_case([State::default().clients(100, 1)].into_iter().collect(); "multiple_client")]
+#[test_case([State::default().publishers(100, 1),
+             State::default().subscribers(100, 1),
+             State::default().services(100, 1),
+             State::default().clients(100, 1),].into_iter().collect(); "multiple_transition")]
+#[test_case([State::default().publishers(100, 1),
+             State::default(),
+             State::default().subscribers(100, 1),
+             State::default(),
+             State::default().services(100, 1),
+             State::default(),
+             State::default().clients(100, 1),].into_iter().collect(); "multiple_transition_with_zero_state")]
+#[tokio::test(flavor = "multi_thread")]
+async fn discover(vec_state: Vec<State>) {
+    run_discovery(vec_state).await;
 }

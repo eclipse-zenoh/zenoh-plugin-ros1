@@ -41,6 +41,8 @@ flume = { workspace = true }
 futures = { workspace = true }
 git-version = { workspace = true }
 lazy_static = { workspace = true }
+test-case = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -62,10 +64,6 @@ multiset = "0.0.5"
 ctrlc = { workspace = true }
 # TODO: https://zettascale.atlassian.net/browse/ZEN-291
 # zenoh-plugin-ros1 = { path = ".", features = ["test"]}
-
-[dependencies.async-std]
-version = "=1.12.0"
-features = ["unstable", "attributes"]
 
 [build-dependencies]
 rustc_version = { workspace = true }

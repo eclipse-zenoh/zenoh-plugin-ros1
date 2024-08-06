@@ -23,7 +23,6 @@ use std::{
     time::Duration,
 };
 
-use async_std::prelude::FutureExt;
 use async_trait::async_trait;
 use futures::Future;
 use rosrust::{Client, RawMessage, RawMessageDescription};
@@ -46,6 +45,7 @@ use super::{
     topic_utilities::make_topic_key,
     zenoh_client,
 };
+use crate::{spawn_blocking_runtime, spawn_runtime};
 
 pub struct IsolatedPort {
     pub port: u16,
@@ -118,7 +118,7 @@ where
         if waiter() {
             return true;
         }
-        async_std::task::sleep(Duration::from_millis(sleep_millis)).await;
+        tokio::time::sleep(Duration::from_millis(sleep_millis)).await;
     }
     false
 }
@@ -130,10 +130,10 @@ where
 {
     let w = async {
         while !waiter().await {
-            async_std::task::sleep(Duration::from_millis(10)).await
+            tokio::time::sleep(Duration::from_millis(10)).await
         }
     };
-    w.timeout(timeout).await.is_ok()
+    tokio::time::timeout(timeout, w).await.is_ok()
 }
 
 pub struct RunningBridge {
@@ -150,7 +150,7 @@ impl RunningBridge {
             ros_status: Arc::new(Mutex::new(RosStatus::Unknown)),
             bridge_status: Arc::new(Mutex::new(BridgeStatus::default())),
         };
-        async_std::task::spawn(Self::run(
+        spawn_runtime(Self::run(
             ros_master_uri,
             config,
             result.flag.clone(),
@@ -668,16 +668,14 @@ pub trait Publisher: Sync {
 impl Publisher for ZenohPublisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || inner.put(data).wait().unwrap());
+        spawn_blocking_runtime(move || inner.put(data).wait().unwrap());
     }
 }
 #[async_trait]
 impl Publisher for ROS1Publisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || {
-            inner.data.send(rosrust::RawMessage(data)).unwrap()
-        });
+        spawn_blocking_runtime(move || inner.data.send(rosrust::RawMessage(data)).unwrap());
     }
 
     async fn ready(&self) -> bool {
@@ -687,7 +685,7 @@ impl Publisher for ROS1Publisher {
 #[async_trait]
 impl Publisher for ZenohQuery {
     fn put(&self, data: Vec<u8>) {
-        async_std::task::spawn(Self::query_loop(
+        spawn_runtime(Self::query_loop(
             self.inner.clone(),
             self.key.clone(),
             self.running.clone(),
@@ -715,7 +713,7 @@ impl Publisher for ROS1Client {
             msg_type: self.topic.datatype.clone(),
         };
 
-        async_std::task::spawn_blocking(|| {
+        spawn_blocking_runtime(|| {
             Self::query_loop(description, running, data, cycles, ros1_client)
         });
     }
@@ -728,10 +726,9 @@ impl Publisher for ROS1Client {
         };
         let data = (0..10).collect();
         let ros1_client = self.ros1_client.clone();
-        async_std::task::spawn_blocking(move || {
-            Self::make_query(description, &data, &ros1_client).is_ok()
-        })
-        .await
+        spawn_blocking_runtime(move || Self::make_query(description, &data, &ros1_client).is_ok())
+            .await
+            .unwrap_or(false)
     }
 }
 

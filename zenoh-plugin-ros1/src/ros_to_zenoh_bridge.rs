@@ -17,11 +17,12 @@ use std::sync::{
     Arc,
 };
 
-use async_std::task::JoinHandle;
+use tokio::task::JoinHandle;
 use tracing::error;
 use zenoh::{self, Result as ZResult, Session};
 
 use self::{environment::Environment, ros1_to_zenoh_bridge_impl::work_cycle};
+use crate::spawn_runtime;
 
 #[cfg(feature = "test")]
 pub mod aloha_declaration;
@@ -95,7 +96,7 @@ impl Ros1ToZenohBridge {
         let flag = Arc::new(AtomicBool::new(true));
         Self {
             flag: flag.clone(),
-            task_handle: Box::new(async_std::task::spawn(Self::run(session, flag))),
+            task_handle: Box::new(spawn_runtime(Self::run(session, flag))),
         }
     }
 
@@ -120,7 +121,10 @@ impl Ros1ToZenohBridge {
     }
 
     async fn async_await(&mut self) {
-        self.task_handle.as_mut().await;
+        self.task_handle
+            .as_mut()
+            .await
+            .expect("Unable to complete the task");
     }
 }
 impl Drop for Ros1ToZenohBridge {

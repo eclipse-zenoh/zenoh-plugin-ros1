@@ -21,11 +21,13 @@ use std::{
     time::Duration,
 };
 
-use async_std::sync::Mutex;
 use flume::Receiver;
 use futures::{join, Future, FutureExt};
+use tokio::sync::Mutex;
 use tracing::error;
 use zenoh::{key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Result as ZResult, Session};
+
+use crate::spawn_runtime;
 
 struct AlohaResource {
     activity: AtomicBool,
@@ -80,7 +82,7 @@ impl AlohaSubscription {
     {
         let task_running = Arc::new(AtomicBool::new(true));
 
-        async_std::task::spawn(AlohaSubscription::task(
+        spawn_runtime(AlohaSubscription::task(
             task_running.clone(),
             key,
             beacon_period,
@@ -184,7 +186,7 @@ impl AlohaSubscription {
                     val.1.reset();
                 });
 
-            async_std::task::sleep(accumulate_period).await;
+            tokio::time::sleep(accumulate_period).await;
 
             for (key, val) in accumulating_resources.lock().await.iter() {
                 if !val.is_active() {

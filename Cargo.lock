@@ -4052,6 +4052,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-case"
+version = "3.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb2550dd13afcd286853192af8601920d959b14c401fcece38071d53bf0768a8"
+dependencies = [
+ "test-case-macros",
+]
+
+[[package]]
+name = "test-case-core"
+version = "3.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adcb7fd841cd518e279be3d5a3eb0636409487998a4aff22f3de87b81e88384f"
+dependencies = [
+ "cfg-if 1.0.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.72",
+]
+
+[[package]]
+name = "test-case-macros"
+version = "3.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c89e72a01ed4c579669add59014b9a524d609c0c88c6a585ce37485879f6ffb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.72",
+ "test-case-core",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4266,9 +4299,9 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "num_cpus",
- "pin-project-lite 0.2.13",
- "socket2 0.5.6",
+ "pin-project-lite 0.2.14",
+ "signal-hook-registry",
+ "socket2 0.5.7",
  "tokio-macros",
  "windows-sys 0.48.0",
 ]
@@ -5157,11 +5190,11 @@ dependencies = [
 name = "zenoh-bridge-ros1"
 version = "0.11.0-dev"
 dependencies = [
- "async-std",
  "clap",
  "ctrlc",
  "lazy_static",
  "serde_json",
+ "tokio",
  "tracing",
  "zenoh",
  "zenoh-plugin-rest",
@@ -5482,7 +5515,6 @@ name = "zenoh-plugin-ros1"
 version = "0.11.0-dev"
 dependencies = [
  "async-global-executor",
- "async-std",
  "async-trait",
  "atoi",
  "ctrlc",
@@ -5501,6 +5533,8 @@ dependencies = [
  "serial_test",
  "strum",
  "strum_macros",
+ "test-case",
+ "tokio",
  "tracing",
  "xml-rpc",
  "zenoh",

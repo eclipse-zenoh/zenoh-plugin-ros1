@@ -19,7 +19,8 @@ use std::{
     time::Duration,
 };
 
-use async_std::{prelude::FutureExt, sync::Mutex};
+use test_case::test_case;
+use tokio::sync::Mutex;
 use zenoh::{key_expr::OwnedKeyExpr, prelude::*, session::OpenBuilder, Result as ZResult, Session};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
@@ -57,22 +58,25 @@ fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
     session_builder(cfg).wait().unwrap().into_arc()
 }
 
-fn make_subscription(
+async fn make_subscription(
     session: Arc<Session>,
     beacon_period: Duration,
 ) -> aloha_subscription::AlohaSubscription {
-    async_std::task::block_on(subscription_builder(session, beacon_period).build()).unwrap()
+    subscription_builder(session, beacon_period)
+        .build()
+        .await
+        .expect("Failed to make subscription")
 }
 
-#[test]
-fn aloha_instantination_one_instance() {
+#[tokio::test(flavor = "multi_thread")]
+async fn aloha_instantination_one_instance() {
     let session = make_session(&IsolatedConfig::default());
     let _declaration = declaration_builder(session.clone(), Duration::from_secs(1));
-    let _subscription = make_subscription(session, Duration::from_secs(1));
+    let _subscription = make_subscription(session, Duration::from_secs(1)).await;
 }
 
-#[test]
-fn aloha_instantination_many_instances() {
+#[tokio::test(flavor = "multi_thread")]
+async fn aloha_instantination_many_instances() {
     let cfg = IsolatedConfig::default();
     let mut sessions = Vec::new();
     let mut declarations = Vec::new();
@@ -84,7 +88,7 @@ fn aloha_instantination_many_instances() {
     }
 
     for session in sessions.iter() {
-        subscriptions.push(make_subscription(session.clone(), Duration::from_secs(1)));
+        subscriptions.push(make_subscription(session.clone(), Duration::from_secs(1)).await);
     }
 }
 
@@ -117,7 +121,7 @@ impl<'a> PPCMeasurement<'a> {
 
     pub async fn measure_ppc(&self) -> usize {
         self.ppc.store(0, std::sync::atomic::Ordering::SeqCst);
-        async_std::task::sleep(self.measurement_period).await;
+        tokio::time::sleep(self.measurement_period).await;
         self.ppc.load(std::sync::atomic::Ordering::SeqCst)
     }
 }
@@ -184,7 +188,7 @@ impl DeclarationCollector {
             || !self.to_be_undeclared.lock().await.is_empty()
             || expected != *self.resources.lock().await
         {
-            async_std::task::sleep(core::time::Duration::from_millis(1)).await;
+            tokio::time::sleep(core::time::Duration::from_millis(1)).await;
         }
     }
 }
@@ -245,7 +249,7 @@ async fn test_state_transition<'a>(
     }
 
     collector.wait(result).await;
-    async_std::task::sleep(beacon_period).await;
+    tokio::time::sleep(beacon_period).await;
     while ppc_measurer.measure_ppc().await != {
         let mut res = 1;
         if state.declarators_count == 0 {
@@ -275,99 +279,48 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
         .unwrap();
     for scene in scenario {
         println!("Transiting State: {}", scene.declarators_count);
-        test_state_transition(
-            &cfg,
-            beacon_period,
-            &mut declaring_sessions,
-            &mut declarations,
-            &mut collector,
-            &ppc_measurer,
-            &scene,
+        tokio::time::timeout(
+            TIMEOUT,
+            test_state_transition(
+                &cfg,
+                beacon_period,
+                &mut declaring_sessions,
+                &mut declarations,
+                &mut collector,
+                &ppc_measurer,
+                &scene,
+            ),
         )
-        .timeout(TIMEOUT)
         .await
         .expect("Timeout waiting state transition!");
     }
 }
 
-#[test]
-fn aloha_declare_one() {
-    async_std::task::block_on(run_aloha(
-        Duration::from_millis(100),
-        [State::default().declarators(1)].into_iter().collect(),
-    ));
-}
-
-#[test]
-fn aloha_declare_many() {
-    async_std::task::block_on(run_aloha(
-        Duration::from_millis(100),
-        [State::default().declarators(10)].into_iter().collect(),
-    ));
-}
-
-#[test]
-fn aloha_declare_many_one_many() {
-    async_std::task::block_on(run_aloha(
-        Duration::from_millis(100),
-        [
-            State::default().declarators(10),
-            State::default().declarators(1),
-            State::default().declarators(10),
-        ]
-        .into_iter()
-        .collect(),
-    ));
-}
-
-#[test]
-fn aloha_declare_one_zero_one() {
-    async_std::task::block_on(run_aloha(
-        Duration::from_millis(100),
-        [
-            State::default().declarators(1),
-            State::default().declarators(0),
-            State::default().declarators(1),
-        ]
-        .into_iter()
-        .collect(),
-    ));
-}
-
-#[test]
-fn aloha_declare_many_zero_many() {
-    async_std::task::block_on(run_aloha(
-        Duration::from_millis(100),
-        [
-            State::default().declarators(10),
-            State::default().declarators(0),
-            State::default().declarators(10),
-        ]
-        .into_iter()
-        .collect(),
-    ));
-}
-
-#[test]
-fn aloha_many_scenarios() {
-    async_std::task::block_on(run_aloha(
-        Duration::from_millis(100),
-        [
-            State::default().declarators(1),
-            State::default().declarators(10),
-            State::default().declarators(1),
-            State::default().declarators(10),
-            State::default().declarators(1),
-            State::default().declarators(10),
-            State::default().declarators(0),
-            State::default().declarators(1),
-            State::default().declarators(10),
-            State::default().declarators(1),
-            State::default().declarators(0),
-            State::default().declarators(10),
-            State::default().declarators(1),
-        ]
-        .into_iter()
-        .collect(),
-    ));
+#[test_case([State::default().declarators(1)].into_iter().collect(); "one")]
+#[test_case([State::default().declarators(10)].into_iter().collect(); "many")]
+#[test_case([State::default().declarators(10),
+             State::default().declarators(1),
+             State::default().declarators(10)].into_iter().collect(); "many one many")]
+#[test_case([State::default().declarators(1),
+             State::default().declarators(0),
+             State::default().declarators(1)].into_iter().collect(); "one zero one")]
+#[test_case([State::default().declarators(10),
+             State::default().declarators(0),
+             State::default().declarators(10)].into_iter().collect(); "many zero many")]
+#[test_case([State::default().declarators(1),
+             State::default().declarators(10),
+             State::default().declarators(1),
+             State::default().declarators(10),
+             State::default().declarators(1),
+             State::default().declarators(10),
+             State::default().declarators(0),
+             State::default().declarators(1),
+             State::default().declarators(10),
+             State::default().declarators(1),
+             State::default().declarators(0),
+             State::default().declarators(10),
+             State::default().declarators(1)].into_iter().collect(); "many scenarios")]
+#[tokio::test(flavor = "multi_thread")]
+async fn aloha_declare(vec_state: Vec<State>) {
+    run_aloha(Duration::from_millis(100), vec_state).await;
 }

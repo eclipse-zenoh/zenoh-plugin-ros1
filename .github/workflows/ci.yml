@@ -83,13 +83,11 @@ jobs:
         run: cargo test --verbose
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-          ASYNC_STD_THREAD_COUNT: 4
 
       - name: Run doctests
         run: cargo test --doc
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-          ASYNC_STD_THREAD_COUNT: 4
 
   # NOTE: In GitHub repository settings, the "Require status checks to pass
   # before merging" branch protection rule ensures that commits are only merged

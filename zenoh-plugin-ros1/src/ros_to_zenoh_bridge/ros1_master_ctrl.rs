@@ -12,11 +12,11 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::{
+use atoi::atoi;
+use tokio::{
     process::{Child, Command},
     sync::Mutex,
 };
-use atoi::atoi;
 use tracing::error;
 use zenoh::{
     internal::{bail, zasynclock, zerror},
@@ -25,7 +25,9 @@ use zenoh::{
 
 use crate::ros_to_zenoh_bridge::environment::Environment;
 
-static ROSMASTER: Mutex<Option<Child>> = Mutex::new(None);
+lazy_static::lazy_static! {
+    static ref ROSMASTER: Mutex<Option<Child>> = Mutex::new(None);
+}
 
 pub struct Ros1MasterCtrl;
 impl Ros1MasterCtrl {
@@ -55,20 +57,12 @@ impl Ros1MasterCtrl {
         let mut locked = zasynclock!(ROSMASTER);
         assert!(locked.is_some());
         match locked.take() {
-            Some(mut child) => match child.kill() {
-                Ok(_) => {
-                    if let Err(e) = child.status().await {
-                        error!("Error stopping child rosmaster: {}", e);
-                    }
-                }
+            Some(mut child) => match child.kill().await {
+                Ok(_) => {}
                 Err(e) => error!("Error sending kill cmd to child rosmaster: {}", e),
             },
             None => match Command::new("killall").arg("rosmaster").spawn() {
-                Ok(mut child) => {
-                    if let Err(e) = child.status().await {
-                        error!("Error stopping foreign rosmaster: {}", e);
-                    }
-                }
+                Ok(_) => {}
                 Err(e) => error!(
                     "Error executing killall command to stop foreign rosmaster: {}",
                     e

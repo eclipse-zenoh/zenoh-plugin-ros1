@@ -21,9 +21,9 @@ use std::{
     time::Duration,
 };
 
-use async_std::prelude::FutureExt;
 use rosrust::RawMessage;
 use strum_macros::Display;
+use test_case::test_case;
 use tracing::{debug, trace};
 use zenoh::key_expr::{KeyExpr, OwnedKeyExpr};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
@@ -136,9 +136,9 @@ async fn async_create_bridge() {
     system1.wait_state_synch().await;
 }
 
-#[test]
-fn create_bridge() {
-    async_std::task::block_on(async_create_bridge());
+#[tokio::test(flavor = "multi_thread")]
+async fn create_bridge() {
+    async_create_bridge().await;
 }
 
 async fn async_create_bridge_and_init() {
@@ -147,9 +147,9 @@ async fn async_create_bridge_and_init() {
     system1.with_ros().with_bridge().wait_state_synch().await;
 }
 
-#[test]
-fn create_bridge_and_init() {
-    async_std::task::block_on(async_create_bridge_and_init());
+#[tokio::test(flavor = "multi_thread")]
+async fn create_bridge_and_init() {
+    async_create_bridge_and_init().await;
 }
 
 async fn async_create_bridge_and_reinit_ros() {
@@ -163,9 +163,9 @@ async fn async_create_bridge_and_reinit_ros() {
     }
 }
 
-#[test]
-fn create_bridge_and_reinit_ros() {
-    async_std::task::block_on(async_create_bridge_and_reinit_ros());
+#[tokio::test(flavor = "multi_thread")]
+async fn create_bridge_and_reinit_ros() {
+    async_create_bridge_and_reinit_ros().await;
 }
 
 async fn async_create_bridge_and_reinit_bridge() {
@@ -179,9 +179,9 @@ async fn async_create_bridge_and_reinit_bridge() {
     }
 }
 
-#[test]
-fn create_bridge_and_reinit_bridge() {
-    async_std::task::block_on(async_create_bridge_and_reinit_bridge());
+#[tokio::test(flavor = "multi_thread")]
+async fn create_bridge_and_reinit_bridge() {
+    async_create_bridge_and_reinit_bridge().await;
 }
 
 struct SrcDstPair {
@@ -219,7 +219,7 @@ impl SrcDstPair {
             data.push((i % 255) as u8);
         }
 
-        async {
+        tokio::time::timeout(Duration::from_secs(30), async {
             while {
                 self.src.put(data.clone());
                 !test_helpers::wait_async_fn(
@@ -230,8 +230,7 @@ impl SrcDstPair {
             } {
                 debug!("Restarting ping-pong!");
             }
-        }
-        .timeout(Duration::from_secs(30))
+        })
         .await
         .is_ok()
     }
@@ -254,7 +253,7 @@ impl SrcDstPair {
 
         self.counter.store(0, Relaxed);
         while !(result > 0.0 || duration >= 10000) {
-            async_std::task::sleep(core::time::Duration::from_millis(duration_milliseconds)).await;
+            tokio::time::sleep(core::time::Duration::from_millis(duration_milliseconds)).await;
             duration += duration_milliseconds;
             result += self.counter.load(Relaxed) as f64;
         }
@@ -317,8 +316,6 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
                 dst,
             }
         };
-
-    zenoh::internal::zasync_executor_init!();
 
     let env = TestEnvironment::default();
     let mut src_system = env.add_system();
@@ -392,80 +389,17 @@ async fn async_bridge_2_bridge(instances: u32, mode: std::collections::HashSet<M
     dst_system.wait_state_synch().await;
 }
 
-#[test]
-fn bridge_2_bridge_pub() {
-    async_std::task::block_on(async_bridge_2_bridge(1, HashSet::from([Mode::Ros1ToZenoh])));
-}
-
-#[test]
-fn bridge_2_bridge_pub_many() {
-    async_std::task::block_on(async_bridge_2_bridge(
-        TestParams::many_count(),
-        HashSet::from([Mode::Ros1ToZenoh]),
-    ));
-}
-
-#[test]
-fn bridge_2_bridge_sub() {
-    async_std::task::block_on(async_bridge_2_bridge(1, HashSet::from([Mode::ZenohToRos1])));
-}
-
-#[test]
-fn bridge_2_bridge_sub_many() {
-    async_std::task::block_on(async_bridge_2_bridge(
-        TestParams::many_count(),
-        HashSet::from([Mode::ZenohToRos1]),
-    ));
-}
-
-#[test]
-fn bridge_2_bridge_service() {
-    async_std::task::block_on(async_bridge_2_bridge(1, HashSet::from([Mode::Ros1Service])));
-}
-
-#[test]
-fn bridge_2_bridge_service_many() {
-    async_std::task::block_on(async_bridge_2_bridge(
-        TestParams::many_count(),
-        HashSet::from([Mode::Ros1Service]),
-    ));
-}
-
-#[test]
-fn bridge_2_bridge_client() {
-    async_std::task::block_on(async_bridge_2_bridge(1, HashSet::from([Mode::Ros1Client])));
-}
-
-#[test]
-fn bridge_2_bridge_client_many() {
-    async_std::task::block_on(async_bridge_2_bridge(
-        TestParams::many_count(),
-        HashSet::from([Mode::Ros1Client]),
-    ));
-}
-
-#[test]
-fn bridge_2_bridge_all() {
-    async_std::task::block_on(async_bridge_2_bridge(
-        1,
-        HashSet::from([
-            Mode::Ros1Client,
-            Mode::Ros1Service,
-            Mode::Ros1ToZenoh,
-            Mode::ZenohToRos1,
-        ]),
-    ));
-}
-
-#[test]
-fn bridge_2_bridge_all_many() {
-    async_std::task::block_on(async_bridge_2_bridge(
-        TestParams::many_count(),
-        HashSet::from([
-            Mode::Ros1Client,
-            Mode::Ros1Service,
-            Mode::Ros1ToZenoh,
-            Mode::ZenohToRos1,
-        ]),
-    ));
+#[test_case(1, HashSet::from([Mode::Ros1ToZenoh]); "pub_one")]
+#[test_case(TestParams::many_count(), HashSet::from([Mode::Ros1ToZenoh]); "pub_many")]
+#[test_case(1, HashSet::from([Mode::ZenohToRos1]); "sub_one")]
+#[test_case(TestParams::many_count(), HashSet::from([Mode::ZenohToRos1]); "sub_many")]
+#[test_case(1, HashSet::from([Mode::Ros1Service]); "service_one")]
+#[test_case(TestParams::many_count(), HashSet::from([Mode::Ros1Service]); "service_many")]
+#[test_case(1, HashSet::from([Mode::Ros1Client]); "client_one")]
+#[test_case(TestParams::many_count(), HashSet::from([Mode::Ros1Client]); "client_many")]
+#[test_case(1, HashSet::from([Mode::Ros1Client, Mode::Ros1Service, Mode::Ros1ToZenoh, Mode::ZenohToRos1]); "all")]
+#[test_case(TestParams::many_count(), HashSet::from([Mode::Ros1Client, Mode::Ros1Service, Mode::Ros1ToZenoh, Mode::ZenohToRos1]); "all_many")]
+#[tokio::test(flavor = "multi_thread")]
+async fn bridge_2_bridge(instances: u32, mode: std::collections::HashSet<Mode>) {
+    async_bridge_2_bridge(instances, mode).await;
 }

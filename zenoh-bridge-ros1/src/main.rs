@@ -13,8 +13,8 @@
 //
 use std::str::FromStr;
 
-use async_std::channel::unbounded;
 use clap::{App, Arg};
+use tokio::sync::mpsc::unbounded_channel;
 use zenoh::{
     config::{Config, ZenohId},
     internal::{plugins::PluginsManager, runtime::RuntimeBuilder},
@@ -187,6 +187,16 @@ Bridge polls ROS1 master to get information on local topics. This option is the 
 Accepted value:'
 A string such as 100ms, 2s, 5m
 The string format is [0-9]+(ns|us|ms|[smhdwy])"#
+        ))
+        .arg(Arg::from_usage(
+r#"--work_thread_num=[usize] \
+'The number of worker thread in TOKIO runtime (default: 2)
+The configuration only takes effect if running as a dynamic plugin, which can not reuse the current runtime.'"#
+        ))
+        .arg(Arg::from_usage(
+r#"--max_block_thread_num=[usize] \
+'The number of blocking thread in TOKIO runtime (default: 50)
+The configuration only takes effect if running as a dynamic plugin, which can not reuse the current runtime.'"#
         ));
     let args = app.get_matches();
 
@@ -252,15 +262,11 @@ The string format is [0-9]+(ns|us|ms|[smhdwy])"#
     config
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
-    let (sender, receiver) = unbounded();
-    ctrlc::set_handler(move || {
-        sender
-            .send_blocking(())
-            .expect("Error handling Ctrl+C signal")
-    })
-    .expect("Error setting Ctrl+C handler");
+    let (sender, mut receiver) = unbounded_channel();
+    ctrlc::set_handler(move || sender.send(()).expect("Error handling Ctrl+C signal"))
+        .expect("Error setting Ctrl+C handler");
 
     zenoh::init_log_from_env_or("z=info");
     tracing::info!(
