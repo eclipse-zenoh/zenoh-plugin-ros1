@@ -14,18 +14,15 @@
 
 use std::sync::Arc;
 
-use tracing::{debug, error, info};
-
 use rosrust::RawMessageDescription;
-use zenoh::buffers::buffer::SplitBuffer;
-use zenoh::key_expr::keyexpr;
-use zenoh_core::Result as ZResult;
-use zenoh_core::{AsyncResolve, SyncResolve};
+use tracing::{debug, error, info};
+use zenoh::{internal::bail, key_expr::keyexpr, prelude::*, Result as ZResult};
 
 use super::{
     bridge_type::BridgeType, ros1_client, topic_descriptor::TopicDescriptor,
     topic_utilities::make_zenoh_key, zenoh_client,
 };
+use crate::{blockon_runtime, spawn_blocking_runtime, spawn_runtime};
 
 pub struct AbstractBridge {
     _impl: BridgeIml,
@@ -85,7 +82,7 @@ impl Ros1ToZenohClient {
         ) {
             Ok(service) => Ok(Ros1ToZenohClient { _service: service }),
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e)
+                bail!("Ros error: {}", e)
             }
         }
     }
@@ -96,7 +93,7 @@ impl Ros1ToZenohClient {
         query: rosrust::RawMessage,
         zenoh_client: &zenoh_client::ZenohClient,
     ) -> rosrust::ServiceResult<rosrust::RawMessage> {
-        return async_std::task::block_on(Self::do_zenoh_query(key, query, zenoh_client));
+        return blockon_runtime(Self::do_zenoh_query(key, query, zenoh_client));
     }
 
     async fn do_zenoh_query(
@@ -106,18 +103,18 @@ impl Ros1ToZenohClient {
     ) -> rosrust::ServiceResult<rosrust::RawMessage> {
         match zenoh_client.make_query_sync(key, query.0).await {
             Ok(reply) => match reply.recv_async().await {
-                Ok(r) => match r.sample {
-                    Ok(value) => {
-                        let data = value.payload.contiguous().to_vec();
+                Ok(r) => match r.result() {
+                    Ok(sample) => {
+                        let data = sample.payload().into::<Vec<u8>>();
                         debug!("Zenoh -> ROS1: sending {} bytes!", data.len());
                         Ok(rosrust::RawMessage(data))
                     }
                     Err(e) => {
+                        let error = format!("{:?}", e);
                         error!(
-                            "ROS1 -> Zenoh Client: received Zenoh Query with error: {}",
-                            e
+                            "ROS1 -> Zenoh Client: received Zenoh Query with error: {:?}",
+                            error
                         );
-                        let error = e.to_string();
                         Err(error)
                     }
                 },
@@ -143,7 +140,7 @@ impl Ros1ToZenohClient {
 }
 
 struct Ros1ToZenohService {
-    _queryable: zenoh::queryable::Queryable<'static, ()>,
+    _queryable: zenoh::query::Queryable<'static, ()>,
 }
 impl Ros1ToZenohService {
     async fn new<'b>(
@@ -162,7 +159,7 @@ impl Ros1ToZenohService {
                 let topic_in_arc = Arc::new(topic.clone());
                 let queryable = zenoh_client
                     .make_queryable(make_zenoh_key(topic), move |query| {
-                        async_std::task::spawn(Self::on_query(
+                        spawn_runtime(Self::on_query(
                             client_in_arc.clone(),
                             query,
                             topic_in_arc.clone(),
@@ -174,7 +171,7 @@ impl Ros1ToZenohService {
                 })
             }
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e.to_string())
+                bail!("Ros error: {}", e.to_string())
             }
         }
     }
@@ -182,12 +179,12 @@ impl Ros1ToZenohService {
     //PRIVATE:
     async fn on_query(
         ros1_client: Arc<rosrust::Client<rosrust::RawMessage>>,
-        query: zenoh::queryable::Query,
+        query: zenoh::query::Query,
         topic: Arc<TopicDescriptor>,
     ) {
-        match query.value() {
+        match query.payload() {
             Some(val) => {
-                let payload = val.payload.contiguous().to_vec();
+                let payload = val.into::<Vec<u8>>();
                 debug!(
                     "ROS1 -> Zenoh Service: got query of {} bytes!",
                     payload.len()
@@ -202,13 +199,13 @@ impl Ros1ToZenohService {
 
     async fn process_query(
         ros1_client: Arc<rosrust::Client<rosrust::RawMessage>>,
-        query: zenoh::queryable::Query,
+        query: zenoh::query::Query,
         payload: Vec<u8>,
         topic: Arc<TopicDescriptor>,
     ) {
         // rosrust is synchronous, so we will use spawn_blocking. If there will be an async mode some day for the rosrust,
         // than reply_to_query can be refactored to async very easily
-        let res = async_std::task::spawn_blocking(move || {
+        let res = spawn_blocking_runtime(move || {
             let description = RawMessageDescription {
                 msg_definition: String::from("*"),
                 md5sum: topic.md5.clone(),
@@ -216,7 +213,8 @@ impl Ros1ToZenohService {
             };
             ros1_client.req_with_description(&rosrust::RawMessage(payload), description)
         })
-        .await;
+        .await
+        .expect("Unable to compete the task");
         match Self::reply_to_query(res, &query).await {
             Ok(_) => {}
             Err(e) => {
@@ -231,7 +229,7 @@ impl Ros1ToZenohService {
 
     async fn reply_to_query(
         res: rosrust::error::tcpros::Result<rosrust::ServiceResult<rosrust::RawMessage>>,
-        query: &zenoh::queryable::Query,
+        query: &zenoh::query::Query,
     ) -> ZResult<()> {
         match res {
             Ok(reply) => match reply {
@@ -241,11 +239,7 @@ impl Ros1ToZenohService {
                         reply_message.0.len()
                     );
                     query
-                        .reply(Ok(zenoh::prelude::Sample::new(
-                            query.key_expr().clone(),
-                            reply_message.0,
-                        )))
-                        .res_async()
+                        .reply(query.key_expr().clone(), reply_message.0)
                         .await?;
                 }
                 Err(e) => {
@@ -253,10 +247,7 @@ impl Ros1ToZenohService {
                         "ROS1 -> Zenoh Service: got reply from ROS1 Service with error: {}",
                         e
                     );
-                    query
-                        .reply(Err(zenoh::prelude::Value::from(e)))
-                        .res_async()
-                        .await?;
+                    query.reply(query.key_expr().clone(), e).await?;
                 }
             },
             Err(e) => {
@@ -265,10 +256,7 @@ impl Ros1ToZenohService {
                     e
                 );
                 let error = e.to_string();
-                query
-                    .reply(Err(zenoh::prelude::Value::from(error)))
-                    .res_async()
-                    .await?;
+                query.reply(query.key_expr().clone(), error).await?;
             }
         }
         Ok(())
@@ -292,7 +280,7 @@ impl Ros1ToZenoh {
         let publisher = zenoh_client.publish(make_zenoh_key(topic)).await?;
         match ros1_client.subscribe(topic, move |msg: rosrust::RawMessage| {
             debug!("ROS1 -> Zenoh: sending {} bytes!", msg.0.len());
-            match publisher.put(msg.0).res_sync() {
+            match publisher.put(msg.0).wait() {
                 Ok(_) => {}
                 Err(e) => {
                     error!("ROS1 -> Zenoh: error publishing: {}", e);
@@ -303,14 +291,14 @@ impl Ros1ToZenoh {
                 _subscriber: subscriber,
             }),
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e.to_string())
+                bail!("Ros error: {}", e.to_string())
             }
         }
     }
 }
 
 struct ZenohToRos1 {
-    _subscriber: zenoh::subscriber::Subscriber<'static, ()>,
+    _subscriber: zenoh::pubsub::Subscriber<'static, ()>,
 }
 impl ZenohToRos1 {
     async fn new(
@@ -329,8 +317,8 @@ impl ZenohToRos1 {
                 let subscriber = zenoh_client
                     .subscribe(make_zenoh_key(topic), move |sample| {
                         let publisher_in_arc_cloned = publisher_in_arc.clone();
-                        async_std::task::spawn_blocking(move || {
-                            let data = sample.value.payload.contiguous().to_vec();
+                        spawn_blocking_runtime(move || {
+                            let data = sample.payload().into::<Vec<u8>>();
                             debug!("Zenoh -> ROS1: sending {} bytes!", data.len());
                             match publisher_in_arc_cloned.send(rosrust::RawMessage(data)) {
                                 Ok(_) => {}
@@ -346,7 +334,7 @@ impl ZenohToRos1 {
                 })
             }
             Err(e) => {
-                zenoh_core::bail!("Ros error: {}", e.to_string())
+                bail!("Ros error: {}", e.to_string())
             }
         }
     }

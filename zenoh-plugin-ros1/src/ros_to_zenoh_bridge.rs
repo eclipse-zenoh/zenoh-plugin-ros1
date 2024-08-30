@@ -12,18 +12,17 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::task::JoinHandle;
-
-use tracing::error;
-use zenoh;
-use zenoh_core::{zresult::ZResult, AsyncResolve};
-
 use std::sync::{
     atomic::{AtomicBool, Ordering::Relaxed},
     Arc,
 };
 
+use tokio::task::JoinHandle;
+use tracing::error;
+use zenoh::{self, Result as ZResult, Session};
+
 use self::{environment::Environment, ros1_to_zenoh_bridge_impl::work_cycle};
+use crate::spawn_runtime;
 
 #[cfg(feature = "test")]
 pub mod aloha_declaration;
@@ -89,15 +88,15 @@ pub struct Ros1ToZenohBridge {
 }
 impl Ros1ToZenohBridge {
     pub async fn new_with_own_session(config: zenoh::config::Config) -> ZResult<Self> {
-        let session = zenoh::open(config).res_async().await?.into_arc();
+        let session = zenoh::open(config).await?.into_arc();
         Ok(Self::new_with_external_session(session))
     }
 
-    pub fn new_with_external_session(session: Arc<zenoh::Session>) -> Self {
+    pub fn new_with_external_session(session: Arc<Session>) -> Self {
         let flag = Arc::new(AtomicBool::new(true));
         Self {
             flag: flag.clone(),
-            task_handle: Box::new(async_std::task::spawn(Self::run(session, flag))),
+            task_handle: Box::new(spawn_runtime(Self::run(session, flag))),
         }
     }
 
@@ -107,7 +106,7 @@ impl Ros1ToZenohBridge {
     }
 
     //PRIVATE:
-    async fn run(session: Arc<zenoh::Session>, flag: Arc<AtomicBool>) {
+    async fn run(session: Arc<Session>, flag: Arc<AtomicBool>) {
         if let Err(e) = work_cycle(
             Environment::ros_master_uri().get().as_str(),
             session,
@@ -122,7 +121,10 @@ impl Ros1ToZenohBridge {
     }
 
     async fn async_await(&mut self) {
-        self.task_handle.as_mut().await;
+        self.task_handle
+            .as_mut()
+            .await
+            .expect("Unable to complete the task");
     }
 }
 impl Drop for Ros1ToZenohBridge {

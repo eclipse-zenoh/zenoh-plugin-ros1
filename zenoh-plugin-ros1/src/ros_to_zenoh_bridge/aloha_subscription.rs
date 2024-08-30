@@ -21,12 +21,13 @@ use std::{
     time::Duration,
 };
 
-use async_std::sync::Mutex;
 use flume::Receiver;
 use futures::{join, Future, FutureExt};
+use tokio::sync::Mutex;
 use tracing::error;
-use zenoh::prelude::r#async::*;
-use zenoh_core::Result as ZResult;
+use zenoh::{key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Result as ZResult, Session};
+
+use crate::spawn_runtime;
 
 struct AlohaResource {
     activity: AtomicBool,
@@ -81,7 +82,7 @@ impl AlohaSubscription {
     {
         let task_running = Arc::new(AtomicBool::new(true));
 
-        async_std::task::spawn(AlohaSubscription::task(
+        spawn_runtime(AlohaSubscription::task(
             task_running.clone(),
             key,
             beacon_period,
@@ -109,7 +110,7 @@ impl AlohaSubscription {
             + 'static,
     {
         let accumulating_resources = Mutex::new(HashMap::<OwnedKeyExpr, AlohaResource>::new());
-        let subscriber = session.declare_subscriber(key).res_async().await?;
+        let subscriber = session.declare_subscriber(key).await?;
 
         let listen = Self::listening_task(
             task_running.clone(),
@@ -135,7 +136,7 @@ impl AlohaSubscription {
     async fn listening_task<'a, F>(
         task_running: Arc<AtomicBool>,
         accumulating_resources: &Mutex<HashMap<OwnedKeyExpr, AlohaResource>>,
-        subscriber: &'a zenoh::subscriber::Subscriber<'a, Receiver<Sample>>,
+        subscriber: &'a zenoh::pubsub::Subscriber<'a, Receiver<Sample>>,
         on_resource_declared: &F,
     ) where
         F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
@@ -148,7 +149,7 @@ impl AlohaSubscription {
                 Ok(val) => match accumulating_resources
                     .lock()
                     .await
-                    .entry(val.key_expr.into())
+                    .entry(val.key_expr().as_keyexpr().into())
                 {
                     Occupied(mut val) => {
                         val.get_mut().update();
@@ -185,7 +186,7 @@ impl AlohaSubscription {
                     val.1.reset();
                 });
 
-            async_std::task::sleep(accumulate_period).await;
+            tokio::time::sleep(accumulate_period).await;
 
             for (key, val) in accumulating_resources.lock().await.iter() {
                 if !val.is_active() {

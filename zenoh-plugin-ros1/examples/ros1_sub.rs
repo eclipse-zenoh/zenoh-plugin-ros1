@@ -12,17 +12,15 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::SessionDeclarations;
-use zenoh_core::AsyncResolve;
-
+use zenoh::prelude::*;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     // initiate logging
-    zenoh_util::try_init_log_from_env();
+    zenoh::try_init_log_from_env();
 
     // You need to have ros1 installed within your system and have "rosmaster" command available, otherwise this code will fail.
     // start ROS1 master...
@@ -57,17 +55,12 @@ async fn main() {
 
     // create Zenoh session and publisher
     print!("Creating Zenoh Session...");
-    let zenoh_session = zenoh::open(zenoh::config::peer())
-        .res_async()
-        .await
-        .unwrap()
-        .into_arc();
+    let zenoh_session = zenoh::open(zenoh::config::peer()).await.unwrap().into_arc();
     println!(" OK!");
     print!("Creating Zenoh Publisher...");
     let zenoh_publisher = zenoh_session
         .declare_publisher("some/ros/topic")
-        .congestion_control(zenoh::publication::CongestionControl::Block)
-        .res_async()
+        .congestion_control(zenoh::qos::CongestionControl::Block)
         .await
         .unwrap();
     println!(" OK!");
@@ -79,7 +72,7 @@ async fn main() {
     let data: Vec<u8> = (0..10).collect();
     loop {
         println!("Zenoh Publisher: publishing data...");
-        zenoh_publisher.put(data.clone()).res_async().await.unwrap();
-        async_std::task::sleep(core::time::Duration::from_secs(1)).await;
+        zenoh_publisher.put(data.clone()).await.unwrap();
+        tokio::time::sleep(core::time::Duration::from_secs(1)).await;
     }
 }

@@ -41,7 +41,7 @@ jobs:
           rustup component add rustfmt clippy
 
       - name: Code format check
-        run: cargo fmt --check
+        run: cargo fmt -p zenoh-plugin-ros1 -p zenoh-bridge-ros1 --check -- --config "unstable_features=true,imports_granularity=Crate,group_imports=StdExternalCrate"
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
@@ -83,13 +83,11 @@ jobs:
         run: cargo test --verbose
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-          ASYNC_STD_THREAD_COUNT: 4
 
       - name: Run doctests
         run: cargo test --doc
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-          ASYNC_STD_THREAD_COUNT: 4
 
   # NOTE: In GitHub repository settings, the "Require status checks to pass
   # before merging" branch protection rule ensures that commits are only merged

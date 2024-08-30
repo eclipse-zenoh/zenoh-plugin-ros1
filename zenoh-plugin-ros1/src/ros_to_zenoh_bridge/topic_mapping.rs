@@ -14,9 +14,8 @@
 
 use std::collections::HashSet;
 
-use crate::ros_to_zenoh_bridge::ros1_client;
-
 use super::{resource_cache::Ros1ResourceCache, topic_descriptor::TopicDescriptor};
+use crate::ros_to_zenoh_bridge::ros1_client;
 
 #[derive(Debug)]
 pub struct Ros1TopicMapping {

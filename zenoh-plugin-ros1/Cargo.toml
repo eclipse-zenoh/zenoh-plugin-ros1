@@ -41,6 +41,8 @@ flume = { workspace = true }
 futures = { workspace = true }
 git-version = { workspace = true }
 lazy_static = { workspace = true }
+test-case = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -51,10 +53,7 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 duration-string = { workspace = true }
 zenoh = { workspace = true }
-zenoh-ext = { workspace = true }
-zenoh-core = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
-zenoh-util = { workspace = true }
 hex = { workspace = true }
 xml-rpc = { workspace = true }
 rosrust = { path = "../rosrust/rosrust" }
@@ -66,10 +65,6 @@ ctrlc = { workspace = true }
 # TODO: https://zettascale.atlassian.net/browse/ZEN-291
 # zenoh-plugin-ros1 = { path = ".", features = ["test"]}
 
-[dependencies.async-std]
-version = "=1.12.0"
-features = ["unstable", "attributes"]
-
 [build-dependencies]
 rustc_version = { workspace = true }
 
@@ -79,4 +74,4 @@ maintainer = "zenoh-dev@eclipse.org"
 copyright = "2017, 2022 ZettaScale Technology Inc."
 section = "net"
 license-file = ["../LICENSE", "0"]
-depends = "zenohd (=0.11.0-dev-1)"
+depends = "zenohd (=1.0.0~dev-1)"

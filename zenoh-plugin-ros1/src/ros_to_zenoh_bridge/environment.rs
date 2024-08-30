@@ -12,15 +12,16 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
+use std::{collections::HashMap, convert::From, marker::PhantomData, str::FromStr, time::Duration};
+
 use duration_string::DurationString;
 use rosrust::api::resolve::*;
-use std::collections::HashMap;
-use std::convert::From;
-use std::time::Duration;
-use std::{marker::PhantomData, str::FromStr};
 use tracing::error;
 
 use super::bridging_mode::BridgingMode;
+
+pub(crate) const DEFAULT_WORK_THREAD_NUM: usize = 2;
+pub(crate) const DEFAULT_MAX_BLOCK_THREAD_NUM: usize = 50;
 
 #[derive(Clone)]
 pub struct Entry<'a, Tvar>
@@ -78,6 +79,12 @@ impl<'a> From<Entry<'a, bool>> for Entry<'a, String> {
 
 impl<'a> From<Entry<'a, CustomBridgingModes>> for Entry<'a, String> {
     fn from(item: Entry<'a, CustomBridgingModes>) -> Entry<'a, String> {
+        Entry::new(item.name, item.default.to_string())
+    }
+}
+
+impl<'a> From<Entry<'a, usize>> for Entry<'a, String> {
+    fn from(item: Entry<'a, usize>) -> Entry<'a, String> {
         Entry::new(item.name, item.default.to_string())
     }
 }
@@ -171,8 +178,16 @@ impl Environment {
         );
     }
 
+    pub fn work_thread_num() -> Entry<'static, usize> {
+        return Entry::new("WORK_THREAD_NUM", DEFAULT_WORK_THREAD_NUM);
+    }
+
+    pub fn max_block_thread_num() -> Entry<'static, usize> {
+        return Entry::new("MAX_BLOCK_THREAD_NUM", DEFAULT_MAX_BLOCK_THREAD_NUM);
+    }
+
     pub fn env() -> Vec<Entry<'static, String>> {
-        return [
+        [
             Self::ros_master_uri(),
             Self::ros_hostname(),
             Self::ros_name(),
@@ -187,7 +202,9 @@ impl Environment {
             Self::client_topic_custom_bridging_mode().into(),
             Self::master_polling_interval().into(),
             Self::with_rosmaster().into(),
+            Self::work_thread_num().into(),
+            Self::max_block_thread_num().into(),
         ]
-        .to_vec();
+        .to_vec()
     }
 }

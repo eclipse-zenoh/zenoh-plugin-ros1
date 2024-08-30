@@ -12,32 +12,40 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::prelude::FutureExt;
+use std::{
+    net::SocketAddr,
+    process::Command,
+    str::FromStr,
+    sync::{
+        atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering::*},
+        Arc, Mutex, RwLock,
+    },
+    time::Duration,
+};
+
 use async_trait::async_trait;
 use futures::Future;
 use rosrust::{Client, RawMessage, RawMessageDescription};
-use std::process::Command;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::*;
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
-use std::{net::SocketAddr, str::FromStr, sync::atomic::AtomicU16};
 use tracing::error;
-use zenoh::config::ModeDependentValue;
-use zenoh::prelude::OwnedKeyExpr;
-use zenoh::prelude::SplitBuffer;
-use zenoh::sample::Sample;
-use zenoh::Session;
-use zenoh::SessionDeclarations;
-use zenoh_core::{bail, zlock, zresult::ZResult, AsyncResolve, SyncResolve};
+use zenoh::{
+    config::ModeDependentValue,
+    internal::{bail, zlock},
+    key_expr::OwnedKeyExpr,
+    prelude::*,
+    sample::Sample,
+    Result as ZResult, Session,
+};
 
-use super::discovery::LocalResources;
-use super::ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus};
-use super::topic_descriptor::TopicDescriptor;
-use super::topic_utilities;
-use super::topic_utilities::make_topic_key;
-use super::{ros1_client, zenoh_client};
+use super::{
+    discovery::LocalResources,
+    ros1_client,
+    ros1_to_zenoh_bridge_impl::{work_cycle, BridgeStatus, RosStatus},
+    topic_descriptor::TopicDescriptor,
+    topic_utilities,
+    topic_utilities::make_topic_key,
+    zenoh_client,
+};
+use crate::{spawn_blocking_runtime, spawn_runtime};
 
 pub struct IsolatedPort {
     pub port: u16,
@@ -110,7 +118,7 @@ where
         if waiter() {
             return true;
         }
-        async_std::task::sleep(Duration::from_millis(sleep_millis)).await;
+        tokio::time::sleep(Duration::from_millis(sleep_millis)).await;
     }
     false
 }
@@ -122,10 +130,10 @@ where
 {
     let w = async {
         while !waiter().await {
-            async_std::task::sleep(Duration::from_millis(10)).await
+            tokio::time::sleep(Duration::from_millis(10)).await
         }
     };
-    w.timeout(timeout).await.is_ok()
+    tokio::time::timeout(timeout, w).await.is_ok()
 }
 
 pub struct RunningBridge {
@@ -142,7 +150,7 @@ impl RunningBridge {
             ros_status: Arc::new(Mutex::new(RosStatus::Unknown)),
             bridge_status: Arc::new(Mutex::new(BridgeStatus::default())),
         };
-        async_std::task::spawn(Self::run(
+        spawn_runtime(Self::run(
             ros_master_uri,
             config,
             result.flag.clone(),
@@ -159,7 +167,7 @@ impl RunningBridge {
         ros_status: Arc<Mutex<RosStatus>>,
         bridge_status: Arc<Mutex<BridgeStatus>>,
     ) {
-        let session = zenoh::open(config).res_async().await.unwrap().into_arc();
+        let session = zenoh::open(config).await.unwrap().into_arc();
         work_cycle(
             ros_master_uri.as_str(),
             session,
@@ -291,7 +299,7 @@ pub struct BridgeChecker {
 impl BridgeChecker {
     // PUBLIC
     pub fn new(config: zenoh::config::Config, ros_master_uri: &str) -> BridgeChecker {
-        let session = zenoh::open(config).res_sync().unwrap().into_arc();
+        let session = zenoh::open(config).wait().unwrap().into_arc();
         BridgeChecker {
             session: session.clone(),
             ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri).unwrap(),
@@ -309,8 +317,7 @@ impl BridgeChecker {
     }
 
     async fn wait_for_zenoh_peers(&self, peer_count: usize, timeout: Duration) -> bool {
-        let waiter =
-            || async { self.session.info().peers_zid().res_async().await.count() == peer_count };
+        let waiter = || async { self.session.info().peers_zid().await.count() == peer_count };
         wait_async(waiter, timeout).await
     }
 
@@ -318,7 +325,7 @@ impl BridgeChecker {
         &self,
         name: &str,
         callback: C,
-    ) -> zenoh::subscriber::Subscriber<'static, ()>
+    ) -> zenoh::pubsub::Subscriber<'static, ()>
     where
         C: Fn(Sample) + Send + Sync + 'static,
     {
@@ -328,7 +335,7 @@ impl BridgeChecker {
             .unwrap()
     }
 
-    pub async fn make_zenoh_publisher(&self, name: &str) -> zenoh::publication::Publisher<'static> {
+    pub async fn make_zenoh_publisher(&self, name: &str) -> zenoh::pubsub::Publisher<'static> {
         self.zenoh_client
             .publish(Self::make_zenoh_key(&Self::make_topic(name)))
             .await
@@ -339,9 +346,9 @@ impl BridgeChecker {
         &self,
         name: &str,
         callback: Callback,
-    ) -> zenoh::queryable::Queryable<'static, ()>
+    ) -> zenoh::query::Queryable<'static, ()>
     where
-        Callback: Fn(zenoh::queryable::Query) + Send + Sync + 'static,
+        Callback: Fn(zenoh::query::Query) + Send + Sync + 'static,
     {
         self.zenoh_client
             .make_queryable(Self::make_zenoh_key(&Self::make_topic(name)), callback)
@@ -512,7 +519,7 @@ impl TestParams {
 }
 
 pub struct ZenohPublisher {
-    pub inner: Arc<zenoh::publication::Publisher<'static>>,
+    pub inner: Arc<zenoh::pubsub::Publisher<'static>>,
 }
 pub struct ROS1Publisher {
     pub inner: Arc<RAIICounter<rosrust::Publisher<rosrust::RawMessage>>>,
@@ -537,9 +544,9 @@ impl ZenohQuery {
     async fn make_query(inner: &Arc<BridgeChecker>, key: &str, data: &Vec<u8>) -> ZResult<()> {
         let query = inner.make_zenoh_query_sync(key, data.clone()).await;
         match query.recv_async().await {
-            Ok(reply) => match reply.sample {
-                Ok(value) => {
-                    let returned_data = value.payload.contiguous().to_vec();
+            Ok(reply) => match reply.result() {
+                Ok(sample) => {
+                    let returned_data = sample.payload().into::<Vec<u8>>();
                     if data.eq(&returned_data) {
                         Ok(())
                     } else {
@@ -547,7 +554,7 @@ impl ZenohQuery {
                     }
                 }
                 Err(e) => {
-                    bail!("ZenohQuery: got reply with error: {}", e);
+                    bail!("ZenohQuery: got reply with error: {:?}", e);
                 }
             },
             Err(e) => {
@@ -661,16 +668,14 @@ pub trait Publisher: Sync {
 impl Publisher for ZenohPublisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || inner.put(data).res_sync().unwrap());
+        spawn_blocking_runtime(move || inner.put(data).wait().unwrap());
     }
 }
 #[async_trait]
 impl Publisher for ROS1Publisher {
     fn put(&self, data: Vec<u8>) {
         let inner = self.inner.clone();
-        async_std::task::spawn_blocking(move || {
-            inner.data.send(rosrust::RawMessage(data)).unwrap()
-        });
+        spawn_blocking_runtime(move || inner.data.send(rosrust::RawMessage(data)).unwrap());
     }
 
     async fn ready(&self) -> bool {
@@ -680,7 +685,7 @@ impl Publisher for ROS1Publisher {
 #[async_trait]
 impl Publisher for ZenohQuery {
     fn put(&self, data: Vec<u8>) {
-        async_std::task::spawn(Self::query_loop(
+        spawn_runtime(Self::query_loop(
             self.inner.clone(),
             self.key.clone(),
             self.running.clone(),
@@ -708,7 +713,7 @@ impl Publisher for ROS1Client {
             msg_type: self.topic.datatype.clone(),
         };
 
-        async_std::task::spawn_blocking(|| {
+        spawn_blocking_runtime(|| {
             Self::query_loop(description, running, data, cycles, ros1_client)
         });
     }
@@ -721,18 +726,17 @@ impl Publisher for ROS1Client {
         };
         let data = (0..10).collect();
         let ros1_client = self.ros1_client.clone();
-        async_std::task::spawn_blocking(move || {
-            Self::make_query(description, &data, &ros1_client).is_ok()
-        })
-        .await
+        spawn_blocking_runtime(move || Self::make_query(description, &data, &ros1_client).is_ok())
+            .await
+            .unwrap_or(false)
     }
 }
 
 pub struct ZenohSubscriber {
-    pub _inner: zenoh::subscriber::Subscriber<'static, ()>,
+    pub _inner: zenoh::pubsub::Subscriber<'static, ()>,
 }
 pub struct ZenohQueryable {
-    pub _inner: zenoh::queryable::Queryable<'static, ()>,
+    pub _inner: zenoh::query::Queryable<'static, ()>,
 }
 pub struct ROS1Subscriber {
     pub inner: RAIICounter<rosrust::Subscriber>,

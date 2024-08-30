@@ -12,11 +12,14 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::prelude::{keyexpr, OwnedKeyExpr};
+use zenoh::key_expr::{
+    format::{kedefine, keformat},
+    keyexpr, OwnedKeyExpr,
+};
 
 use super::topic_descriptor::TopicDescriptor;
 
-zenoh::kedefine!(
+kedefine!(
     pub ros_mapping_format: "${data_type:*}/${md5:*}/${topic:**}",
 );
 
@@ -26,7 +29,7 @@ pub fn make_topic_key(topic: &TopicDescriptor) -> &str {
 
 pub fn make_zenoh_key(topic: &TopicDescriptor) -> OwnedKeyExpr {
     let mut formatter = ros_mapping_format::formatter();
-    zenoh::keformat!(
+    keformat!(
         formatter,
         data_type = hex::encode(topic.datatype.as_bytes()),
         md5 = topic.md5.clone(),

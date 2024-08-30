@@ -12,14 +12,25 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::buffers::ZBuf;
+use std::{
+    sync::{
+        atomic::{AtomicBool, AtomicUsize},
+        Arc,
+    },
+    time::Duration,
+};
 
-use std::sync::atomic::{AtomicBool, AtomicUsize};
-use std::sync::Arc;
-use std::time::Duration;
+use zenoh::{
+    internal::buffers::ZBuf,
+    key_expr::OwnedKeyExpr,
+    prelude::*,
+    pubsub::Reliability,
+    qos::{CongestionControl, Priority},
+    sample::Locality,
+    Session,
+};
 
-use zenoh::prelude::r#async::*;
-use zenoh::Session;
+use crate::spawn_runtime;
 
 pub struct AlohaDeclaration {
     monitor_running: Arc<AtomicBool>,
@@ -33,7 +44,7 @@ impl Drop for AlohaDeclaration {
 impl AlohaDeclaration {
     pub fn new(session: Arc<Session>, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
         let monitor_running = Arc::new(AtomicBool::new(true));
-        async_std::task::spawn(Self::aloha_monitor_task(
+        spawn_runtime(Self::aloha_monitor_task(
             beacon_period,
             monitor_running.clone(),
             key,
@@ -60,7 +71,6 @@ impl AlohaDeclaration {
             .callback(move |_| {
                 rb.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             })
-            .res_async()
             .await
             .unwrap();
 
@@ -79,10 +89,8 @@ impl AlohaDeclaration {
                         // start publisher in ALOHA style...
                         let period_ns = beacon_period.as_nanos();
                         let aloha_wait: u128 = rand::random::<u128>() % period_ns;
-                        async_std::task::sleep(Duration::from_nanos(
-                            aloha_wait.try_into().unwrap(),
-                        ))
-                        .await;
+                        tokio::time::sleep(Duration::from_nanos(aloha_wait.try_into().unwrap()))
+                            .await;
                         if remote_beacons.load(std::sync::atomic::Ordering::SeqCst) == 0 {
                             Self::start_beacon_task(
                                 beacon_period,
@@ -101,7 +109,7 @@ impl AlohaDeclaration {
                     }
                 }
             }
-            async_std::task::sleep(beacon_period).await;
+            tokio::time::sleep(beacon_period).await;
         }
         Self::stop_beacon_task(beacon_task_flag.clone());
     }
@@ -113,7 +121,7 @@ impl AlohaDeclaration {
         running: Arc<AtomicBool>,
     ) {
         running.store(true, std::sync::atomic::Ordering::SeqCst);
-        async_std::task::spawn(Self::aloha_publishing_task(
+        spawn_runtime(Self::aloha_publishing_task(
             beacon_period,
             key,
             session,
@@ -136,16 +144,12 @@ impl AlohaDeclaration {
             .allowed_destination(Locality::Remote)
             .congestion_control(CongestionControl::Drop)
             .priority(Priority::Background)
-            .res_async()
             .await
             .unwrap();
 
         while running.load(std::sync::atomic::Ordering::Relaxed) {
-            let _res = publisher
-                .put(zenoh::value::Value::new(ZBuf::default()))
-                .res_async()
-                .await;
-            async_std::task::sleep(beacon_period).await;
+            let _res = publisher.put(ZBuf::default()).await;
+            tokio::time::sleep(beacon_period).await;
         }
     }
 }

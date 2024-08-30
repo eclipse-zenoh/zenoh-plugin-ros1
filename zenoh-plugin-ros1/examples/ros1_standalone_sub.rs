@@ -12,23 +12,20 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::channel::unbounded;
-
+use tokio::sync::mpsc::unbounded_channel;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::environment::Environment;
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
-    let (sender, receiver) = unbounded();
+    let (sender, mut receiver) = unbounded_channel();
     ctrlc::set_handler(move || {
         tracing::info!("Catching Ctrl+C...");
-        sender
-            .send_blocking(())
-            .expect("Error handling Ctrl+C signal")
+        sender.send(()).expect("Error handling Ctrl+C signal")
     })
     .expect("Error setting Ctrl+C handler");
 
     // initiate logging
-    zenoh_util::try_init_log_from_env();
+    zenoh::try_init_log_from_env();
 
     // create ROS1 node and subscriber
     print!("Creating ROS1 Node...");

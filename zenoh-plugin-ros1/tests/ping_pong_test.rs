@@ -12,130 +12,120 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::prelude::FutureExt;
-use strum_macros::Display;
-use zenoh::prelude::SplitBuffer;
-use zenoh_core::SyncResolve;
-
 use std::{
     collections::HashSet,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering::*},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering::*},
         Arc,
     },
+    thread, time,
     time::Duration,
 };
 
+use strum_macros::Display;
+use tracing::{debug, trace};
+use zenoh::{key_expr::KeyExpr, prelude::*};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     bridging_mode::BridgingMode,
+    discovery::LocalResource,
     environment::Environment,
     test_helpers::{
-        self, wait_async_fn, BridgeChecker, Publisher, ROS1Client, ROS1Publisher, ROS1Service,
-        ROS1Subscriber, ROSEnvironment, RunningBridge, Subscriber, TestParams, ZenohPublisher,
-        ZenohQuery, ZenohQueryable, ZenohSubscriber,
+        self, wait_async_fn, BridgeChecker, IsolatedConfig, IsolatedROSMaster, Publisher,
+        ROS1Client, ROS1Publisher, ROS1Service, ROS1Subscriber, ROSEnvironment, RunningBridge,
+        Subscriber, TestParams, ZenohPublisher, ZenohQuery, ZenohQueryable, ZenohSubscriber,
     },
 };
-use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
-    discovery::LocalResource,
-    test_helpers::{IsolatedConfig, IsolatedROSMaster},
-};
 
-use std::sync::atomic::AtomicUsize;
-use tracing::{debug, trace};
-use zenoh::prelude::r#async::*;
-
-use std::{thread, time};
-
-#[test]
-fn env_checks_no_master_init_and_exit_immed() {
+#[tokio::test(flavor = "multi_thread")]
+async fn env_checks_no_master_init_and_exit_immed() {
     let roscfg = IsolatedROSMaster::default();
     let _ros_env = ROSEnvironment::new(roscfg.port.port);
     let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
-    async_std::task::block_on(bridge.assert_ros_error());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_error().await;
+    bridge.assert_bridge_empy().await;
 }
 
-#[test]
-fn env_checks_no_master_init_and_wait() {
+#[tokio::test(flavor = "multi_thread")]
+async fn env_checks_no_master_init_and_wait() {
     let roscfg = IsolatedROSMaster::default();
     let _ros_env = ROSEnvironment::new(roscfg.port.port);
     let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
-    async_std::task::block_on(bridge.assert_ros_error());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_error().await;
+    bridge.assert_bridge_empy().await;
     thread::sleep(time::Duration::from_secs(1));
-    async_std::task::block_on(bridge.assert_ros_error());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_error().await;
+    bridge.assert_bridge_empy().await;
 }
 
-#[test]
-fn env_checks_with_master_init_and_exit_immed() {
+#[tokio::test(flavor = "multi_thread")]
+async fn env_checks_with_master_init_and_exit_immed() {
     let roscfg = IsolatedROSMaster::default();
     let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
     let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_ok().await;
+    bridge.assert_bridge_empy().await;
 }
 
-#[test]
-fn env_checks_with_master_init_and_wait() {
+#[tokio::test(flavor = "multi_thread")]
+async fn env_checks_with_master_init_and_wait() {
     let roscfg = IsolatedROSMaster::default();
     let _ros_env = ROSEnvironment::new(roscfg.port.port).with_master();
     let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
 
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_ok().await;
+    bridge.assert_bridge_empy().await;
     thread::sleep(time::Duration::from_secs(1));
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_ok().await;
+    bridge.assert_bridge_empy().await;
 }
 
-#[test]
-fn env_checks_with_master_init_and_loose_master() {
+#[tokio::test(flavor = "multi_thread")]
+async fn env_checks_with_master_init_and_loose_master() {
     let roscfg = IsolatedROSMaster::default();
     let mut _ros_env = Some(ROSEnvironment::new(roscfg.port.port).with_master());
     let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_ok().await;
+    bridge.assert_bridge_empy().await;
     thread::sleep(time::Duration::from_secs(1));
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_ok().await;
+    bridge.assert_bridge_empy().await;
     _ros_env = None;
-    async_std::task::block_on(bridge.assert_ros_error());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_error().await;
+    bridge.assert_bridge_empy().await;
     thread::sleep(time::Duration::from_secs(1));
-    async_std::task::block_on(bridge.assert_ros_error());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_error().await;
+    bridge.assert_bridge_empy().await;
 }
 
-#[test]
-fn env_checks_with_master_init_and_wait_for_master() {
+#[tokio::test(flavor = "multi_thread")]
+async fn env_checks_with_master_init_and_wait_for_master() {
     let roscfg = IsolatedROSMaster::default();
     let mut _ros_env = ROSEnvironment::new(roscfg.port.port);
     let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
-    async_std::task::block_on(bridge.assert_ros_error());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_error().await;
+    bridge.assert_bridge_empy().await;
     thread::sleep(time::Duration::from_secs(1));
-    async_std::task::block_on(bridge.assert_ros_error());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_error().await;
+    bridge.assert_bridge_empy().await;
     _ros_env = _ros_env.with_master();
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_ok().await;
+    bridge.assert_bridge_empy().await;
     thread::sleep(time::Duration::from_secs(1));
-    async_std::task::block_on(bridge.assert_ros_ok());
-    async_std::task::block_on(bridge.assert_bridge_empy());
+    bridge.assert_ros_ok().await;
+    bridge.assert_bridge_empy().await;
 }
 
-#[test]
-fn env_checks_with_master_init_and_reconnect_many_times_to_master() {
+#[tokio::test(flavor = "multi_thread")]
+async fn env_checks_with_master_init_and_reconnect_many_times_to_master() {
     let roscfg = IsolatedROSMaster::default();
     let mut ros_env = ROSEnvironment::new(roscfg.port.port);
     let bridge = RunningBridge::new(IsolatedConfig::default().peer(), roscfg.master_uri());
     for _i in 0..20 {
-        async_std::task::block_on(bridge.assert_ros_error());
-        async_std::task::block_on(bridge.assert_bridge_empy());
+        bridge.assert_ros_error().await;
+        bridge.assert_bridge_empy().await;
         ros_env = ros_env.with_master();
-        async_std::task::block_on(bridge.assert_ros_ok());
-        async_std::task::block_on(bridge.assert_bridge_empy());
+        bridge.assert_ros_ok().await;
+        bridge.assert_bridge_empy().await;
         ros_env = ros_env.without_master();
     }
 }
@@ -201,10 +191,10 @@ impl PingPong {
             .unwrap();
         let zenoh_queryable = backend
             .make_zenoh_queryable(key, |q| {
-                async_std::task::spawn(async move {
+                tokio::spawn(async move {
                     let key = q.key_expr().clone();
-                    let val = q.value().unwrap().clone();
-                    let _ = q.reply(Ok(Sample::new(key, val))).res_async().await;
+                    let val = q.payload().unwrap().clone();
+                    let _ = q.reply(key, val).await;
                 });
             })
             .await;
@@ -237,7 +227,7 @@ impl PingPong {
         let zenoh_sub = backend
             .make_zenoh_subscriber(key, move |msg| {
                 c.fetch_add(1, Relaxed);
-                let data = msg.value.payload.contiguous().to_vec();
+                let data = msg.payload().into::<Vec<u8>>();
                 debug!(
                     "PingPong: transferring {} bytes from Zenoh to ROS1!",
                     data.len()
@@ -275,7 +265,7 @@ impl PingPong {
                 "PingPong: transferring {} bytes from ROS1 to Zenoh!",
                 msg.0.len()
             );
-            zpub.put(msg.0).res_sync().unwrap();
+            zpub.put(msg.0).wait().unwrap();
         });
 
         PingPong {
@@ -296,21 +286,19 @@ impl PingPong {
 
     async fn start_ping_pong(&self) -> bool {
         debug!("Starting ping-pong!");
-        let mut data = Vec::new();
-        data.reserve(TestParams::data_size() as usize);
+        let mut data = Vec::with_capacity(TestParams::data_size() as usize);
         for i in 0..TestParams::data_size() {
             data.push((i % 255) as u8);
         }
 
-        async {
+        tokio::time::timeout(Duration::from_secs(30), async {
             while {
                 self.pub_sub.publisher.put(data.clone());
                 !wait_async_fn(|| self.cycles.load(Relaxed) > 0, Duration::from_secs(5)).await
             } {
                 debug!("Restarting ping-pong!");
             }
-        }
-        .timeout(Duration::from_secs(30))
+        })
         .await
         .is_ok()
     }
@@ -333,7 +321,7 @@ impl PingPong {
 
         self.cycles.store(0, Relaxed);
         while !(result > 0.0 || duration >= 30000) {
-            async_std::task::sleep(Duration::from_millis(duration_milliseconds)).await;
+            tokio::time::sleep(Duration::from_millis(duration_milliseconds)).await;
             duration += duration_milliseconds;
             result += self.cycles.load(Relaxed) as f64;
         }
@@ -360,7 +348,7 @@ struct TestEnvironment {
     _ros_env: ROSEnvironment,
 }
 impl TestEnvironment {
-    pub fn new() -> TestEnvironment {
+    pub async fn new() -> TestEnvironment {
         let cfg = IsolatedConfig::default();
         let roscfg = IsolatedROSMaster::default();
 
@@ -376,9 +364,9 @@ impl TestEnvironment {
         // this will wait for the bridge to have some expected initial state and serves two purposes:
         // - asserts on the expected state
         // - performs wait and ensures that everything is properly connected and negotiated within the bridge
-        async_std::task::block_on(bridge.assert_ros_ok());
-        async_std::task::block_on(bridge.assert_bridge_empy());
-        async_std::task::block_on(checker.assert_zenoh_peers(1));
+        bridge.assert_ros_ok().await;
+        bridge.assert_bridge_empy().await;
+        checker.assert_zenoh_peers(1).await;
 
         TestEnvironment {
             bridge,
@@ -409,7 +397,7 @@ async fn ping_pong_duplex_parallel_many_(
     number: u32,
     mode: std::collections::HashSet<Mode>,
 ) {
-    zenoh_core::zasync_executor_init!();
+    zenoh::internal::zasync_executor_init!();
 
     let make_keyexpr = |i: u32, mode: Mode| -> KeyExpr {
         format!(
@@ -482,134 +470,110 @@ async fn ping_pong_duplex_parallel_many_(
     env.assert_bridge_status_synchronized().await;
 }
 
-#[test]
-fn ping_pong_zenoh_to_ros1() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::ZenohToRos1]),
-    ));
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_zenoh_to_ros1() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::ZenohToRos1])).await;
 }
-#[test]
-fn ping_pong_zenoh_to_ros1_many() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_zenoh_to_ros1_many() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::ZenohToRos1]),
-    ));
+    )
+    .await;
 }
 
-#[test]
-fn ping_pong_ros1_to_zenoh() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::Ros1ToZenoh]),
-    ));
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_ros1_to_zenoh() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::Ros1ToZenoh])).await;
 }
-#[test]
-fn ping_pong_ros1_to_zenoh_many() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_ros1_to_zenoh_many() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::Ros1ToZenoh]),
-    ));
+    )
+    .await;
 }
 
-#[test]
-fn ping_pong_ros1_service() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::Ros1Service]),
-    ));
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_ros1_service() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::Ros1Service])).await;
 }
-#[test]
-fn ping_pong_ros1_service_many() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_ros1_service_many() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::Ros1Service]),
-    ));
+    )
+    .await;
 }
 
-#[test]
-fn ping_pong_ros1_client() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::Ros1Client]),
-    ));
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_ros1_client() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::Ros1Client])).await;
 }
-#[test]
-fn ping_pong_ros1_client_many() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_ros1_client_many() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::Ros1Client]),
-    ));
+    )
+    .await;
 }
 
-#[test]
-fn ping_pong_all_sequential() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::ZenohToRos1]),
-    ));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::Ros1ToZenoh]),
-    ));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::Ros1Service]),
-    ));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
-        &env,
-        1,
-        HashSet::from([Mode::Ros1Client]),
-    ));
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_all_sequential() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::ZenohToRos1])).await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::Ros1ToZenoh])).await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::Ros1Service])).await;
+    ping_pong_duplex_parallel_many_(&env, 1, HashSet::from([Mode::Ros1Client])).await;
 }
-#[test]
-fn ping_pong_all_sequential_many() {
-    let env = TestEnvironment::new();
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_all_sequential_many() {
+    let env = TestEnvironment::new().await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::ZenohToRos1]),
-    ));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+    )
+    .await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::Ros1ToZenoh]),
-    ));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+    )
+    .await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::Ros1Service]),
-    ));
-    futures::executor::block_on(ping_pong_duplex_parallel_many_(
+    )
+    .await;
+    ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
         HashSet::from([Mode::Ros1Client]),
-    ));
+    )
+    .await;
 }
 
-#[test]
-fn ping_pong_all_parallel() {
-    let env = TestEnvironment::new();
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_all_parallel() {
+    let env = TestEnvironment::new().await;
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
         1,
@@ -622,9 +586,9 @@ fn ping_pong_all_parallel() {
     ));
 }
 
-#[test]
-fn ping_pong_all_parallel_many() {
-    let env = TestEnvironment::new();
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_all_parallel_many() {
+    let env = TestEnvironment::new().await;
     futures::executor::block_on(ping_pong_duplex_parallel_many_(
         &env,
         TestParams::many_count(),
@@ -679,21 +643,21 @@ async fn parallel_subworks(
     }
     futures::future::join_all(subworks).await;
 }
-#[test]
-fn ping_pong_all_overlap_one() {
-    let env = TestEnvironment::new();
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_all_overlap_one() {
+    let env = TestEnvironment::new().await;
     let main_work_finished = Arc::new(AtomicBool::new(false));
 
     let main_work = main_work(&env, main_work_finished.clone());
     let parallel_subworks = parallel_subworks(&env, main_work_finished, 1);
-    async_std::task::block_on(futures::future::join(main_work, parallel_subworks));
+    futures::future::join(main_work, parallel_subworks).await;
 }
-#[test]
-fn ping_pong_all_overlap_many() {
-    let env = TestEnvironment::new();
+#[tokio::test(flavor = "multi_thread")]
+async fn ping_pong_all_overlap_many() {
+    let env = TestEnvironment::new().await;
     let main_work_finished = Arc::new(AtomicBool::new(false));
 
     let main_work = main_work(&env, main_work_finished.clone());
     let parallel_subworks = parallel_subworks(&env, main_work_finished, 10);
-    async_std::task::block_on(futures::future::join(main_work, parallel_subworks));
+    futures::future::join(main_work, parallel_subworks).await;
 }

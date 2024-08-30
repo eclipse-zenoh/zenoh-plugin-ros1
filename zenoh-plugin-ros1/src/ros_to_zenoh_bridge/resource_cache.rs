@@ -12,17 +12,20 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use rosrust::{Publisher, RawMessage, RawMessageDescription};
 use std::{
     collections::{hash_map::Entry, HashMap},
     net::{TcpStream, ToSocketAddrs},
     sync::{Arc, Mutex},
     time::Duration,
 };
-use zenoh_core::{bail, zerror, zresult::ZResult};
+
+use rosrust::{Publisher, RawMessage, RawMessageDescription, RosMsg};
+use zenoh::{
+    internal::{bail, zerror},
+    Result as ZResult,
+};
 
 use super::{ros1_client::Ros1Client, topic_descriptor::TopicDescriptor};
-use rosrust::RosMsg;
 
 pub type TopicName = String;
 pub type NodeName = String;

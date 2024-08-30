@@ -12,11 +12,6 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use async_std::sync::Mutex;
-
-use zenoh;
-use zenoh_core::{zasynclock, zresult::ZResult};
-
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering::Relaxed},
@@ -25,17 +20,21 @@ use std::{
     time::Duration,
 };
 
+use tokio::sync::Mutex;
 use tracing::{debug, error};
-
-use crate::ros_to_zenoh_bridge::{
-    bridges_storage::BridgesStorage, discovery::LocalResources, environment::Environment,
-    ros1_client, topic_mapping, zenoh_client,
-};
+use zenoh::{self, internal::zasynclock, Result as ZResult};
 
 use super::{
     discovery::{RemoteResources, RemoteResourcesBuilder},
     resource_cache::Ros1ResourceCache,
     ros1_client::Ros1Client,
+};
+use crate::{
+    ros_to_zenoh_bridge::{
+        bridges_storage::BridgesStorage, discovery::LocalResources, environment::Environment,
+        ros1_client, topic_mapping, zenoh_client,
+    },
+    spawn_blocking_runtime,
 };
 
 #[derive(PartialEq, Clone, Copy)]
@@ -174,7 +173,7 @@ where
 
         while flag.load(Relaxed) {
             let cl = ros1_client.clone();
-            let (ros1_state, returned_cache) = async_std::task::spawn_blocking(move || {
+            let (ros1_state, returned_cache) = spawn_blocking_runtime(move || {
                 (
                     topic_mapping::Ros1TopicMapping::topic_mapping(
                         cl.as_ref(),
@@ -183,7 +182,8 @@ where
                     ros1_resource_cache,
                 )
             })
-            .await;
+            .await
+            .expect("Unable to complete the task");
             ros1_resource_cache = returned_cache;
 
             debug!("ros state: {:#?}", ros1_state);
@@ -199,7 +199,7 @@ where
                         self.report_bridge_statistics(&locked);
                     }
 
-                    async_std::task::sleep({
+                    tokio::time::sleep({
                         if smth_changed {
                             poll_interval / 2
                         } else {
@@ -217,7 +217,7 @@ where
                         Self::cleanup(&mut locked);
                         self.report_bridge_statistics(&locked);
                     }
-                    async_std::task::sleep(poll_interval).await;
+                    tokio::time::sleep(poll_interval).await;
                 }
             }
         }

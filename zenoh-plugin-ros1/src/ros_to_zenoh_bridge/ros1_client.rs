@@ -14,7 +14,7 @@
 
 use rosrust::{self, RawMessageDescription};
 use tracing::debug;
-use zenoh_core::{zerror, zresult::ZResult};
+use zenoh::{internal::zerror, Result as ZResult};
 
 use super::topic_descriptor::TopicDescriptor;
 

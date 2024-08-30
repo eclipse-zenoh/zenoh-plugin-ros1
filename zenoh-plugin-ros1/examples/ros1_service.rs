@@ -12,17 +12,14 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::prelude::SplitBuffer;
-use zenoh_core::AsyncResolve;
-
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     // initiate logging
-    zenoh_util::try_init_log_from_env();
+    zenoh::try_init_log_from_env();
 
     // You need to have ros1 installed within your system and have "rosmaster" command available, otherwise this code will fail.
     // start ROS1 master...
@@ -62,7 +59,6 @@ async fn main() {
     // create Zenoh session
     print!("Creating Zenoh Session...");
     let zenoh_session = zenoh::open(zenoh::config::default())
-        .res_async()
         .await
         .unwrap()
         .into_arc();
@@ -77,20 +73,19 @@ async fn main() {
         println!("Zenoh: sending query...");
         let reply = zenoh_session
             .get("some/ros/topic")
-            .with_value(data.clone())
-            .res_async()
+            .payload(data.clone())
             .await
             .unwrap();
         let result = reply.recv_async().await;
         match result {
             Ok(val) => {
                 println!("Zenoh: got reply!");
-                assert!(data == val.sample.unwrap().value.payload.contiguous().to_vec());
+                assert!(data == val.result().unwrap().payload().into::<Vec<u8>>());
             }
             Err(e) => {
                 println!("Zenoh got error: {}", e);
             }
         }
-        async_std::task::sleep(core::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(core::time::Duration::from_secs(1)).await;
     }
 }
