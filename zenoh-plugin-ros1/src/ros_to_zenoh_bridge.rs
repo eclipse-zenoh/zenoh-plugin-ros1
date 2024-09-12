@@ -88,11 +88,11 @@ pub struct Ros1ToZenohBridge {
 }
 impl Ros1ToZenohBridge {
     pub async fn new_with_own_session(config: zenoh::config::Config) -> ZResult<Self> {
-        let session = zenoh::open(config).await?.into_arc();
+        let session = zenoh::open(config).await?;
         Ok(Self::new_with_external_session(session))
     }
 
-    pub fn new_with_external_session(session: Arc<Session>) -> Self {
+    pub fn new_with_external_session(session: Session) -> Self {
         let flag = Arc::new(AtomicBool::new(true));
         Self {
             flag: flag.clone(),
@@ -106,7 +106,7 @@ impl Ros1ToZenohBridge {
     }
 
     //PRIVATE:
-    async fn run(session: Arc<Session>, flag: Arc<AtomicBool>) {
+    async fn run(session: Session, flag: Arc<AtomicBool>) {
         if let Err(e) = work_cycle(
             Environment::ros_master_uri().get().as_str(),
             session,

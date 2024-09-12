@@ -33,7 +33,7 @@ fn session_builder(cfg: &IsolatedConfig) -> OpenBuilder<zenoh::config::Config> {
 }
 
 fn declaration_builder(
-    session: Arc<Session>,
+    session: Session,
     beacon_period: Duration,
 ) -> aloha_declaration::AlohaDeclaration {
     aloha_declaration::AlohaDeclaration::new(
@@ -44,7 +44,7 @@ fn declaration_builder(
 }
 
 fn subscription_builder(
-    session: Arc<Session>,
+    session: Session,
     beacon_period: Duration,
 ) -> aloha_subscription::AlohaSubscriptionBuilder {
     aloha_subscription::AlohaSubscriptionBuilder::new(
@@ -54,12 +54,12 @@ fn subscription_builder(
     )
 }
 
-fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
+fn make_session(cfg: &IsolatedConfig) -> Session {
     session_builder(cfg).wait().unwrap().into_arc()
 }
 
 async fn make_subscription(
-    session: Arc<Session>,
+    session: Session,
     beacon_period: Duration,
 ) -> aloha_subscription::AlohaSubscription {
     subscription_builder(session, beacon_period)
@@ -207,7 +207,7 @@ impl State {
 async fn test_state_transition<'a>(
     cfg: &IsolatedConfig,
     beacon_period: Duration,
-    declaring_sessions: &mut Vec<Arc<Session>>,
+    declaring_sessions: &mut Vec<Session>,
     declarations: &mut Vec<aloha_declaration::AlohaDeclaration>,
     collector: &mut DeclarationCollector,
     ppc_measurer: &'a PPCMeasurement<'a>,
@@ -261,7 +261,7 @@ async fn test_state_transition<'a>(
 
 async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
     let cfg = IsolatedConfig::default();
-    let mut declaring_sessions: Vec<Arc<Session>> = Vec::new();
+    let mut declaring_sessions: Vec<Session> = Vec::new();
     let mut declarations: Vec<aloha_declaration::AlohaDeclaration> = Vec::new();
 
     let mut collector = DeclarationCollector::new();

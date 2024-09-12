@@ -172,7 +172,7 @@ impl Ros1PluginInstance {
             }
 
             // create a zenoh Session that shares the same Runtime as zenohd
-            let session = zenoh::session::init(runtime.clone()).await?.into_arc();
+            let session = zenoh::session::init(runtime.clone()).await?;
             let bridge = ros_to_zenoh_bridge::Ros1ToZenohBridge::new_with_external_session(session);
             Ok(bridge)
         });

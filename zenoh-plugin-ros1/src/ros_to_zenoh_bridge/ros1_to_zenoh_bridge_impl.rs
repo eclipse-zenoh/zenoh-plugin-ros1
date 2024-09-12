@@ -54,7 +54,7 @@ pub struct BridgeStatus {
 
 pub async fn work_cycle<RosStatusCallback, BridgeStatisticsCallback>(
     ros_master_uri: &str,
-    session: Arc<zenoh::Session>,
+    session: zenoh::Session,
     flag: Arc<AtomicBool>,
     ros_status_callback: RosStatusCallback,
     statistics_callback: BridgeStatisticsCallback,
@@ -103,7 +103,7 @@ where
 }
 
 async fn make_remote_resources_discovery<'a>(
-    session: Arc<zenoh::Session>,
+    session: zenoh::Session,
     bridges: Arc<Mutex<BridgesStorage>>,
 ) -> RemoteResources {
     let bridges2 = bridges.clone();
