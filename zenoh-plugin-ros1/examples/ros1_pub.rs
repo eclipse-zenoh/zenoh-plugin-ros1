@@ -12,7 +12,6 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::prelude::*;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
@@ -52,10 +51,7 @@ async fn main() {
 
     // create Zenoh session and subscriber
     print!("Creating Zenoh Session...");
-    let zenoh_session = zenoh::open(zenoh::config::default())
-        .await
-        .unwrap()
-        .into_arc();
+    let zenoh_session = zenoh::open(zenoh::config::default()).await.unwrap();
     println!(" OK!");
     print!("Creating Zenoh Subscriber...");
     #[allow(unused_variables)]

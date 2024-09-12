@@ -21,7 +21,7 @@ use std::{
 
 use test_case::test_case;
 use tokio::sync::Mutex;
-use zenoh::{key_expr::OwnedKeyExpr, prelude::*, session::OpenBuilder, Result as ZResult, Session};
+use zenoh::{key_expr::OwnedKeyExpr, session::OpenBuilder, Result as ZResult, Session, Wait};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     aloha_declaration, aloha_subscription, test_helpers::IsolatedConfig,
 };
@@ -55,7 +55,7 @@ fn subscription_builder(
 }
 
 fn make_session(cfg: &IsolatedConfig) -> Session {
-    session_builder(cfg).wait().unwrap().into_arc()
+    session_builder(cfg).wait().unwrap()
 }
 
 async fn make_subscription(
@@ -92,17 +92,17 @@ async fn aloha_instantination_many_instances() {
     }
 }
 
-pub struct PPCMeasurement<'a> {
-    _subscriber: zenoh::pubsub::Subscriber<'a, ()>,
+pub struct PPCMeasurement {
+    _subscriber: zenoh::pubsub::Subscriber<()>,
     ppc: Arc<AtomicUsize>,
     measurement_period: Duration,
 }
-impl<'a> PPCMeasurement<'a> {
+impl PPCMeasurement {
     pub async fn new(
-        session: &'a Session,
+        session: &Session,
         key: String,
         measurement_period: Duration,
-    ) -> ZResult<PPCMeasurement<'a>> {
+    ) -> ZResult<PPCMeasurement> {
         let ppc = Arc::new(AtomicUsize::new(0));
         let p = ppc.clone();
         let subscriber = session
@@ -204,13 +204,13 @@ impl State {
     }
 }
 
-async fn test_state_transition<'a>(
+async fn test_state_transition(
     cfg: &IsolatedConfig,
     beacon_period: Duration,
     declaring_sessions: &mut Vec<Session>,
     declarations: &mut Vec<aloha_declaration::AlohaDeclaration>,
     collector: &mut DeclarationCollector,
-    ppc_measurer: &'a PPCMeasurement<'a>,
+    ppc_measurer: &PPCMeasurement,
     state: &State,
 ) {
     let ke = zenoh::key_expr::OwnedKeyExpr::from_str("key").unwrap();
@@ -240,7 +240,7 @@ async fn test_state_transition<'a>(
 
     while declarations.len() < state.declarators_count {
         if declaring_sessions.len() <= declarations.len() {
-            declaring_sessions.push(session_builder(cfg).await.unwrap().into_arc());
+            declaring_sessions.push(session_builder(cfg).await.unwrap());
         }
         declarations.push(declaration_builder(
             declaring_sessions[declarations.len()].clone(),
@@ -265,7 +265,7 @@ async fn run_aloha(beacon_period: Duration, scenario: Vec<State>) {
     let mut declarations: Vec<aloha_declaration::AlohaDeclaration> = Vec::new();
 
     let mut collector = DeclarationCollector::new();
-    let subscription_session = session_builder(&cfg).await.unwrap().into_arc();
+    let subscription_session = session_builder(&cfg).await.unwrap();
     let _subscriber = collector
         .use_builder(subscription_builder(
             subscription_session.clone(),

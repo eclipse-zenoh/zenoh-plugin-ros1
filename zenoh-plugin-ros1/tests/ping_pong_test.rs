@@ -24,7 +24,7 @@ use std::{
 
 use strum_macros::Display;
 use tracing::{debug, trace};
-use zenoh::{key_expr::KeyExpr, prelude::*};
+use zenoh::{key_expr::KeyExpr, Wait};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     bridging_mode::BridgingMode,
     discovery::LocalResource,

@@ -58,10 +58,7 @@ async fn main() {
 
     // create Zenoh session
     print!("Creating Zenoh Session...");
-    let zenoh_session = zenoh::open(zenoh::config::default())
-        .await
-        .unwrap()
-        .into_arc();
+    let zenoh_session = zenoh::open(zenoh::config::default()).await.unwrap();
     println!(" OK!");
 
     // here bridge will expose our test ROS topic to Zenoh so that our ROS1 subscriber will get data published in Zenoh

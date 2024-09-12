@@ -19,7 +19,7 @@ use std::{
 
 use multiset::HashMultiSet;
 use test_case::test_case;
-use zenoh::{key_expr::keyexpr, prelude::*, session::OpenBuilder, Session};
+use zenoh::{key_expr::keyexpr, session::OpenBuilder, Session, Wait};
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     discovery::{self, LocalResources, RemoteResources},
     test_helpers::{BridgeChecker, IsolatedConfig},
@@ -37,7 +37,7 @@ fn remote_resources_builder(session: Session) -> discovery::RemoteResourcesBuild
 }
 
 fn make_session(cfg: &IsolatedConfig) -> Session {
-    session_builder(cfg).wait().unwrap().into_arc()
+    session_builder(cfg).wait().unwrap()
 }
 
 fn make_local_resources(session: Session) -> LocalResources {
@@ -280,11 +280,11 @@ async fn test_state_transition(
 async fn run_discovery(scenario: Vec<State>) {
     let cfg = IsolatedConfig::default();
 
-    let src_session = session_builder(&cfg).await.unwrap().into_arc();
+    let src_session = session_builder(&cfg).await.unwrap();
     let local_resources = make_local_resources(src_session.clone());
 
     let rcv = DiscoveryCollector::new();
-    let rcv_session = session_builder(&cfg).await.unwrap().into_arc();
+    let rcv_session = session_builder(&cfg).await.unwrap();
     let _rcv_discovery = rcv
         .use_builder(remote_resources_builder(rcv_session))
         .build()

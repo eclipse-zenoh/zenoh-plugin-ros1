@@ -12,7 +12,6 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use zenoh::prelude::*;
 use zenoh_plugin_ros1::ros_to_zenoh_bridge::{
     environment::Environment, ros1_master_ctrl::Ros1MasterCtrl, Ros1ToZenohBridge,
 };
@@ -55,7 +54,7 @@ async fn main() {
 
     // create Zenoh session and publisher
     print!("Creating Zenoh Session...");
-    let zenoh_session = zenoh::open(zenoh::config::peer()).await.unwrap().into_arc();
+    let zenoh_session = zenoh::open(zenoh::config::peer()).await.unwrap();
     println!(" OK!");
     print!("Creating Zenoh Publisher...");
     let zenoh_publisher = zenoh_session
