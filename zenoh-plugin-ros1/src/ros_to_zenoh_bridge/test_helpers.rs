@@ -31,9 +31,8 @@ use zenoh::{
     config::ModeDependentValue,
     internal::{bail, zlock},
     key_expr::OwnedKeyExpr,
-    prelude::*,
     sample::Sample,
-    Result as ZResult, Session,
+    Result as ZResult, Session, Wait,
 };
 
 use super::{
@@ -167,7 +166,7 @@ impl RunningBridge {
         ros_status: Arc<Mutex<RosStatus>>,
         bridge_status: Arc<Mutex<BridgeStatus>>,
     ) {
-        let session = zenoh::open(config).await.unwrap().into_arc();
+        let session = zenoh::open(config).await.unwrap();
         work_cycle(
             ros_master_uri.as_str(),
             session,
@@ -289,7 +288,7 @@ impl ROSEnvironment {
 }
 
 pub struct BridgeChecker {
-    session: Arc<Session>,
+    session: Session,
     ros_client: ros1_client::Ros1Client,
     zenoh_client: zenoh_client::ZenohClient,
     pub local_resources: LocalResources,
@@ -299,7 +298,7 @@ pub struct BridgeChecker {
 impl BridgeChecker {
     // PUBLIC
     pub fn new(config: zenoh::config::Config, ros_master_uri: &str) -> BridgeChecker {
-        let session = zenoh::open(config).wait().unwrap().into_arc();
+        let session = zenoh::open(config).wait().unwrap();
         BridgeChecker {
             session: session.clone(),
             ros_client: ros1_client::Ros1Client::new("test_ros_node", ros_master_uri).unwrap(),
@@ -325,7 +324,7 @@ impl BridgeChecker {
         &self,
         name: &str,
         callback: C,
-    ) -> zenoh::pubsub::Subscriber<'static, ()>
+    ) -> zenoh::pubsub::Subscriber<()>
     where
         C: Fn(Sample) + Send + Sync + 'static,
     {
@@ -346,7 +345,7 @@ impl BridgeChecker {
         &self,
         name: &str,
         callback: Callback,
-    ) -> zenoh::query::Queryable<'static, ()>
+    ) -> zenoh::query::Queryable<()>
     where
         Callback: Fn(zenoh::query::Query) + Send + Sync + 'static,
     {
@@ -733,10 +732,10 @@ impl Publisher for ROS1Client {
 }
 
 pub struct ZenohSubscriber {
-    pub _inner: zenoh::pubsub::Subscriber<'static, ()>,
+    pub _inner: zenoh::pubsub::Subscriber<()>,
 }
 pub struct ZenohQueryable {
-    pub _inner: zenoh::query::Queryable<'static, ()>,
+    pub _inner: zenoh::query::Queryable<()>,
 }
 pub struct ROS1Subscriber {
     pub inner: RAIICounter<rosrust::Subscriber>,

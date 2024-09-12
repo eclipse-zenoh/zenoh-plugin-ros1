@@ -53,7 +53,7 @@ pub struct RemoteResources {
 }
 impl RemoteResources {
     async fn new<F>(
-        session: Arc<zenoh::Session>,
+        session: zenoh::Session,
         discovery_namespace: String,
         bridge_namespace: String,
         on_discovered: F,
@@ -183,7 +183,7 @@ impl LocalResource {
         bridge_namespace: &str,
         resource_class: &str,
         topic: &TopicDescriptor,
-        session: Arc<zenoh::Session>,
+        session: zenoh::Session,
     ) -> ZResult<LocalResource> {
         // make proper discovery keyexpr
         let mut formatter = discovery_format::formatter();
@@ -205,7 +205,7 @@ impl LocalResource {
 }
 
 pub struct LocalResources {
-    session: Arc<zenoh::Session>,
+    session: zenoh::Session,
     discovery_namespace: String,
     bridge_namespace: String,
 }
@@ -213,7 +213,7 @@ impl LocalResources {
     pub fn new(
         discovery_namespace: String,
         bridge_namespace: String,
-        session: Arc<zenoh::Session>,
+        session: zenoh::Session,
     ) -> LocalResources {
         Self {
             session,
@@ -279,7 +279,7 @@ pub type TCallback = dyn Fn(BridgeType, TopicDescriptor) -> Box<dyn Future<Outpu
 pub struct RemoteResourcesBuilder {
     discovery_namespace: String,
     bridge_namespace: String,
-    session: Arc<zenoh::Session>,
+    session: zenoh::Session,
 
     on_discovered: Option<Box<TCallback>>,
     on_lost: Option<Box<TCallback>>,
@@ -289,7 +289,7 @@ impl RemoteResourcesBuilder {
     pub fn new(
         discovery_namespace: String,
         bridge_namespace: String,
-        session: Arc<zenoh::Session>,
+        session: zenoh::Session,
     ) -> Self {
         Self {
             discovery_namespace,

@@ -32,18 +32,18 @@ fn session_builder(cfg: &IsolatedConfig) -> OpenBuilder<zenoh::config::Config> {
     zenoh::open(cfg.peer())
 }
 
-fn remote_resources_builder(session: Arc<Session>) -> discovery::RemoteResourcesBuilder {
+fn remote_resources_builder(session: Session) -> discovery::RemoteResourcesBuilder {
     discovery::RemoteResourcesBuilder::new("*".to_string(), "*".to_string(), session)
 }
 
-fn make_session(cfg: &IsolatedConfig) -> Arc<Session> {
+fn make_session(cfg: &IsolatedConfig) -> Session {
     session_builder(cfg).wait().unwrap().into_arc()
 }
 
-fn make_local_resources(session: Arc<Session>) -> LocalResources {
+fn make_local_resources(session: Session) -> LocalResources {
     LocalResources::new("*".to_owned(), "*".to_owned(), session)
 }
-async fn make_remote_resources(session: Arc<Session>) -> RemoteResources {
+async fn make_remote_resources(session: Session) -> RemoteResources {
     remote_resources_builder(session).build().await
 }
 

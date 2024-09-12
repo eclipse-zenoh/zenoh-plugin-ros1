@@ -25,7 +25,7 @@ use flume::Receiver;
 use futures::{join, Future, FutureExt};
 use tokio::sync::Mutex;
 use tracing::error;
-use zenoh::{key_expr::OwnedKeyExpr, prelude::*, sample::Sample, Result as ZResult, Session};
+use zenoh::{key_expr::OwnedKeyExpr, sample::Sample, Result as ZResult, Session};
 
 use crate::spawn_runtime;
 
@@ -68,7 +68,7 @@ impl Drop for AlohaSubscription {
 }
 impl AlohaSubscription {
     pub async fn new<F>(
-        session: Arc<Session>,
+        session: Session,
         key: OwnedKeyExpr,
         beacon_period: Duration,
         on_resource_declared: F,
@@ -99,7 +99,7 @@ impl AlohaSubscription {
         task_running: Arc<AtomicBool>,
         key: OwnedKeyExpr,
         beacon_period: Duration,
-        session: Arc<Session>,
+        session: Session,
         on_resource_declared: F,
         on_resource_undeclared: F,
     ) -> ZResult<()>
@@ -136,7 +136,7 @@ impl AlohaSubscription {
     async fn listening_task<'a, F>(
         task_running: Arc<AtomicBool>,
         accumulating_resources: &Mutex<HashMap<OwnedKeyExpr, AlohaResource>>,
-        subscriber: &'a zenoh::pubsub::Subscriber<'a, Receiver<Sample>>,
+        subscriber: &'a zenoh::pubsub::Subscriber<Receiver<Sample>>,
         on_resource_declared: &F,
     ) where
         F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
@@ -203,7 +203,7 @@ impl AlohaSubscription {
 }
 
 pub struct AlohaSubscriptionBuilder {
-    session: Arc<Session>,
+    session: Session,
     key: OwnedKeyExpr,
     beacon_period: Duration,
 
@@ -212,7 +212,7 @@ pub struct AlohaSubscriptionBuilder {
 }
 
 impl AlohaSubscriptionBuilder {
-    pub fn new(session: Arc<Session>, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
+    pub fn new(session: Session, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
         Self {
             session,
             key,

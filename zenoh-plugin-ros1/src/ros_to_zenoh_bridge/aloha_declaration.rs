@@ -23,7 +23,6 @@ use std::{
 use zenoh::{
     internal::buffers::ZBuf,
     key_expr::OwnedKeyExpr,
-    prelude::*,
     pubsub::Reliability,
     qos::{CongestionControl, Priority},
     sample::Locality,
@@ -42,7 +41,7 @@ impl Drop for AlohaDeclaration {
     }
 }
 impl AlohaDeclaration {
-    pub fn new(session: Arc<Session>, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
+    pub fn new(session: Session, key: OwnedKeyExpr, beacon_period: Duration) -> Self {
         let monitor_running = Arc::new(AtomicBool::new(true));
         spawn_runtime(Self::aloha_monitor_task(
             beacon_period,
@@ -58,7 +57,7 @@ impl AlohaDeclaration {
         beacon_period: Duration,
         monitor_running: Arc<AtomicBool>,
         key: OwnedKeyExpr,
-        session: Arc<Session>,
+        session: Session,
     ) {
         let beacon_task_flag = Arc::new(AtomicBool::new(false));
 
@@ -67,7 +66,6 @@ impl AlohaDeclaration {
         let _beacon_listener = session
             .declare_subscriber(key.clone())
             .allowed_origin(Locality::Remote)
-            .reliability(Reliability::BestEffort)
             .callback(move |_| {
                 rb.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             })
@@ -117,7 +115,7 @@ impl AlohaDeclaration {
     fn start_beacon_task(
         beacon_period: Duration,
         key: OwnedKeyExpr,
-        session: Arc<Session>,
+        session: Session,
         running: Arc<AtomicBool>,
     ) {
         running.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -136,11 +134,12 @@ impl AlohaDeclaration {
     async fn aloha_publishing_task(
         beacon_period: Duration,
         key: OwnedKeyExpr,
-        session: Arc<Session>,
+        session: Session,
         running: Arc<AtomicBool>,
     ) {
         let publisher = session
             .declare_publisher(key)
+            .reliability(Reliability::BestEffort)
             .allowed_destination(Locality::Remote)
             .congestion_control(CongestionControl::Drop)
             .priority(Priority::Background)
