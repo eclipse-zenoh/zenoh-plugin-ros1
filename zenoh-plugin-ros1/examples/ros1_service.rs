@@ -30,7 +30,7 @@ async fn main() {
 
     // create bridge
     print!("Starting Bridge...");
-    let _bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default()).await;
+    let _bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::Config::default()).await;
     println!(" OK!");
 
     // create ROS1 node and service
@@ -58,7 +58,7 @@ async fn main() {
 
     // create Zenoh session
     print!("Creating Zenoh Session...");
-    let zenoh_session = zenoh::open(zenoh::config::default()).await.unwrap();
+    let zenoh_session = zenoh::open(zenoh::Config::default()).await.unwrap();
     println!(" OK!");
 
     // here bridge will expose our test ROS topic to Zenoh so that our ROS1 subscriber will get data published in Zenoh

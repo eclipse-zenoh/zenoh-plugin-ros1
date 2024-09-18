@@ -53,6 +53,7 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 duration-string = { workspace = true }
 zenoh = { workspace = true }
+zenoh-config = { workspace = true }
 zenoh-plugin-trait = { workspace = true }
 hex = { workspace = true }
 xml-rpc = { workspace = true }
