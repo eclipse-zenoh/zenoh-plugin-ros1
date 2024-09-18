@@ -30,7 +30,7 @@ async fn main() {
 
     // create bridge
     print!("Starting Bridge...");
-    let _bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::config::default()).await;
+    let _bridge = Ros1ToZenohBridge::new_with_own_session(zenoh::Config::default()).await;
     println!(" OK!");
 
     // create ROS1 node and subscriber
@@ -54,7 +54,9 @@ async fn main() {
 
     // create Zenoh session and publisher
     print!("Creating Zenoh Session...");
-    let zenoh_session = zenoh::open(zenoh::config::peer()).await.unwrap();
+    let mut config = zenoh::Config::default();
+    config.set_mode(Some(zenoh_config::WhatAmI::Peer)).unwrap();
+    let zenoh_session = zenoh::open(config).await.unwrap();
     println!(" OK!");
     print!("Creating Zenoh Publisher...");
     let zenoh_publisher = zenoh_session

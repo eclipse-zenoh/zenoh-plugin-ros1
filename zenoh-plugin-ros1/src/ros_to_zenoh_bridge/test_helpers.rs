@@ -28,12 +28,12 @@ use futures::Future;
 use rosrust::{Client, RawMessage, RawMessageDescription};
 use tracing::error;
 use zenoh::{
-    config::ModeDependentValue,
     internal::{bail, zlock},
     key_expr::OwnedKeyExpr,
     sample::Sample,
     Result as ZResult, Session, Wait,
 };
+use zenoh_config::{ModeDependentValue, WhatAmI};
 
 use super::{
     discovery::LocalResources,
@@ -64,7 +64,8 @@ pub struct IsolatedConfig {
 }
 impl IsolatedConfig {
     pub fn peer(&self) -> zenoh::config::Config {
-        let mut config = zenoh::config::peer();
+        let mut config = zenoh::Config::default();
+        config.set_mode(Some(WhatAmI::Peer)).unwrap();
         config
             .scouting
             .multicast
