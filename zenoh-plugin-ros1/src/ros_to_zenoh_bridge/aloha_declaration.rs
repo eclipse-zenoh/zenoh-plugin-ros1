@@ -23,8 +23,7 @@ use std::{
 use zenoh::{
     internal::buffers::ZBuf,
     key_expr::OwnedKeyExpr,
-    pubsub::Reliability,
-    qos::{CongestionControl, Priority},
+    qos::{CongestionControl, Priority, Reliability},
     sample::Locality,
     Session,
 };

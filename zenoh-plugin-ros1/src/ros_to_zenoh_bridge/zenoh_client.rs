@@ -17,8 +17,7 @@ use std::fmt::Display;
 use tracing::debug;
 use zenoh::{
     key_expr::KeyExpr,
-    pubsub::Reliability,
-    qos::CongestionControl,
+    qos::{CongestionControl, Reliability},
     query::Selector,
     sample::{Locality, Sample},
     Result as ZResult, Session,
