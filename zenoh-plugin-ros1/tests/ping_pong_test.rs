@@ -227,7 +227,7 @@ impl PingPong {
         let zenoh_sub = backend
             .make_zenoh_subscriber(key, move |msg| {
                 c.fetch_add(1, Relaxed);
-                let data = msg.payload().into::<Vec<u8>>();
+                let data = msg.payload().to_bytes().to_vec();
                 debug!(
                     "PingPong: transferring {} bytes from Zenoh to ROS1!",
                     data.len()
