@@ -546,8 +546,8 @@ impl ZenohQuery {
         match query.recv_async().await {
             Ok(reply) => match reply.result() {
                 Ok(sample) => {
-                    let returned_data = sample.payload().into::<Vec<u8>>();
-                    if data.eq(&returned_data) {
+                    let returned_data = sample.payload().to_bytes();
+                    if data.eq(returned_data.as_ref()) {
                         Ok(())
                     } else {
                         bail!("ZenohQuery: data is not equal! \n Sent data: {:?} \nReturned data: {:?}", data, returned_data);

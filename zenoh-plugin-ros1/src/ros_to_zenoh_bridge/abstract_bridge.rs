@@ -105,7 +105,7 @@ impl Ros1ToZenohClient {
             Ok(reply) => match reply.recv_async().await {
                 Ok(r) => match r.result() {
                     Ok(sample) => {
-                        let data = sample.payload().into::<Vec<u8>>();
+                        let data = sample.payload().to_bytes().into_owned();
                         debug!("Zenoh -> ROS1: sending {} bytes!", data.len());
                         Ok(rosrust::RawMessage(data))
                     }
@@ -184,7 +184,7 @@ impl Ros1ToZenohService {
     ) {
         match query.payload() {
             Some(val) => {
-                let payload = val.into::<Vec<u8>>();
+                let payload = val.to_bytes().into_owned();
                 debug!(
                     "ROS1 -> Zenoh Service: got query of {} bytes!",
                     payload.len()
@@ -318,9 +318,11 @@ impl ZenohToRos1 {
                     .subscribe(make_zenoh_key(topic), move |sample| {
                         let publisher_in_arc_cloned = publisher_in_arc.clone();
                         spawn_blocking_runtime(move || {
-                            let data = sample.payload().into::<Vec<u8>>();
+                            let data = sample.payload().to_bytes();
                             debug!("Zenoh -> ROS1: sending {} bytes!", data.len());
-                            match publisher_in_arc_cloned.send(rosrust::RawMessage(data)) {
+                            match publisher_in_arc_cloned
+                                .send(rosrust::RawMessage(data.into_owned()))
+                            {
                                 Ok(_) => {}
                                 Err(e) => {
                                     error!("Zenoh -> ROS1: error publishing: {}", e);

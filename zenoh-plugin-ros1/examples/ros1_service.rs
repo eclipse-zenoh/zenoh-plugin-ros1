@@ -77,7 +77,7 @@ async fn main() {
         match result {
             Ok(val) => {
                 println!("Zenoh: got reply!");
-                assert!(data == val.result().unwrap().payload().into::<Vec<u8>>());
+                assert!(data == val.result().unwrap().payload().to_bytes().as_ref());
             }
             Err(e) => {
                 println!("Zenoh got error: {}", e);
