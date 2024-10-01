@@ -320,7 +320,9 @@ impl ZenohToRos1 {
                         spawn_blocking_runtime(move || {
                             let data = sample.payload().to_bytes();
                             debug!("Zenoh -> ROS1: sending {} bytes!", data.len());
-                            match publisher_in_arc_cloned.send(rosrust::RawMessage(data.into_owned())) {
+                            match publisher_in_arc_cloned
+                                .send(rosrust::RawMessage(data.into_owned()))
+                            {
                                 Ok(_) => {}
                                 Err(e) => {
                                     error!("Zenoh -> ROS1: error publishing: {}", e);
