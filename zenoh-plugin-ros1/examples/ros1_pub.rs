@@ -60,6 +60,7 @@ async fn main() {
     let zenoh_subscriber = zenoh_session
         .declare_subscriber("some/ros/topic")
         .callback(|data| println!("Zenoh Subscriber: got data!"))
+        .undeclare_on_drop(true)
         .await
         .unwrap();
     println!(" OK!");
