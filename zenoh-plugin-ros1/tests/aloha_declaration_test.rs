@@ -110,6 +110,7 @@ impl PPCMeasurement {
             .callback(move |_val| {
                 p.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             })
+            .undeclare_on_drop(true)
             .await?;
 
         Ok(Self {

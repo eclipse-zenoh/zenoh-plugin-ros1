@@ -48,6 +48,7 @@ impl ZenohClient {
         self.session
             .declare_subscriber(key_expr)
             .callback(callback)
+            .undeclare_on_drop(true)
             .allowed_origin(Locality::Remote)
             .await
     }
@@ -86,6 +87,7 @@ impl ZenohClient {
             .declare_queryable(key_expr)
             .allowed_origin(Locality::Remote)
             .callback(callback)
+            .undeclare_on_drop(true)
             .await
     }
 
