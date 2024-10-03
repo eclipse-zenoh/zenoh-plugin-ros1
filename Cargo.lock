@@ -5095,7 +5095,7 @@ dependencies = [
 
 [[package]]
 name = "zenoh-bridge-ros1"
-version = "1.0.0-dev"
+version = "1.0.0-dev-27-g540c1ad"
 dependencies = [
  "clap",
  "ctrlc",
@@ -5396,7 +5396,7 @@ dependencies = [
 
 [[package]]
 name = "zenoh-plugin-ros1"
-version = "1.0.0-dev"
+version = "1.0.0-dev-27-g540c1ad"
 dependencies = [
  "async-global-executor",
  "async-trait",
