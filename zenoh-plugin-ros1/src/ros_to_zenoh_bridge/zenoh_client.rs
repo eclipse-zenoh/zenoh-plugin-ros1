@@ -16,6 +16,7 @@ use std::fmt::Display;
 
 use tracing::debug;
 use zenoh::{
+    handlers::FifoChannelHandler,
     key_expr::KeyExpr,
     qos::{CongestionControl, Reliability},
     query::Selector,
@@ -117,7 +118,7 @@ impl ZenohClient {
         &self,
         selector: IntoSelector,
         data: Vec<u8>,
-    ) -> ZResult<flume::Receiver<zenoh::query::Reply>>
+    ) -> ZResult<FifoChannelHandler<zenoh::query::Reply>>
     where
         IntoSelector: TryInto<Selector<'b>> + Display,
         <IntoSelector as TryInto<Selector<'b>>>::Error: Into<zenoh::Error>,
