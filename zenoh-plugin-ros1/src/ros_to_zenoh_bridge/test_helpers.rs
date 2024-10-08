@@ -28,6 +28,7 @@ use futures::Future;
 use rosrust::{Client, RawMessage, RawMessageDescription};
 use tracing::error;
 use zenoh::{
+    handlers::FifoChannelHandler,
     internal::{bail, zlock},
     key_expr::OwnedKeyExpr,
     sample::Sample,
@@ -360,7 +361,7 @@ impl BridgeChecker {
         &self,
         name: &str,
         data: Vec<u8>,
-    ) -> flume::Receiver<zenoh::query::Reply> {
+    ) -> FifoChannelHandler<zenoh::query::Reply> {
         self.zenoh_client
             .make_query_sync(Self::make_zenoh_key(&Self::make_topic(name)), data)
             .await

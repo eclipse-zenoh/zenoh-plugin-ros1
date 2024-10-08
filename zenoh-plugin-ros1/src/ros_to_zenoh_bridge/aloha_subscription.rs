@@ -21,11 +21,13 @@ use std::{
     time::Duration,
 };
 
-use flume::Receiver;
 use futures::{join, Future, FutureExt};
 use tokio::sync::Mutex;
 use tracing::error;
-use zenoh::{key_expr::OwnedKeyExpr, sample::Sample, Result as ZResult, Session};
+use zenoh::{
+    handlers::FifoChannelHandler, key_expr::OwnedKeyExpr, sample::Sample, Result as ZResult,
+    Session,
+};
 
 use crate::spawn_runtime;
 
@@ -136,7 +138,7 @@ impl AlohaSubscription {
     async fn listening_task<'a, F>(
         task_running: Arc<AtomicBool>,
         accumulating_resources: &Mutex<HashMap<OwnedKeyExpr, AlohaResource>>,
-        subscriber: &'a zenoh::pubsub::Subscriber<Receiver<Sample>>,
+        subscriber: &'a zenoh::pubsub::Subscriber<FifoChannelHandler<Sample>>,
         on_resource_declared: &F,
     ) where
         F: Fn(zenoh::key_expr::KeyExpr) -> Box<dyn futures::Future<Output = ()> + Unpin + Send>
