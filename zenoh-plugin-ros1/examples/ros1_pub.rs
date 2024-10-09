@@ -58,7 +58,7 @@ async fn main() {
     print!("Creating Zenoh Subscriber...");
     zenoh_session
         .declare_subscriber("some/ros/topic")
-        .callback(|data| println!("Zenoh Subscriber: got data!"))
+        .callback(|_data| println!("Zenoh Subscriber: got data!"))
         .background()
         .await
         .unwrap();
