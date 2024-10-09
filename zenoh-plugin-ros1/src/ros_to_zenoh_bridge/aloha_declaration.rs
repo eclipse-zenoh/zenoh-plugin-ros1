@@ -68,7 +68,6 @@ impl AlohaDeclaration {
             .callback(move |_| {
                 rb.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             })
-            .undeclare_on_drop(true)
             .await
             .unwrap();
 

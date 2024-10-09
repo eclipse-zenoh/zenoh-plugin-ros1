@@ -56,11 +56,10 @@ async fn main() {
     let zenoh_session = zenoh::open(zenoh::Config::default()).await.unwrap();
     println!(" OK!");
     print!("Creating Zenoh Subscriber...");
-    #[allow(unused_variables)]
-    let zenoh_subscriber = zenoh_session
+    zenoh_session
         .declare_subscriber("some/ros/topic")
-        .callback(|data| println!("Zenoh Subscriber: got data!"))
-        .undeclare_on_drop(true)
+        .callback(|_data| println!("Zenoh Subscriber: got data!"))
+        .background()
         .await
         .unwrap();
     println!(" OK!");
