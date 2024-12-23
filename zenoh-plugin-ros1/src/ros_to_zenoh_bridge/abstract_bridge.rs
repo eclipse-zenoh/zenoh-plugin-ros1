@@ -20,7 +20,7 @@ use zenoh::{internal::bail, key_expr::keyexpr, Result as ZResult, Wait};
 
 use super::{
     bridge_type::BridgeType, ros1_client, topic_descriptor::TopicDescriptor,
-    topic_utilities::make_zenoh_key, zenoh_client,
+    topic_utilities::make_namespaced_zenoh_key, zenoh_client,
 };
 use crate::{blockon_runtime, spawn_blocking_runtime, spawn_runtime};
 
@@ -34,20 +34,21 @@ impl AbstractBridge {
         topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &Arc<zenoh_client::ZenohClient>,
+        bridge_namespace: &String,
     ) -> ZResult<Self> {
         let _impl = {
             match b_type {
                 BridgeType::Publisher => {
-                    BridgeIml::Pub(Ros1ToZenoh::new(topic, ros1_client, zenoh_client).await?)
+                    BridgeIml::Pub(Ros1ToZenoh::new(topic, ros1_client, zenoh_client, bridge_namespace).await?)
                 }
                 BridgeType::Subscriber => {
-                    BridgeIml::Sub(ZenohToRos1::new(topic, ros1_client, zenoh_client).await?)
+                    BridgeIml::Sub(ZenohToRos1::new(topic, ros1_client, zenoh_client, bridge_namespace).await?)
                 }
                 BridgeType::Service => BridgeIml::Service(
-                    Ros1ToZenohService::new(topic, ros1_client, zenoh_client).await?,
+                    Ros1ToZenohService::new(topic, ros1_client, zenoh_client, bridge_namespace).await?,
                 ),
                 BridgeType::Client => BridgeIml::Client(
-                    Ros1ToZenohClient::new(topic, ros1_client, zenoh_client.clone()).await?,
+                    Ros1ToZenohClient::new(topic, ros1_client, zenoh_client.clone(), bridge_namespace).await?,
                 ),
             }
         };
@@ -70,10 +71,11 @@ impl Ros1ToZenohClient {
         topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: Arc<zenoh_client::ZenohClient>,
+        bridge_namespace: &String,
     ) -> ZResult<Ros1ToZenohClient> {
         info!("Creating ROS1 -> Zenoh Client bridge for {:?}", topic);
 
-        let zenoh_key = make_zenoh_key(topic);
+        let zenoh_key = make_namespaced_zenoh_key(topic, bridge_namespace);
         match ros1_client.service::<rosrust::RawMessage, _>(
             topic,
             move |q| -> rosrust::ServiceResult<rosrust::RawMessage> {
@@ -147,6 +149,7 @@ impl Ros1ToZenohService {
         topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &'b zenoh_client::ZenohClient,
+        bridge_namespace: &String,
     ) -> ZResult<Ros1ToZenohService> {
         info!(
             "Creating ROS1 -> Zenoh Service bridge for topic {}, datatype {}",
@@ -158,7 +161,7 @@ impl Ros1ToZenohService {
                 let client_in_arc = Arc::new(client);
                 let topic_in_arc = Arc::new(topic.clone());
                 let queryable = zenoh_client
-                    .make_queryable(make_zenoh_key(topic), move |query| {
+                    .make_queryable(make_namespaced_zenoh_key(topic, bridge_namespace), move |query| {
                         spawn_runtime(Self::on_query(
                             client_in_arc.clone(),
                             query,
@@ -271,13 +274,15 @@ impl Ros1ToZenoh {
         topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &'b zenoh_client::ZenohClient,
+        bridge_namespace: &String,
     ) -> ZResult<Ros1ToZenoh> {
         info!(
             "Creating ROS1 -> Zenoh bridge for topic {}, datatype {}",
             topic.name, topic.datatype
         );
 
-        let publisher = zenoh_client.publish(make_zenoh_key(topic)).await?;
+        let publisher = zenoh_client.publish(make_namespaced_zenoh_key(
+            topic, bridge_namespace)).await?;
         match ros1_client.subscribe(topic, move |msg: rosrust::RawMessage| {
             debug!("ROS1 -> Zenoh: sending {} bytes!", msg.0.len());
             match publisher.put(msg.0).wait() {
@@ -305,6 +310,7 @@ impl ZenohToRos1 {
         topic: &TopicDescriptor,
         ros1_client: &ros1_client::Ros1Client,
         zenoh_client: &Arc<zenoh_client::ZenohClient>,
+        bridge_namespace: &String,
     ) -> ZResult<Self> {
         info!(
             "Creating Zenoh -> ROS1 bridge for topic {}, datatype {}",
@@ -315,7 +321,7 @@ impl ZenohToRos1 {
             Ok(publisher) => {
                 let publisher_in_arc = Arc::new(publisher);
                 let subscriber = zenoh_client
-                    .subscribe(make_zenoh_key(topic), move |sample| {
+                    .subscribe(make_namespaced_zenoh_key(topic, bridge_namespace), move |sample| {
                         let publisher_in_arc_cloned = publisher_in_arc.clone();
                         spawn_blocking_runtime(move || {
                             let data = sample.payload().to_bytes();

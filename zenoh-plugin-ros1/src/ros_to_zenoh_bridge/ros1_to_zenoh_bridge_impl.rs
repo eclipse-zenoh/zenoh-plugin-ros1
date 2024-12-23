@@ -82,7 +82,9 @@ where
 
     let local_resources = Arc::new(LocalResources::new(
         "*".to_string(),
-        "*".to_string(),
+        // "*".to_string(),
+        // "test_ns".to_string(),
+        Environment::bridge_namespace().get(),
         session.clone(),
     ));
 
@@ -108,7 +110,12 @@ async fn make_remote_resources_discovery<'a>(
 ) -> RemoteResources {
     let bridges2 = bridges.clone();
 
-    let builder = RemoteResourcesBuilder::new("*".to_string(), "*".to_string(), session);
+    let builder = RemoteResourcesBuilder::new(
+        "*".to_string(),
+        // "*".to_string(),
+        Environment::bridge_namespace().get(),
+        session
+    );
     builder
         .on_discovered(move |b_type, topic| {
             let bridges = bridges.clone();

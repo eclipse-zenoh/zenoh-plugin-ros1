@@ -20,12 +20,17 @@
       // ros_hostname: "hostname",
 
       ////
-      //// ros_name: A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge" 
+      //// ros_name: A bridge node's name for ROS1, the default is "ros1_to_zenoh_bridge"
       ////
       // ros_name: "ros1_to_zenoh_bridge",
 
       ////
-      //// with_rosmaster: An option wether the bridge should run it's own rosmaster process, the default is "false" 
+      //// bridge_namespace: A bridge's namespace in terms of zenoh keys, the default is "*"
+      ////
+      // bridge_namespace: "*",
+
+      ////
+      //// with_rosmaster: An option wether the bridge should run it's own rosmaster process, the default is "false"
       ////
       // with_rosmaster: "false",
 
@@ -59,13 +64,13 @@
       //// - ROS1 doesn't allow multiple services on the same topic
       //// Due to this, client's bridging works differently compared to pub\sub bridging:
       //// - lazy bridging mode is not available as there is no way to discover local ROS1 clients
-      //// - client bridging is disabled by default, as it may brake the local ROS1 system if it intends to have client and service interacting on the same topic  
+      //// - client bridging is disabled by default, as it may brake the local ROS1 system if it intends to have client and service interacting on the same topic
       //// In order to use client bridging, you have two options:
       //// - globally select auto bridging mode (with caution!) with this option
       //// - bridge specific topics using 'client_topic_custom_bridging_mode' option (with a little bit less caution!)"#
       // client_bridging_mode: "disabled",
 
-      //// 
+      ////
       //// subscriber_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
       //// Custom bridging mode overrides the global one.
       //// Format: {"topic1":"mode", "topic2":"mode"}
@@ -76,7 +81,7 @@
       //// The default is empty
       // subscriber_topic_custom_bridging_mode: ""
 
-      //// 
+      ////
       //// publisher_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
       //// Custom bridging mode overrides the global one.
       //// Format: {"topic1":"mode", "topic2":"mode"}
@@ -87,7 +92,7 @@
       //// The default is empty
       // publisher_topic_custom_bridging_mode: ""
 
-      //// 
+      ////
       //// service_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
       //// Custom bridging mode overrides the global one.
       //// Format: {"topic1":"mode", "topic2":"mode"}
@@ -98,7 +103,7 @@
       //// The default is empty
       // service_topic_custom_bridging_mode: ""
 
-      //// 
+      ////
       //// client_topic_custom_bridging_mode: A JSON Map describing custom bridging modes for particular topics.
       //// Custom bridging mode overrides the global one.
       //// Format: {"topic1":"mode", "topic2":"mode"}
@@ -120,7 +125,7 @@
       // ros_master_polling_interval: "100ms",
 
       ////
-      //// This plugin uses Tokio (https://tokio.rs/) for asynchronous programming. 
+      //// This plugin uses Tokio (https://tokio.rs/) for asynchronous programming.
       //// When running as a plugin within a Zenoh router, the plugin creates its own Runtime managing 2 pools of threads:
       ////    - worker threads for non-blocking tasks. Those threads are spawn at Runtime creation.
       ////    - blocking threads for blocking tasks (e.g. I/O). Those threads are spawn when needed.
@@ -128,11 +133,11 @@
       //// When running as a standalone bridge the Zenoh Session's Runtime is used and can be configured via the
       //// `ZENOH_RUNTIME` environment variable. See https://docs.rs/zenoh-runtime/latest/zenoh_runtime/enum.ZRuntime.html
       ////
-      
+
       //// work_thread_num: The number of worker thread in the asynchronous runtime will use. (default: 2)
       ////                  Only for a plugin, no effect on a bridge.
       // work_thread_num: 2,
-      
+
       //// max_block_thread_num: The number of blocking thread in the asynchronous runtime will use. (default: 50)
       ////                       Only for a plugin, no effect on a bridge.
       // max_block_thread_num: 50,
@@ -176,7 +181,7 @@
 
   ////
   //// Which endpoints to listen on. E.g. tcp/localhost:7447.
-  //// By configuring the endpoints, it is possible to tell zenoh which are the endpoints that other routers, 
+  //// By configuring the endpoints, it is possible to tell zenoh which are the endpoints that other routers,
   //// peers, or client can use to establish a zenoh session.
   ////
   listen: {

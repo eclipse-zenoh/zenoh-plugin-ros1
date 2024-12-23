@@ -127,6 +127,10 @@ impl Environment {
         return Entry::new("ROS_NAMESPACE", namespace());
     }
 
+    pub fn bridge_namespace() -> Entry<'static, String> {
+        return Entry::new("BRIDGE_NAMESPACE", "*".to_string());
+    }
+
     pub fn with_rosmaster() -> Entry<'static, bool> {
         return Entry::new("WITH_ROSMASTER", false);
     }
@@ -192,6 +196,7 @@ impl Environment {
             Self::ros_hostname(),
             Self::ros_name(),
             Self::ros_namespace(),
+            Self::bridge_namespace(),
             Self::subscriber_bridging_mode().into(),
             Self::publisher_bridging_mode().into(),
             Self::service_bridging_mode().into(),
