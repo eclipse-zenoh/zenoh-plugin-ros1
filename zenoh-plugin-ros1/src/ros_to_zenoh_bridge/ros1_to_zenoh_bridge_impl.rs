@@ -111,7 +111,7 @@ async fn make_remote_resources_discovery<'a>(
     let builder = RemoteResourcesBuilder::new(
         "*".to_string(),
         Environment::bridge_namespace().get(),
-        session
+        session,
     );
     builder
         .on_discovered(move |b_type, topic| {
