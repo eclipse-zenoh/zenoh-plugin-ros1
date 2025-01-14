@@ -20,8 +20,7 @@ use zenoh::key_expr::{
 use super::{topic_descriptor::TopicDescriptor, environment::Environment};
 
 kedefine!(
-    pub ros_mapping_format: "${data_type:*}/${md5:*}/${topic:**}",
-    pub namespaced_ros_mapping_format: "${data_type:*}/${md5:*}/${bridge_ns:*}/${topic:**}",
+    pub ros_mapping_format: "${data_type:*}/${md5:*}/${bridge_ns:*}/${topic:**}",
 );
 
 pub fn make_topic_key(topic: &TopicDescriptor) -> &str {
@@ -29,20 +28,7 @@ pub fn make_topic_key(topic: &TopicDescriptor) -> &str {
 }
 
 pub fn make_zenoh_key(topic: &TopicDescriptor) -> OwnedKeyExpr {
-    let bridge_namespace = Environment::bridge_namespace().get();
-
-    if bridge_namespace != "*" {
-        let mut formatter = ros_mapping_format::formatter();
-        return keformat!(
-            formatter,
-            data_type = hex::encode(topic.datatype.as_bytes()),
-            md5 = topic.md5.clone(),
-            topic = make_topic_key(topic)
-        )
-        .unwrap();
-    }
-
-    let mut formatter = namespaced_ros_mapping_format::formatter();
+    let mut formatter = ros_mapping_format::formatter();
     keformat!(
         formatter,
         bridge_ns= Environment::bridge_namespace().get(),

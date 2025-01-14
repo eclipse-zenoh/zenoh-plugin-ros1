@@ -25,7 +25,8 @@
       // ros_name: "ros1_to_zenoh_bridge",
 
       ////
-      //// bridge_namespace: A bridge's namespace in terms of zenoh keys, the default is "*"
+      //// bridge_namespace: A bridge's namespace in terms of zenoh keys, the default is "*".
+      //// The generated zenoh keys will be in the form of {data_type}/{md5}/{bridge_namespace}/{topic}.
       ////
       // bridge_namespace: "*",
 

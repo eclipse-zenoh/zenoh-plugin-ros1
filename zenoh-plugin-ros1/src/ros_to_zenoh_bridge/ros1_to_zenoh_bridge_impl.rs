@@ -82,7 +82,6 @@ where
 
     let local_resources = Arc::new(LocalResources::new(
         "*".to_string(),
-        // "*".to_string(),
         Environment::bridge_namespace().get(),
         session.clone(),
     ));
@@ -111,7 +110,6 @@ async fn make_remote_resources_discovery<'a>(
 
     let builder = RemoteResourcesBuilder::new(
         "*".to_string(),
-        // "*".to_string(),
         Environment::bridge_namespace().get(),
         session
     );
