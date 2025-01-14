@@ -207,7 +207,7 @@ impl LocalResource {
 pub struct LocalResources {
     session: zenoh::Session,
     discovery_namespace: String,
-    pub bridge_namespace: String,
+    bridge_namespace: String,
 }
 impl LocalResources {
     pub fn new(

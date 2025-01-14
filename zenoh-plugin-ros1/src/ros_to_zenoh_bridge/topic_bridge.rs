@@ -145,7 +145,6 @@ impl TopicBridge {
             &self.topic,
             &self.ros1_client,
             &self.zenoh_client,
-            &self.declaration_interface.bridge_namespace,
         )
         .await
         {

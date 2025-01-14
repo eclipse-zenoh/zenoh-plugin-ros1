@@ -83,7 +83,6 @@ where
     let local_resources = Arc::new(LocalResources::new(
         "*".to_string(),
         // "*".to_string(),
-        // "test_ns".to_string(),
         Environment::bridge_namespace().get(),
         session.clone(),
     ));
