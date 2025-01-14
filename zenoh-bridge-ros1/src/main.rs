@@ -101,7 +101,7 @@ r#"--ros_name=[String]   'A bridge node's name for ROS1, the default is "ros1_to
 r#"--ros_namespace=[String]   'A bridge's namespace in terms of ROS1, the default is empty'"#
         ))
         .arg(Arg::from_usage(
-r#"--bridge_namespace=[String]   'A bridge's namespace in terms of zenoh keys, the default is "*"'"#
+r#"--bridge_namespace=[String]   'A bridge's namespace in terms of zenoh keys, the default is "*", the global namespace'"#
         ))
         .arg(Arg::from_usage(
 r#"--with_rosmaster=[bool]   'Start rosmaster with the bridge, the default is "false"'"#
