@@ -154,7 +154,6 @@ impl RemoteResources {
         let md5 = discovery.md5().to_string();
 
         let resource_class = discovery.resource_class().to_string();
-        //let bridge_namespace = discovery.bridge_namespace().ok_or("No bridge_namespace present!")?.to_string();
         let topic = discovery.topic().ok_or("No topic present!")?;
 
         let ros1_topic = make_topic(datatype, &md5, topic);

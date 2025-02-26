@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/eclipse-zenoh/zenoh/main/zenoh-dragon.png" height="150">
 
-<!--- 
+<!---
 [![CI](https://github.com/eclipse-zenoh/zenoh-plugin-ros1/workflows/Rust/badge.svg)](https://github.com/eclipse-zenoh/zenoh-plugin-ros1/actions?query=workflow%3ARust)
 --->
 [![Discussion](https://img.shields.io/badge/discussion-on%20github-blue)](https://github.com/eclipse-zenoh/roadmap/discussions)
@@ -36,7 +36,7 @@ To install the latest release of either the ROS1 plugin for the Zenoh router, ei
 
 ### Manual installation (all platforms)
 
-All release packages can be downloaded from:  
+All release packages can be downloaded from:
 
 - [https://download.eclipse.org/zenoh/zenoh-plugin-ros1/latest/](https://download.eclipse.org/zenoh/zenoh-plugin-ros1/latest/)
 
@@ -44,9 +44,9 @@ Each subdirectory has the name of the Rust target. See the platforms each target
 
 Choose your platform and download:
 
-- the `zenoh-plugin-ros1-<version>-<platform>.zip` file for the plugin.  
+- the `zenoh-plugin-ros1-<version>-<platform>.zip` file for the plugin.
   Then unzip it in the same directory than `zenohd` or to any directory where it can find the plugin library (e.g. /usr/lib)
-- the `zenoh-bridge-ros1-<version>-<platform>.zip` file for the standalone executable.  
+- the `zenoh-bridge-ros1-<version>-<platform>.zip` file for the standalone executable.
   Then unzip it where you want, and run the extracted `zenoh-bridge-ros1` binary.
 
 ### Linux Debian
@@ -104,7 +104,7 @@ The **`zenoh-bridge-ros1`** standalone executable is also available as a [Docker
 - `docker pull eclipse/zenoh-bridge-ros1:latest` for the latest release
 - `docker pull eclipse/zenoh-bridge-ros1:main` for the main branch version (nightly build)
 
-Usage: **`docker run --init --net host eclipse/zenoh-bridge-ros1`**  
+Usage: **`docker run --init --net host eclipse/zenoh-bridge-ros1`**
 It supports the same command line arguments than the `zenoh-bridge-ros1` (see below or check with `-h` argument).
 
 ## A quick test with built-in examples
@@ -115,7 +115,7 @@ If you want to run examples or tests, you need to install ROS1:
 sudo apt install -y ros-base
 ```
 
-There is a set of example utilities illustarating bridge in operation.
+There is a set of example utilities illustrating bridge in operation.
 Here is a description on how to configure the following schema:
 
 ```raw

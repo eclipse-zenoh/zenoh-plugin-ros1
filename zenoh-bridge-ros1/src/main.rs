@@ -101,6 +101,9 @@ r#"--ros_name=[String]   'A bridge node's name for ROS1, the default is "ros1_to
 r#"--ros_namespace=[String]   'A bridge's namespace in terms of ROS1, the default is empty'"#
         ))
         .arg(Arg::from_usage(
+r#"--bridge_namespace=[String]   'A bridge's namespace in terms of zenoh keys, the default is "*", the wildcard namespace'"#
+        ))
+        .arg(Arg::from_usage(
 r#"--with_rosmaster=[bool]   'Start rosmaster with the bridge, the default is "false"'"#
         ))
         .arg(Arg::from_usage(
@@ -134,7 +137,7 @@ r#"--client_bridging_mode=[String] \
   - ROS1 doesn't allow multiple services on the same topic
   Due to this, client's bridging works differently compared to pub\sub bridging:
   - lazy bridging mode is not available as there is no way to discover local ROS1 clients
-  - client bridging is disabled by default, as it may brake the local ROS1 system if it intends to have client and service interacting on the same topic  
+  - client bridging is disabled by default, as it may break the local ROS1 system if it intends to have client and service interacting on the same topic
   In order to use client bridging, you have two options:
   - globally select auto bridging mode (with caution!) with this option
   - bridge specific topics using 'client_topic_custom_bridging_mode' option (with a little bit less caution!)"#
@@ -283,7 +286,7 @@ async fn main() {
         plugins_mgr.declare_static_plugin::<zenoh_plugin_rest::RestPlugin, &str>("ros1", true);
     }
 
-    // declare ROS2DDS plugin
+    // declare ROS 1 plugin
     plugins_mgr.declare_static_plugin::<zenoh_plugin_ros1::Ros1Plugin, &str>("ros1", true);
 
     // create a zenoh Runtime.
