@@ -17,7 +17,7 @@ members = ["zenoh-bridge-ros1", "zenoh-plugin-ros1", "rosrust/rosrust"]
 exclude = ["rosrust"]
 
 [workspace.package]
-version = "1.0.0-dev"
+version = "1.0.0-dev-79-gb9a9251"
 authors = [
   "Dmitrii Bannov <dmitrii.bannov@zettascale.tech>",
   "Luca Cominardi <luca@zettascale.tech>",
