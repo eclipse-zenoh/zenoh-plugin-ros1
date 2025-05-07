@@ -89,7 +89,7 @@ r"--rest-http-port=[PORT | IP:PORT] \
         //
         .arg(Arg::from_usage(
 r"--ros_master_uri=[ENDPOINT] \
-'A URI of the ROS1 Master to connect to, the defailt is http://localhost:11311/'"
+'A URI of the ROS1 Master to connect to, the default is http://localhost:11311/'"
         ))
         .arg(Arg::from_usage(
 r#"--ros_hostname=[String]   'A hostname to send to ROS1 Master, the default is system's hostname'"#
