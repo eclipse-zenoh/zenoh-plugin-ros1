@@ -41,18 +41,29 @@ jobs:
           rustup show
           rustup component add rustfmt clippy
 
-      - name: Code format check
-        run: cargo fmt -p zenoh-plugin-ros1 -p zenoh-bridge-ros1 --check -- --config "unstable_features=true,imports_granularity=Crate,group_imports=StdExternalCrate"
+      # zenoh-plugin-ros1 is EOL. Let's deactivate all unnecessary steps
+      # - name: Code format check
+      #   run: cargo fmt -p zenoh-plugin-ros1 -p zenoh-bridge-ros1 --check -- --config "unstable_features=true,imports_granularity=Crate,group_imports=StdExternalCrate"
+      #   env:
+      #     CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+      # - name: Clippy
+      #   run: cargo clippy -- -D warnings
+      #   env:
+      #     CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+      # - name: Clippy All targets
+      #   run: cargo clippy --all-targets -- -D warnings
+      #   env:
+      #     CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
+      - name: Check
+        run: cargo check
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
-      - name: Clippy
-        run: cargo clippy -- -D warnings
-        env:
-          CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
-
-      - name: Clippy All targets
-        run: cargo clippy --all-targets -- -D warnings
+      - name: Check All targets
+        run: cargo check --all-targets
         env:
           CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
