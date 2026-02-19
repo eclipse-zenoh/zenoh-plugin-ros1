@@ -216,7 +216,9 @@ The configuration only takes effect if running as a dynamic plugin, which can no
     // NOTE: only if args.occurrences_of()>0 to avoid overriding config with the default arg value
     if args.occurrences_of("id") > 0 {
         config
-            .set_id(ZenohId::from_str(args.value_of("id").unwrap()).unwrap())
+            .set_id(Some(
+                ZenohId::from_str(args.value_of("id").unwrap()).unwrap(),
+            ))
             .unwrap();
     }
     if args.occurrences_of("mode") > 0 {
