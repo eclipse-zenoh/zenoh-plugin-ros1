@@ -190,16 +190,14 @@ impl AlohaSubscription {
 
             tokio::time::sleep(accumulate_period).await;
 
-            for (key, val) in accumulating_resources.lock().await.iter() {
+            let mut accumulating_resources = accumulating_resources.lock().await;
+            for (key, val) in accumulating_resources.iter() {
                 if !val.is_active() {
                     on_resource_undeclared(key.into()).await;
                 }
             }
 
-            accumulating_resources
-                .lock()
-                .await
-                .retain(|_key, val| val.is_active());
+            accumulating_resources.retain(|_key, val| val.is_active());
         }
     }
 }
